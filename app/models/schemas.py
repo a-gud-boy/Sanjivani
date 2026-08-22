@@ -1,0 +1,220 @@
+from enum import Enum
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, Field
+
+
+class VayaAgeGroup(str, Enum):
+    BALYA = "Balya"          # Childhood / Young age (up to ~16-20 years)
+    MADHYAMA = "Madhyama"    # Adult / Middle age (~20-60 years)
+    JIRNA = "Jirna"          # Old age / Geriatric (>60 years)
+
+
+class PrakritiType(str, Enum):
+    VATA = "Vata"
+    PITTA = "Pitta"
+    KAPHA = "Kapha"
+    VATA_PITTA = "Vata-Pitta"
+    PITTA_KAPHA = "Pitta-Kapha"
+    VATA_KAPHA = "Vata-Kapha"
+    SAMA = "Sama"            # Tridoshaja / Balanced
+
+
+class KoshthaType(str, Enum):
+    KRURA = "Krura"          # Hard / Constipated / Vata-predominant bowel
+    MRIDU = "Mridu"          # Soft / Lax / Pitta-predominant bowel
+    MADHYA = "Madhya"        # Moderate / Normal / Kapha or balanced bowel
+
+
+class AgniType(str, Enum):
+    VISHAMAGNI = "Vishamagni"    # Irregular digestive fire (Vata)
+    TIKSHNAGNI = "Tikshnagni"    # Intense / hyperactive digestive fire (Pitta)
+    MANDAGNI = "Mandagni"        # Sluggish / hypoactive digestive fire (Kapha)
+    SAMAGNI = "Samagni"          # Balanced digestive fire
+
+
+class PatientDemographics(BaseModel):
+    vaya_age_group: Optional[VayaAgeGroup] = Field(
+        default=None,
+        description="Ayurvedic age group classification: Balya (childhood), Madhyama (middle age), or Jirna (elderly)."
+    )
+    gender: Optional[str] = Field(
+        default=None,
+        description="Patient's self-identified gender (e.g., Male, Female, Other)."
+    )
+    age_years: Optional[int] = Field(
+        default=None,
+        ge=0,
+        le=125,
+        description="Patient's chronological age in completed years."
+    )
+    language_preference: str = Field(
+        default="en",
+        description="Patient's preferred interaction language code or name (e.g., 'en' for English, 'hi' for Hindi, 'ta' for Tamil, etc.)."
+    )
+
+
+class ChiefComplaint(BaseModel):
+    symptom: Optional[str] = Field(
+        default=None,
+        description="Primary presenting clinical symptom or complaint (Pradhana Vedana)."
+    )
+    duration: Optional[str] = Field(
+        default=None,
+        description="Duration of the primary symptom (e.g., '3 days', '2 weeks', '6 months')."
+    )
+
+
+class HpiSocrates(BaseModel):
+    site: Optional[str] = Field(
+        default=None,
+        description="Site: Anatomical location where the symptom/pain is experienced."
+    )
+    onset: Optional[str] = Field(
+        default=None,
+        description="Onset: How the symptom started (e.g., sudden, gradual, associated trigger)."
+    )
+    character: Optional[str] = Field(
+        default=None,
+        description="Character: Nature and quality of the pain or discomfort (e.g., throbbing, sharp, dull, burning, aching)."
+    )
+    radiation: Optional[str] = Field(
+        default=None,
+        description="Radiation: Whether the symptom/pain spreads to other anatomical regions."
+    )
+    associations: Optional[str] = Field(
+        default=None,
+        description="Associations: Concomitant symptoms experienced alongside the chief complaint (e.g., nausea, dizziness, vomiting)."
+    )
+    time_course: Optional[str] = Field(
+        default=None,
+        description="Time course: Diurnal or chronological pattern (e.g., worse in mornings, episodic, constant, progressive)."
+    )
+    exacerbating_relieving: Optional[str] = Field(
+        default=None,
+        description="Exacerbating/Relieving factors: Circumstances, foods, postures, or activities that aggravate or alleviate the symptom."
+    )
+    severity_1_to_10: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=10,
+        description="Severity: Subjective symptom/pain severity rating on a 1 to 10 scale."
+    )
+
+
+class AyushDashavidhaPariksha(BaseModel):
+    prakriti: Optional[PrakritiType] = Field(
+        default=None,
+        description="Prakriti: Physical and psychological constitution (Vata, Pitta, Kapha, Dual, Sama)."
+    )
+    vikriti: Optional[str] = Field(
+        default=None,
+        description="Vikriti: Doshic imbalance or pathological deviation from baseline constitution."
+    )
+    sara: Optional[str] = Field(
+        default=None,
+        description="Sara: Tissue excellence / Dhatu sarata (e.g., Rakta, Mamsa, Meda, Asthi, Majja, Sukra, Twak, Satva)."
+    )
+    samhanana: Optional[str] = Field(
+        default=None,
+        description="Samhanana: Compactness, symmetry, and muscular-skeletal build (Pravara, Madhyama, Avara)."
+    )
+    pramana: Optional[str] = Field(
+        default=None,
+        description="Pramana: Anthropometric bodily dimensions and physical proportions (Anjana/Sama)."
+    )
+    satmya: Optional[str] = Field(
+        default=None,
+        description="Satmya: Homologation and suitability to dietary substances, habits, and climatic conditions."
+    )
+    sattva: Optional[str] = Field(
+        default=None,
+        description="Sattva: Mental strength, emotional resilience, and psychological endurance (Pravara, Madhyama, Avara)."
+    )
+    ahara_shakti: Optional[str] = Field(
+        default=None,
+        description="Ahara Shakti: Capacity for food ingestion (Abhyavaharana Shakti) and digestion (Jarana Shakti)."
+    )
+    vyayama_shakti: Optional[str] = Field(
+        default=None,
+        description="Vyayama Shakti: Physical strength, work capacity, and exertion tolerance."
+    )
+    vaya: Optional[str] = Field(
+        default=None,
+        description="Vaya: Biological age assessment relative to chronological age and functional vitality."
+    )
+
+
+class AharaViharaLifestyle(BaseModel):
+    koshtha_bowel: Optional[KoshthaType] = Field(
+        default=None,
+        description="Koshtha: Nature of bowel evacuation and gut motility (Krura, Mridu, or Madhya)."
+    )
+    agni_digestion: Optional[AgniType] = Field(
+        default=None,
+        description="Agni: State of digestive metabolic fire (Vishamagni, Tikshnagni, Mandagni, Samagni)."
+    )
+    sleep_pattern: Optional[str] = Field(
+        default=None,
+        description="Nidra: Sleep patterns, duration, ease of falling asleep, nocturnal awakenings, and daytime drowsiness."
+    )
+    diet_habits: Optional[str] = Field(
+        default=None,
+        description="Ahara: Dietary patterns, meal timings, taste preferences (Rasa), and food intolerances."
+    )
+
+
+class ClinicalHistoryRecord(BaseModel):
+    patient_demographics: Optional[PatientDemographics] = Field(
+        default=None,
+        description="Patient demographic information and language preference."
+    )
+    chief_complaint: Optional[ChiefComplaint] = Field(
+        default=None,
+        description="Chief complaint and symptom duration."
+    )
+    hpi_socrates: Optional[HpiSocrates] = Field(
+        default=None,
+        description="History of Presenting Illness mapped to the Allopathic SOCRATES framework."
+    )
+    ayush_dashavidha_pariksha: Optional[AyushDashavidhaPariksha] = Field(
+        default=None,
+        description="Ayurvedic Tenfold Clinical Examination parameters (Dashavidha Pariksha)."
+    )
+    ahara_vihara_lifestyle: Optional[AharaViharaLifestyle] = Field(
+        default=None,
+        description="Ayurvedic dietary, digestive fire (Agni), bowel (Koshtha), and lifestyle parameters."
+    )
+    red_flag_alert: bool = Field(
+        default=False,
+        description="Emergency triage alert flag (set to True if chest pain, severe bleeding, sudden paralysis, or severe breathlessness is detected)."
+    )
+    next_question_to_ask_patient: str = Field(
+        default="Namaste! Please describe what health problem brings you in today.",
+        description="The localized natural language question or clinical instruction to speak to the patient next."
+    )
+
+
+class ChatRequest(BaseModel):
+    user_text: str = Field(
+        ...,
+        description="Spoken or typed response from the patient for this conversational turn."
+    )
+    current_json_state: Optional[ClinicalHistoryRecord] = Field(
+        default=None,
+        description="The existing clinical JSON state gathered up to the previous turn."
+    )
+    chat_history: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Complete conversational history with previous turns [{'role': 'user'|'assistant', 'content': '...'}]."
+    )
+
+
+class ChatResponse(BaseModel):
+    status: str = Field(
+        default="success",
+        description="Execution status of the clinical intake processing."
+    )
+    data: ClinicalHistoryRecord = Field(
+        ...,
+        description="The updated structured clinical history record."
+    )
