@@ -6,10 +6,14 @@ from app.models.schemas import (
     ChatResponse,
     ChiefComplaint,
     ClinicalHistoryRecord,
+    ExtractedLabInvestigation,
+    ExtractedMedication,
     HpiSocrates,
     KoshthaType,
+    OCRStructuredResult,
     PatientDemographics,
     PrakritiType,
+    ScanDocumentResponse,
     VayaAgeGroup,
 )
 
@@ -26,4 +30,8 @@ __all__ = [
     "ClinicalHistoryRecord",
     "ChatRequest",
     "ChatResponse",
+    "ExtractedMedication",
+    "ExtractedLabInvestigation",
+    "OCRStructuredResult",
+    "ScanDocumentResponse",
 ]

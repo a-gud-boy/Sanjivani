@@ -218,3 +218,71 @@ class ChatResponse(BaseModel):
         ...,
         description="The updated structured clinical history record."
     )
+
+
+# ============================================================================
+# Phase 2: Medical Document Digitization Models
+# ============================================================================
+
+class ExtractedMedication(BaseModel):
+    drug_name: Optional[str] = Field(
+        default=None,
+        description="The generic or brand name of the prescribed pharmaceutical medication, supplement, or Ayurvedic formulation (e.g., 'Paracetamol', 'Amoxicillin', 'Metformin', 'Ashwagandha Churna', 'Triphala Vati', 'Chyawanprash')."
+    )
+    dosage: Optional[str] = Field(
+        default=None,
+        description="The prescribed dosage strength, unit, or quantity per administration (e.g., '500 mg', '650 mg', '2 tablets', '10 ml', '1 tsp', '1 puff')."
+    )
+    frequency: Optional[str] = Field(
+        default=None,
+        description="The dosing frequency and administration timing, expanding standard medical abbreviations into clear language (e.g., 'OD / Once daily', 'BD / Twice daily', 'TDS / Thrice daily', 'QID / Four times daily', 'HS / At bedtime', 'SOS / As needed', 'AC / Before food', 'PC / After food', 'STAT / Immediately')."
+    )
+    duration: Optional[str] = Field(
+        default=None,
+        description="The total length of time or course for which the medication is prescribed (e.g., '5 days', '7 days', '2 weeks', '1 month', 'Continuous / Ongoing')."
+    )
+
+
+class ExtractedLabInvestigation(BaseModel):
+    parameter_name: Optional[str] = Field(
+        default=None,
+        description="The standardized clinical name of the laboratory investigation, biomarker, or diagnostic test (e.g., 'Hemoglobin (Hb)', 'Fasting Blood Sugar (FBS)', 'Postprandial Blood Sugar (PPBS)', 'HbA1c', 'Serum Creatinine', 'Blood Urea Nitrogen (BUN)', 'Total Leukocyte Count (TLC)', 'SGPT/ALT', 'SGOT/AST', 'Serum Bilirubin', 'Total Cholesterol', 'Triglycerides', 'Uric Acid', 'TSH')."
+    )
+    observed_value: Optional[str] = Field(
+        default=None,
+        description="The measured quantitative value or qualitative result finding observed in the diagnostic report (e.g., '13.8', '165', '1.2', '8.4', '8500', 'Positive', 'Negative', 'Normal', 'Traces')."
+    )
+    unit: Optional[str] = Field(
+        default=None,
+        description="The standard biological or chemical measurement unit associated with the test result (e.g., 'g/dL', 'mg/dL', '%', 'cells/cu.mm', 'U/L', 'mmol/L', 'mcg/dL', 'mIU/L')."
+    )
+    is_abnormal: Optional[bool] = Field(
+        default=None,
+        description="True if the observed value is outside the physiological reference range or marked with High (H), Low (L), star (*), or flagged as clinically abnormal; False if strictly within normal reference range; null if reference range is not stated."
+    )
+
+
+class OCRStructuredResult(BaseModel):
+    medications: List[ExtractedMedication] = Field(
+        default_factory=list,
+        description="List of all detected prescription medications and Ayurvedic remedies extracted from the document."
+    )
+    lab_investigations: List[ExtractedLabInvestigation] = Field(
+        default_factory=list,
+        description="List of all detected laboratory tests, diagnostic parameters, and biological biomarkers extracted from the document."
+    )
+    raw_text: Optional[str] = Field(
+        default=None,
+        description="The raw unformatted OCR transcribed text detected across all bounding boxes in the document image."
+    )
+
+
+class ScanDocumentResponse(BaseModel):
+    status: str = Field(
+        default="success",
+        description="Execution status of the medical document digitization pipeline."
+    )
+    data: OCRStructuredResult = Field(
+        ...,
+        description="The structured medication and lab investigation entities extracted from the medical document."
+    )

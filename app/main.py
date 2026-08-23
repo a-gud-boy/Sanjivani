@@ -2,12 +2,18 @@ from contextlib import asynccontextmanager
 import logging
 from typing import AsyncGenerator
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.models.schemas import ChatRequest, ChatResponse
+from app.models.schemas import (
+    ChatRequest,
+    ChatResponse,
+    OCRStructuredResult,
+    ScanDocumentResponse,
+)
 from app.services.llm_service import ClinicalLLMService, get_llm_service
+from app.services.ocr_service import OCRService, get_ocr_service
 
 # Setup logging
 logging.basicConfig(
@@ -20,8 +26,9 @@ logger = logging.getLogger("sanjivani.main")
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting up %s...", settings.PROJECT_NAME)
-    # Eagerly initialize LLM Service
+    # Eagerly initialize LLM and OCR services
     get_llm_service()
+    get_ocr_service()
     yield
     logger.info("Shutting down %s...", settings.PROJECT_NAME)
 
@@ -29,10 +36,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description=(
-        "Multimodal AI clinical history-taking kiosk backend combining Allopathic (SOCRATES) "
-        "and Ayurvedic (Dashavidha Pariksha, Agni, Koshtha) diagnostic models for the Ministry of Ayush."
+        "Multimodal AI clinical history-taking kiosk backend combining Allopathic (SOCRATES), "
+        "Ayurvedic (Dashavidha Pariksha, Agni, Koshtha) diagnostic models, and direct "
+        "Vision-Language Model (VLM) medical document digitization for the Ministry of Ayush."
     ),
-    version="0.1.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -51,7 +59,7 @@ async def root():
     return {
         "project": settings.PROJECT_NAME,
         "status": "online",
-        "version": "0.1.0",
+        "version": "0.3.0",
         "docs_url": "/docs",
     }
 
@@ -83,9 +91,98 @@ async def chat_endpoint(
     try:
         updated_state = await llm_service.process_chat(request)
         return ChatResponse(status="success", data=updated_state)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Error processing clinical chat request: %s", str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Clinical intake processing failed: {str(e)}",
+        )
+
+
+@app.post(
+    f"{settings.API_V1_PREFIX}/scan-document",
+    response_model=ScanDocumentResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Document Digitization"],
+    summary="Direct VLM digitization of medical prescriptions and lab reports",
+    description=(
+        "Upload a medical document image (prescription, lab report, Ayurvedic chart). "
+        "The endpoint processes the image directly via a multimodal Vision-Language Model (VLM) "
+        "to transcribe cursive handwriting, dosages, frequencies, and diagnostic parameters into structured clinical entities."
+    ),
+)
+async def scan_document_endpoint(
+    file: UploadFile = File(..., description="Prescription or diagnostic lab report image (JPEG, PNG, WebP, TIFF)."),
+    ocr_service: OCRService = Depends(get_ocr_service),
+    llm_service: ClinicalLLMService = Depends(get_llm_service),
+) -> ScanDocumentResponse:
+    # 1. Validate MIME type if provided
+    allowed_content_types = [
+        "image/jpeg",
+        "image/png",
+        "image/jpg",
+        "image/webp",
+        "image/bmp",
+        "image/tiff",
+        "application/octet-stream",
+    ]
+    content_type = (file.content_type or "").lower()
+    if content_type and content_type not in allowed_content_types and not file.filename.lower().endswith(
+        (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type '{file.content_type}'. Please upload an image file (JPEG, PNG, WebP, TIFF).",
+        )
+
+    # 2. Read file bytes
+    try:
+        file_bytes = await file.read()
+    except Exception as read_err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to read uploaded file: {str(read_err)}",
+        )
+
+    if not file_bytes or len(file_bytes) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The uploaded file is empty. Please provide a valid medical document image.",
+        )
+
+    mime_type = content_type if content_type.startswith("image/") else "image/png"
+
+    # 3. Encode image bytes to base64
+    try:
+        base64_image = ocr_service.encode_image(file_bytes)
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unreadable image file: {str(val_err)}",
+        )
+    except HTTPException:
+        raise
+    except Exception as enc_err:
+        logger.exception("Image encoding failed: %s", str(enc_err))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Image processing failed: {str(enc_err)}",
+        )
+
+    # 4. Directly parse medical image via Multimodal VLM
+    try:
+        structured_entities: OCRStructuredResult = await llm_service.parse_document_image(
+            base64_image=base64_image,
+            mime_type=mime_type,
+        )
+        return ScanDocumentResponse(status="success", data=structured_entities)
+    except HTTPException:
+        raise
+    except Exception as parse_err:
+        logger.exception("VLM document parsing failed: %s", str(parse_err))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Medical document entity parsing failed: {str(parse_err)}",
         )
