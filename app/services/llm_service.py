@@ -39,27 +39,11 @@ SYSTEM_PROMPT_CHAT = (
 )
 
 SYSTEM_PROMPT_VLM = (
-    "You are an expert AI clinical data extractor and medical transcriptionist for doctor prescriptions, diagnostic laboratory reports, "
-    "and Ayurvedic treatment charts. Your task is to act as an expert medical transcriptionist, carefully examining the uploaded "
-    "medical document image, reading cursive or faint handwritten text with extreme precision, and directly extracting medications, "
-    "lab values, and a verbatim transcription into the structured JSON schema.\n\n"
-    "EXTRACTION GUIDELINES:\n"
-    "1. Medications (Allopathic & Ayurvedic):\n"
-    "   - Identify all drugs, capsules, tablets, syrups, drops, and Ayurvedic formulations (e.g. Vati, Churna, Bhasma, Kashayam, Asava, Arishta, Taila, Ghrita).\n"
-    "   - Extract dosage strength (e.g., '500mg', '650mg', '10ml', '1 cap', '1 tsp').\n"
-    "   - Infer standard clinical frequency abbreviations:\n"
-    "     * OD (Once daily), BD/BID (Twice daily), TDS/TID (Thrice daily / 3x a day), QID (Four times daily), HS (At bedtime), SOS (As needed), STAT (Immediately).\n"
-    "     * Expand abbreviations into clear descriptions (e.g., 'TDS / Thrice daily', 'BD / Twice daily', '3x a day').\n"
-    "   - Extract duration (e.g., '7 days', '2 weeks', '1 month', 'seven days').\n"
-    "2. Laboratory Investigations:\n"
-    "   - Identify diagnostic parameters, lab tests, and biological markers (e.g., Hemoglobin, Fasting Blood Sugar, HbA1c, Serum Creatinine, SGPT/ALT, Platelet Count).\n"
-    "   - Extract the measured quantitative value or qualitative result.\n"
-    "   - Extract the measurement unit (e.g., 'g/dL', 'mg/dL', '%', 'cells/cu.mm', 'U/L').\n"
-    "   - Determine is_abnormal: true if explicitly high/low/marked, false if normal, or null if unspecified.\n"
-    "3. Raw Text Transcription:\n"
-    "   - In the 'raw_text' field, provide a complete verbatim transcription of all readable text from the document, "
-    "including patient details, doctor notes, Rx section, signature, and license numbers.\n\n"
-    "You MUST output ONLY a valid JSON object conforming to the OCRStructuredResult schema. Do not output text outside the JSON."
+    "You are an expert AI clinical data extractor for medical prescriptions (Allopathic & Ayurvedic) and lab reports. "
+    "Carefully examine the medical document image, transcribe all text verbatim in 'raw_text', and extract structured entities:\n"
+    "1. Medications: drug_name, dosage, frequency (expand standard abbreviations like OD, BD, TDS, 3x a day), and duration.\n"
+    "2. Lab Investigations: parameter_name, observed_value, unit, is_abnormal (true/false/null).\n"
+    "Output ONLY a valid JSON object."
 )
 
 RED_FLAG_KEYWORDS = [
@@ -79,36 +63,66 @@ RED_FLAG_KEYWORDS = [
 
 class ClinicalLLMService:
     def __init__(self) -> None:
-        self.api_key = settings.OPENAI_API_KEY
-        self.model_name = settings.OPENAI_MODEL_NAME
-        self.vision_model_name = settings.OPENAI_VISION_MODEL_NAME or settings.OPENAI_MODEL_NAME
-        self.base_url = settings.OPENAI_BASE_URL
+        # 1. Text / Conversational Intake LLM Configuration
+        self.text_api_key = settings.effective_text_api_key
+        self.text_model_name = settings.effective_text_model_name
+        self.text_base_url = settings.effective_text_base_url
 
-        llm_kwargs: Dict[str, Any] = {
-            "model": self.model_name,
-            "api_key": self.api_key,
+        # 2. Vision / Document Scanner VLM Configuration
+        self.vision_api_key = settings.effective_vision_api_key
+        self.vision_model_name = settings.effective_vision_model_name
+        self.vision_base_url = settings.effective_vision_base_url
+
+        # Backward compatibility aliases
+        self.api_key = self.text_api_key
+        self.model_name = self.text_model_name
+        self.base_url = self.text_base_url
+
+        # Structured Chat LLM
+        chat_llm_kwargs: Dict[str, Any] = {
+            "model": self.text_model_name,
+            "api_key": self.text_api_key,
             "temperature": 0.2,
         }
-        if self.base_url:
-            llm_kwargs["base_url"] = self.base_url
+        if self.text_base_url:
+            chat_llm_kwargs["base_url"] = self.text_base_url
 
-        self._llm = ChatOpenAI(**llm_kwargs)
+        self._llm = ChatOpenAI(**chat_llm_kwargs)
         self._structured_llm_chat = self._llm.with_structured_output(
             ClinicalHistoryRecord,
             method="function_calling",
         )
-        self._structured_llm_ocr = self._llm.with_structured_output(
+        self._direct_chat_client = AsyncOpenAI(
+            api_key=self.text_api_key,
+            base_url=self.text_base_url or None,
+        )
+
+        # Structured Vision VLM
+        vision_llm_kwargs: Dict[str, Any] = {
+            "model": self.vision_model_name,
+            "api_key": self.vision_api_key,
+            "temperature": 0.1,
+        }
+        if self.vision_base_url:
+            vision_llm_kwargs["base_url"] = self.vision_base_url
+
+        self._vision_llm = ChatOpenAI(**vision_llm_kwargs)
+        self._structured_llm_ocr = self._vision_llm.with_structured_output(
             OCRStructuredResult,
             method="function_calling",
         )
-        self._direct_client = AsyncOpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url or None,
+        self._direct_vision_client = AsyncOpenAI(
+            api_key=self.vision_api_key,
+            base_url=self.vision_base_url or None,
         )
+        self._direct_client = self._direct_chat_client  # backward-compat
+
         logger.info(
-            "Initialized production LLM service with model '%s' (base_url=%s).",
-            self.model_name,
-            self.base_url,
+            "Initialized production LLM service: chat_model='%s' (base_url=%s), vision_model='%s' (base_url=%s).",
+            self.text_model_name,
+            self.text_base_url,
+            self.vision_model_name,
+            self.vision_base_url,
         )
 
     # =========================================================================
@@ -222,8 +236,8 @@ class ClinicalLLMService:
         formatted_messages.append({"role": "user", "content": user_text})
 
         try:
-            response = await self._direct_client.chat.completions.create(
-                model=self.model_name,
+            response = await self._direct_chat_client.chat.completions.create(
+                model=self.text_model_name,
                 messages=formatted_messages,  # type: ignore
                 response_format={"type": "json_object"},
                 temperature=0.2,
@@ -232,8 +246,8 @@ class ClinicalLLMService:
             return self._clean_and_parse_chat_json(raw_content)
         except Exception as json_err:
             logger.warning("json_object format failed (%s), retrying standard prompt.", str(json_err))
-            response = await self._direct_client.chat.completions.create(
-                model=self.model_name,
+            response = await self._direct_chat_client.chat.completions.create(
+                model=self.text_model_name,
                 messages=formatted_messages,  # type: ignore
                 temperature=0.2,
             )
@@ -276,11 +290,24 @@ class ClinicalLLMService:
             )
 
     # =========================================================================
-    # Phase 2: Direct Vision-Language Model (VLM) Document Parsing
+    # Phase 2: 2-Stage Medical Document Digitization Pipeline
+    #   Stage 1: Vision Model (Qwen 3.6 VLM) reads/transcribes the image to text
+    #   Stage 2: Text LLM (GPT-OSS-120B) structures the text into clean clinical JSON
     # =========================================================================
 
     def _clean_and_parse_ocr_json(self, raw_text: str, default_raw_text: str = "") -> OCRStructuredResult:
-        cleaned = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
+        cleaned = raw_text.strip()
+
+        # 1. If thinking tags are present, extract the payload strictly AFTER </think>
+        if "</think>" in cleaned:
+            cleaned = cleaned.split("</think>")[-1].strip()
+        elif "<think>" in cleaned:
+            # Model response was cut off before finishing thinking
+            raise ValueError(
+                f"Model response was cut off inside <think> reasoning trace. Raw snippet: {raw_text[:150]!r}"
+            )
+
+        # 2. Extract JSON from markdown code block ```json ... ``` if present
         if "```" in cleaned:
             match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned)
             if match:
@@ -288,26 +315,30 @@ class ClinicalLLMService:
             else:
                 cleaned = re.sub(r"^```(?:json)?\n|\n```$", "", cleaned, flags=re.MULTILINE).strip()
 
+        # 3. Locate outer JSON object { ... }
+        brace_start = cleaned.find("{")
+        brace_end = cleaned.rfind("}")
+        if brace_start != -1 and brace_end != -1 and brace_end > brace_start:
+            cleaned = cleaned[brace_start : brace_end + 1]
+        else:
+            raise ValueError(
+                f"No valid JSON object found in model output. Raw snippet: {raw_text[:200]!r}"
+            )
+
         result = OCRStructuredResult.model_validate_json(cleaned)
         if not result.raw_text and default_raw_text:
             result.raw_text = default_raw_text
         return result
 
-    async def parse_document_image(
+    async def transcribe_image(
         self,
         base64_image: str,
         mime_type: str = "image/jpeg",
-    ) -> OCRStructuredResult:
+    ) -> str:
         """
-        Directly parse a medical document image (prescription, lab report) using a
-        Vision-Language Model (VLM) into structured clinical entities and transcription.
-        
-        Args:
-            base64_image: Base64-encoded string of the image file.
-            mime_type: MIME type of the image (e.g. 'image/jpeg', 'image/png').
-            
-        Returns:
-            OCRStructuredResult matching the clinical Pydantic schema.
+        Stage 1: Pure Vision OCR Transcription.
+        Uses the Vision Model (e.g. Qwen 3.6 VLM) to read the medical document
+        image and return a clean, verbatim text transcription.
         """
         if not base64_image or not base64_image.strip():
             raise HTTPException(
@@ -315,38 +346,37 @@ class ClinicalLLMService:
                 detail="Empty image data provided.",
             )
 
-        schema_json = json.dumps(OCRStructuredResult.model_json_schema())
-        system_instruction = (
-            f"{SYSTEM_PROMPT_VLM}\n\n"
-            f"--- JSON SCHEMA TO MATCH ---\n"
-            f"{schema_json}\n\n"
-            f"Carefully analyze this prescription/lab image and extract all clinical entities matching the schema."
-        )
-
         image_data_url = f"data:{mime_type};base64,{base64_image.strip()}"
 
-        # Candidate VLM models: primary configured model, vision model override, and Groq fallback if applicable
-        models_to_try = [self.vision_model_name]
-        if self.model_name not in models_to_try:
-            models_to_try.append(self.model_name)
-        if self.base_url and "groq.com" in self.base_url and "qwen/qwen3.6-27b" not in models_to_try:
-            models_to_try.append("qwen/qwen3.6-27b")
+        vision_prompt = (
+            "Transcribe all readable text from this medical prescription or diagnostic laboratory report image verbatim. "
+            "Include doctor/hospital header, patient info, date, Rx medications, strengths, dosages, instructions, "
+            "diagnostic lab parameters, and doctor signatures. "
+            "Output ONLY the plain transcribed text."
+        )
 
-        last_error = None
-        for model in models_to_try:
+        # Build candidate vision models (excluding text-only models)
+        TEXT_ONLY_MODELS = {"openai/gpt-oss-120b", "gpt-oss-120b", "openai/gpt-oss-20b", "gpt-oss-20b"}
+        vision_models: list[str] = []
+        if self.vision_model_name and self.vision_model_name not in TEXT_ONLY_MODELS:
+            vision_models.append(self.vision_model_name)
+        if self.vision_base_url and "groq.com" in self.vision_base_url and "qwen/qwen3.6-27b" not in vision_models:
+            vision_models.append("qwen/qwen3.6-27b")
+
+        if not vision_models:
+            vision_models = ["qwen/qwen3.6-27b"]
+
+        last_error: Exception | None = None
+        for model in vision_models:
             try:
-                logger.info("Attempting VLM document extraction with model '%s'...", model)
-                response = await self._direct_client.chat.completions.create(
+                logger.info("Stage 1: Transcribing image with vision model '%s'...", model)
+                response = await self._direct_vision_client.chat.completions.create(
                     model=model,
                     messages=[
-                        {"role": "system", "content": system_instruction},
                         {
                             "role": "user",
                             "content": [
-                                {
-                                    "type": "text",
-                                    "text": "Carefully read and transcribe this medical document image, then output the structured JSON.",
-                                },
+                                {"type": "text", "text": vision_prompt},
                                 {
                                     "type": "image_url",
                                     "image_url": {"url": image_data_url},
@@ -354,77 +384,106 @@ class ClinicalLLMService:
                             ],
                         },
                     ],
-                    response_format={"type": "json_object"},
                     temperature=0.1,
+                    max_tokens=2048,
                 )
-                raw_content = response.choices[0].message.content or "{}"
-                result = self._clean_and_parse_ocr_json(raw_content)
-                logger.info("VLM extraction succeeded with model '%s'.", model)
-                return result
+                raw_text = response.choices[0].message.content or ""
+                # Clean thinking trace if present
+                if "</think>" in raw_text:
+                    raw_text = raw_text.split("</think>")[-1].strip()
+                elif "<think>" in raw_text:
+                    raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
+
+                if raw_text.strip():
+                    logger.info("Stage 1 transcription succeeded with model '%s' (%d chars).", model, len(raw_text))
+                    return raw_text.strip()
             except Exception as e:
                 last_error = e
-                logger.warning("VLM inference failed with model '%s': %s", model, str(e))
-
-        # 2. Secondary Strategy: LangChain structured output
-        try:
-            messages = [
-                SystemMessage(content=system_instruction),
-                HumanMessage(
-                    content=[
-                        {
-                            "type": "text",
-                            "text": "Carefully read and transcribe this medical document image into structured entities.",
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": image_data_url},
-                        },
-                    ]
-                ),
-            ]
-            result: OCRStructuredResult = await self._structured_llm_ocr.ainvoke(messages)
-            return result
-        except Exception as func_err:
-            logger.error("Structured VLM function calling failed: %s", str(func_err))
+                logger.warning("Stage 1 vision transcription failed with model '%s': %s", model, str(e))
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"VLM document entity extraction failed: {str(last_error)}",
+            detail=f"Vision document transcription failed: {str(last_error)}",
         )
 
     async def parse_ocr_text(self, raw_text: str) -> OCRStructuredResult:
         """
-        Legacy text-based OCR parsing interface maintained for backward compatibility.
+        Stage 2: Clinical Entity Structuring & Normalization.
+        Takes the transcribed raw text and uses the Text LLM (GPT-OSS-120B) with
+        native JSON mode / function calling to extract standardized medications,
+        lab investigations, and full verbatim text into OCRStructuredResult.
         """
         if not raw_text or not raw_text.strip():
-            return OCRStructuredResult(raw_text=raw_text)
+            return OCRStructuredResult(raw_text="")
 
         schema_json = json.dumps(OCRStructuredResult.model_json_schema())
         system_instruction = (
             f"{SYSTEM_PROMPT_VLM}\n\n"
-            f"--- JSON SCHEMA TO MATCH ---\n"
+            f"--- TARGET JSON SCHEMA ---\n"
             f"{schema_json}\n\n"
-            f"Extract all medications and lab investigations from the following OCR text and map to the schema."
+            "You are an expert AI clinical data extractor for doctor prescriptions and laboratory reports. "
+            "Extract all medications (standardize frequencies e.g. TDS -> Thrice daily / 3x a day), "
+            "lab investigations, and retain the verbatim raw_text. "
+            "Output a single valid JSON object matching the schema."
         )
 
+        # 1. Primary Strategy: Direct text LLM with native json_object mode
         try:
-            response = await self._direct_client.chat.completions.create(
-                model=self.model_name,
+            logger.info("Stage 2: Structuring clinical text with text model '%s'...", self.text_model_name)
+            response = await self._direct_chat_client.chat.completions.create(
+                model=self.text_model_name,
                 messages=[
                     {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": f"--- DOCUMENT TEXT ---\n{raw_text}"},
+                    {"role": "user", "content": f"Extract clinical entities from this prescription/lab document text:\n\n{raw_text}"},
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.1,
             )
             raw_content = response.choices[0].message.content or "{}"
-            return self._clean_and_parse_ocr_json(raw_content, raw_text)
-        except Exception as json_err:
-            logger.error("LLM text parsing failed: %s", str(json_err))
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"LLM medical entity extraction failed: {str(json_err)}",
-            )
+            result = self._clean_and_parse_ocr_json(raw_content, raw_text)
+            logger.info("Stage 2 structuring succeeded (%d meds, %d labs).", len(result.medications), len(result.lab_investigations))
+            return result
+        except Exception as direct_err:
+            logger.warning("Stage 2 direct text parsing failed (%s), trying secondary LangChain structured output.", str(direct_err))
+
+        # 2. Secondary Strategy: LangChain structured output
+        try:
+            messages = [
+                SystemMessage(content=system_instruction),
+                HumanMessage(content=f"Extract clinical entities from this prescription/lab text:\n\n{raw_text}"),
+            ]
+            result: OCRStructuredResult = await self._structured_llm_ocr.ainvoke(messages)
+            if not result.raw_text:
+                result.raw_text = raw_text
+            return result
+        except Exception as func_err:
+            logger.error("Structured text function calling failed: %s", str(func_err))
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Clinical text entity extraction failed: {str(direct_err)}",
+        )
+
+    async def parse_document_image(
+        self,
+        base64_image: str,
+        mime_type: str = "image/jpeg",
+    ) -> OCRStructuredResult:
+        """
+        2-Stage Document Processing Pipeline:
+        Stage 1: Vision Model (Qwen 3.6 VLM) transcribes the image to raw text.
+        Stage 2: Text LLM (GPT-OSS-120B) parses the raw text into structured clinical JSON.
+        """
+        # Stage 1: Transcribe image to raw text
+        raw_text = await self.transcribe_image(
+            base64_image=base64_image,
+            mime_type=mime_type,
+        )
+
+        # Stage 2: Structure raw text into medications & lab investigations
+        result = await self.parse_ocr_text(raw_text=raw_text)
+        return result
+
 
 
 # Global singleton instance

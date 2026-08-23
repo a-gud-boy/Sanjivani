@@ -1,0 +1,112 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-surface-base text-slate-800 font-sans antialiased;
+    min-height: 100dvh;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-cyan;
+  }
+}
+
+@layer components {
+  /* Touch-safe button baseline */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-medium
+           rounded-xl transition-all duration-150 select-none
+           min-h-[48px] px-5 text-sm
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand-cyan text-white hover:bg-brand-cyan-dark
+           active:scale-[0.98] shadow-sm focus-visible:outline-brand-cyan;
+  }
+
+  .btn-secondary {
+    @apply btn bg-surface-muted text-slate-700 hover:bg-slate-200
+           active:scale-[0.98] focus-visible:outline-brand-cyan;
+  }
+
+  .btn-danger {
+    @apply btn bg-brand-crimson text-white hover:bg-brand-crimson-dark
+           active:scale-[0.98] focus-visible:outline-brand-crimson;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-slate-600 hover:bg-slate-100
+           active:scale-[0.98] focus-visible:outline-brand-cyan;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-surface-card rounded-2xl shadow-card border border-surface-border;
+  }
+
+  /* Input fields */
+  .input {
+    @apply w-full px-4 py-3 rounded-xl border border-surface-border bg-white
+           text-slate-800 placeholder:text-slate-400
+           focus:outline-none focus:ring-2 focus:ring-brand-cyan/40 focus:border-brand-cyan
+           transition-all duration-150;
+  }
+}
+
+@layer utilities {
+  /* Smooth scrollbar for chat */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 rounded-full;
+  }
+
+  /* Pulsing mic ring */
+  .mic-ring {
+    animation: micPulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes micPulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(8, 145, 178, 0.35);
+    }
+    50% {
+      box-shadow: 0 0 0 12px rgba(8, 145, 178, 0);
+    }
+  }
+
+  /* Emergency pulse */
+  .emergency-pulse {
+    animation: emergencyPulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes emergencyPulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    }
+  }
+}

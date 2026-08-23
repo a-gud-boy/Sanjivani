@@ -77,7 +77,7 @@ def test_ocr_service_empty_and_valid_encoding():
 
 
 def test_scan_document_endpoint_success():
-    """Test POST /api/v1/scan-document with a valid image upload and mocked VLM pipeline."""
+    """Test POST /api/v1/scan-document with a valid image upload and mocked 2-stage VLM pipeline."""
     mock_extracted_text = "Tab Paracetamol 650mg TDS x 5 days\nFBS: 140 mg/dL"
     mock_parsed_result = OCRStructuredResult(
         medications=[
@@ -116,6 +116,38 @@ def test_scan_document_endpoint_success():
     assert data["medications"][0]["drug_name"] == "Paracetamol"
     assert len(data["lab_investigations"]) == 1
     assert data["lab_investigations"][0]["parameter_name"] == "Fasting Blood Sugar (FBS)"
+
+
+@pytest.mark.asyncio
+async def test_two_stage_pipeline_execution():
+    """Verify that parse_document_image invokes transcribe_image and then parse_ocr_text."""
+    service = ClinicalLLMService()
+    
+    mock_raw_transcription = "Rx Amoxicillin 500mg TDS x 7 days"
+    mock_structured = OCRStructuredResult(
+        medications=[
+            ExtractedMedication(
+                drug_name="Amoxicillin",
+                dosage="500mg",
+                frequency="TDS / Thrice daily",
+                duration="7 days",
+            )
+        ],
+        lab_investigations=[],
+        raw_text=mock_raw_transcription,
+    )
+
+    with patch.object(service, "transcribe_image", new_callable=AsyncMock) as mock_transcribe, \
+         patch.object(service, "parse_ocr_text", new_callable=AsyncMock) as mock_parse:
+        
+        mock_transcribe.return_value = mock_raw_transcription
+        mock_parse.return_value = mock_structured
+
+        result = await service.parse_document_image(base64_image="mock_b64", mime_type="image/jpeg")
+
+        mock_transcribe.assert_awaited_once_with(base64_image="mock_b64", mime_type="image/jpeg")
+        mock_parse.assert_awaited_once_with(raw_text=mock_raw_transcription)
+        assert result.medications[0].drug_name == "Amoxicillin"
 
 
 def test_scan_document_endpoint_invalid_file_type():
@@ -160,9 +192,9 @@ def test_scan_document_endpoint_vlm_failure_propagation():
     with patch.object(ClinicalLLMService, "parse_document_image", new_callable=AsyncMock) as mock_vlm:
         mock_vlm.side_effect = HTTPException(
             status_code=500,
-            detail="VLM document entity extraction failed: Upstream connection timeout.",
+            detail="Vision document transcription failed: Upstream connection timeout.",
         )
         response = client.post("/api/v1/scan-document", files=files)
 
     assert response.status_code == 500
-    assert "VLM document entity extraction failed" in response.json()["detail"]
+    assert "Vision document transcription failed" in response.json()["detail"]

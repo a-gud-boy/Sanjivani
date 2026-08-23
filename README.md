@@ -2,9 +2,32 @@
 
 **Ministry of Ayush | Smart India Hackathon**
 
-Sanjivani is an intelligent, multimodal clinical intake and medical document digitization kiosk backend. It combines:
+Sanjivani is an intelligent, multimodal clinical intake and medical document digitization kiosk application. It combines:
 1. **Conversational Clinical History Intake**: Bridges evidence-based **Allopathic medicine (SOCRATES framework)** with traditional Indian medicine (**Ayurvedic Dashavidha Pariksha, Agni, and Koshtha**) into a unified clinical JSON representation.
 2. **Direct Vision-Language Model (VLM) Document Digitization**: Directly processes prescription and laboratory test report images using advanced Multimodal VLMs (`openai/gpt-oss-120b`, `qwen/qwen3.6-27b`) to transcribe doctors' cursive handwriting and extract structured clinical medication and biomarker entities.
+3. **Kiosk-First Frontend**: React 18 + Vite + Tailwind CSS with dual-panel kiosk mode, touch targets, camera snapshot, voice recorder, and emergency triage alerts.
+
+---
+
+## Quick Start (Run Both Server & Frontend)
+
+You can launch both the FastAPI backend and Vite frontend with a single command:
+
+### Option A: Using Bash Script
+```bash
+./start.sh
+```
+
+### Option B: Using Python Runner (Cross-platform)
+```bash
+python run.py
+```
+
+- **Frontend (Web App / Kiosk UI):** [http://localhost:5173](http://localhost:5173)
+- **Backend API:** [http://localhost:8000](http://localhost:8000)
+- **Interactive Swagger Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+
+*Press `Ctrl+C` to gracefully shut down both services.*
 
 ---
 
@@ -29,14 +52,16 @@ Sanjivani is an intelligent, multimodal clinical intake and medical document dig
 
 ```
 Sanjivani/
+├── start.sh                       # Unified launcher script (Bash)
+├── run.py                         # Unified launcher script (Python)
 ├── .devcontainer/
-│   └── devcontainer.json          # VS Code DevContainer setup for isolated dev
+│   └── devcontainer.json          # VS Code DevContainer setup
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                    # FastAPI application, CORS, routers & lifespans
+│   ├── main.py                    # FastAPI application & endpoints
 │   ├── core/
 │   │   ├── __init__.py
-│   │   └── config.py              # Pydantic Settings & environment configuration
+│   │   └── config.py              # Pydantic Settings
 │   ├── models/
 │   │   ├── __init__.py
 │   │   └── schemas.py             # Allopathic, Ayush & OCR Pydantic v2 schemas
@@ -44,13 +69,19 @@ Sanjivani/
 │       ├── __init__.py
 │       ├── llm_service.py         # Structured LLM chat & Direct VLM document parser
 │       └── ocr_service.py         # Base64 image encoding and payload preparation
+├── frontend/                      # React 18 + Vite + Tailwind CSS Kiosk UI
+│   ├── src/
+│   │   ├── components/            # Header, Chat, DocumentScanner, SummaryModal, RedFlagAlert
+│   │   ├── hooks/                 # useAudioRecorder, useCameraCapture
+│   │   ├── services/              # API client for /chat and /scan-document
+│   │   └── types/                 # TypeScript models
+│   ├── package.json
+│   └── vite.config.ts             # Dev proxy (/api -> localhost:8000)
 ├── tests/
-│   ├── __init__.py
-│   ├── test_schemas.py            # Unit tests for clinical schemas & validations
-│   ├── test_api.py                # Integration tests for FastAPI /api/v1/chat endpoint
-│   └── test_ocr.py                # Tests for VLM document scanning endpoint
+│   ├── test_schemas.py            # Clinical schema tests
+│   ├── test_api.py                # Chat API endpoint tests
+│   └── test_ocr.py                # VLM document scanning endpoint tests
 ├── .env.example                   # Environment variable template
-├── .gitignore
 ├── requirements.txt               # Pinned Python dependencies
 └── README.md                      # Documentation
 ```
@@ -99,7 +130,7 @@ Accepts `multipart/form-data` with an image file under the key `file` (JPEG, PNG
 
 ## Running Tests
 
-Execute the complete test suite with `pytest`:
+Execute the backend test suite with `pytest`:
 ```bash
 pytest -v tests/
 ```
