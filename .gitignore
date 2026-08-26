@@ -25,6 +25,7 @@ wheels/
 *.egg
 
 # Virtual environments
+sihvenv312
 .env
 .venv
 env/

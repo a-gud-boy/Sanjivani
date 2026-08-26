@@ -7,25 +7,35 @@ Sanjivani is an intelligent, multimodal clinical intake and medical document dig
 2. **Direct Vision-Language Model (VLM) Document Digitization**: Directly processes prescription and laboratory test report images using advanced Multimodal VLMs (`openai/gpt-oss-120b`, `qwen/qwen3.6-27b`) to transcribe doctors' cursive handwriting and extract structured clinical medication and biomarker entities.
 3. **Kiosk-First Frontend**: React 18 + Vite + Tailwind CSS with dual-panel kiosk mode, touch targets, camera snapshot, voice recorder, and emergency triage alerts.
 
----
+## Quick Start (Run Local vLLM + Backend + Frontend)
 
-## Quick Start (Run Both Server & Frontend)
-
-You can launch both the FastAPI backend and Vite frontend with a single command:
+By default, running either startup script launches all 3 services concurrently:
+1. **Local vLLM Model Server** (`google/medgemma-1.5-4b-it` on `:8001`)
+2. **FastAPI Backend** (`:8000`)
+3. **React Vite Frontend** (`:5173`)
 
 ### Option A: Using Bash Script
 ```bash
+# Default: Starts vLLM + Backend + Frontend
 ./start.sh
+
+# Skip local vLLM (runs only Backend + Frontend)
+./start.sh --no-vllm
 ```
 
 ### Option B: Using Python Runner (Cross-platform)
 ```bash
+# Default: Starts vLLM + Backend + Frontend
 python run.py
+
+# Skip local vLLM
+python run.py --no-vllm
 ```
 
 - **Frontend (Web App / Kiosk UI):** [http://localhost:5173](http://localhost:5173)
 - **Backend API:** [http://localhost:8000](http://localhost:8000)
 - **Interactive Swagger Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **vLLM OpenAI Server:** [http://localhost:8001/v1](http://localhost:8001/v1)
 
 *Press `Ctrl+C` to gracefully shut down both services.*
 

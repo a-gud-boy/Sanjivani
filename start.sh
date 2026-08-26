@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 
 # ==============================================================================
-# Sanjivani - Unified Dev Server Startup Script (FastAPI Backend + Vite Frontend)
+# Sanjivani - Unified Dev Server Startup Script
+# Starts:
+#   1. vLLM Local Model Server (Optional: google/medgemma-1.5-4b-it on :8001)
+#   2. FastAPI Clinical Backend (Port :8000)
+#   3. React Vite Frontend (Port :5173)
 # ==============================================================================
 
 set -e
@@ -47,7 +51,6 @@ if [ ! -f "$ROOT_DIR/.env" ]; then
     if [ -f "$ROOT_DIR/.env.example" ]; then
         echo -e "${YELLOW}⚠ .env not found. Copying .env.example to .env...${NC}"
         cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
-        echo -e "${YELLOW}👉 Please update .env with your valid OPENAI_API_KEY if needed.${NC}"
     else
         echo -e "${RED}✗ Error: .env file missing in root directory.${NC}"
     fi
@@ -59,10 +62,34 @@ if [ ! -d "$ROOT_DIR/frontend/node_modules" ]; then
     (cd "$ROOT_DIR/frontend" && npm install)
 fi
 
+# 4. Check if vLLM Local Server should be started (Enabled by default)
+START_VLLM=true
+for arg in "$@"; do
+    if [ "$arg" == "--no-vllm" ] || [ "$arg" == "--skip-vllm" ]; then
+        START_VLLM=false
+    fi
+done
+
+# Check if .env explicitly disables vLLM
+if [ "$START_VLLM" = true ] && [ -f "$ROOT_DIR/.env" ]; then
+    if grep -qE "^START_VLLM=false" "$ROOT_DIR/.env"; then
+        START_VLLM=false
+    fi
+fi
+
+VLLM_MODEL="${VLLM_MODEL:-google/medgemma-1.5-4b-it}"
+VLLM_PORT="${VLLM_PORT:-8001}"
+VLLM_GPU_UTIL="${VLLM_GPU_UTIL:-0.88}"
+VLLM_MAX_LEN="${VLLM_MAX_LEN:-4096}"
+VLLM_QUANT="${VLLM_QUANT:-bitsandbytes}"
+
 echo ""
 echo -e "${BOLD}Starting Services:${NC}"
-echo -e "  ${GREEN}► FastAPI Backend:${NC}  http://localhost:8000 (Swagger Docs: http://localhost:8000/docs)"
-echo -e "  ${GREEN}► Vite Frontend:${NC}    http://localhost:5173"
+if [ "$START_VLLM" = true ]; then
+    echo -e "  ${GREEN}► vLLM Model Server:${NC} http://localhost:${VLLM_PORT}/v1 (Model: ${VLLM_MODEL}, 4-bit BnB)"
+fi
+echo -e "  ${GREEN}► FastAPI Backend:${NC}   http://localhost:8000 (Swagger: http://localhost:8000/docs)"
+echo -e "  ${GREEN}► Vite Frontend:${NC}     http://localhost:5173"
 echo ""
 echo -e "${YELLOW}Press [Ctrl+C] to stop all services.${NC}"
 echo "------------------------------------------------------------"
@@ -71,6 +98,10 @@ echo "------------------------------------------------------------"
 cleanup() {
     echo ""
     echo -e "${YELLOW}Shutting down Sanjivani services...${NC}"
+    if [ -n "$VLLM_PID" ]; then
+        echo "Stopping vLLM server (PID: $VLLM_PID)..."
+        kill "$VLLM_PID" 2>/dev/null || true
+    fi
     if [ -n "$BACKEND_PID" ]; then
         kill "$BACKEND_PID" 2>/dev/null || true
     fi
@@ -84,6 +115,21 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM EXIT
 
+# Start vLLM Model Server if enabled
+if [ "$START_VLLM" = true ]; then
+    echo -e "${CYAN}Launching vLLM server for '${VLLM_MODEL}' on port ${VLLM_PORT} (4-bit quantization)...${NC}"
+    export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
+    export VLLM_USE_FLASHINFER_SAMPLER=0
+    "$PYTHON_BIN" -m vllm.entrypoints.openai.api_server \
+        --model "$VLLM_MODEL" \
+        --port "$VLLM_PORT" \
+        --quantization "$VLLM_QUANT" \
+        --load-format "$VLLM_QUANT" \
+        --gpu-memory-utilization "$VLLM_GPU_UTIL" \
+        --max-model-len "$VLLM_MAX_LEN" &
+    VLLM_PID=$!
+fi
+
 # Start FastAPI Backend
 "$PYTHON_BIN" -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
@@ -92,5 +138,5 @@ BACKEND_PID=$!
 (cd "$ROOT_DIR/frontend" && npm run dev -- --host) &
 FRONTEND_PID=$!
 
-# Wait for both processes
+# Wait for all processes
 wait
