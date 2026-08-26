@@ -17,6 +17,8 @@ from app.core.config import settings
 from app.models.schemas import (
     ChatRequest,
     ClinicalHistoryRecord,
+    DownloadedModelInfo,
+    ModelsListResponse,
     OCRStructuredResult,
 )
 
@@ -911,6 +913,141 @@ class ClinicalLLMService:
         # Stage 2: Structure raw text into medications & lab investigations
         result = await self.parse_ocr_text(raw_text=raw_text)
         return result
+
+    # =========================================================================
+    # Phase 3: Dynamic Model Discovery & Switching
+    # =========================================================================
+
+    def _format_model_name(self, model_id: str) -> str:
+        parts = model_id.split("/")
+        org = parts[0] if len(parts) > 1 else ""
+        base = parts[-1]
+        readable = base.replace("-", " ").replace("_", " ").title()
+        if org and org.lower() not in ("models", "paddlepaddle"):
+            return f"{readable} ({org.capitalize()})"
+        return readable
+
+    async def get_available_models(self) -> ModelsListResponse:
+        """
+        Scan local Hugging Face hub cache and query active vLLM instance
+        to discover all downloaded and available models.
+        """
+        discovered: Dict[str, DownloadedModelInfo] = {}
+        vllm_loaded_ids = set()
+
+        # 1. Query live vLLM model endpoint
+        try:
+            models_res = await self._direct_chat_client.models.list()
+            for m in models_res.data:
+                vllm_loaded_ids.add(m.id)
+                discovered[m.id] = DownloadedModelInfo(
+                    id=m.id,
+                    name=self._format_model_name(m.id),
+                    size_on_disk="Active in VRAM",
+                    source="vllm_server",
+                    is_active=(m.id == self.text_model_name or m.id == self.vision_model_name),
+                    is_vllm_loaded=True,
+                )
+        except Exception as e:
+            logger.debug("vLLM live models query skipped: %s", str(e))
+
+        # 2. Scan Hugging Face cache using huggingface_hub
+        try:
+            from huggingface_hub import scan_cache_dir
+            cache_info = scan_cache_dir()
+            for repo in cache_info.repos:
+                if repo.repo_type == "model":
+                    repo_id = repo.repo_id
+                    is_active = (repo_id == self.text_model_name or repo_id == self.vision_model_name)
+                    is_vllm = repo_id in vllm_loaded_ids
+                    discovered[repo_id] = DownloadedModelInfo(
+                        id=repo_id,
+                        name=self._format_model_name(repo_id),
+                        size_on_disk=repo.size_on_disk_str,
+                        source="huggingface_cache",
+                        is_active=is_active,
+                        is_vllm_loaded=is_vllm,
+                    )
+        except Exception as e:
+            logger.debug("huggingface_hub cache scan skipped: %s", str(e))
+
+        # 3. Fallback filesystem scan of ~/.cache/huggingface/hub
+        import os
+        hf_hub = os.path.expanduser("~/.cache/huggingface/hub")
+        if os.path.exists(hf_hub):
+            for d in os.listdir(hf_hub):
+                if d.startswith("models--"):
+                    repo_id = d.replace("models--", "").replace("--", "/")
+                    if repo_id not in discovered:
+                        discovered[repo_id] = DownloadedModelInfo(
+                            id=repo_id,
+                            name=self._format_model_name(repo_id),
+                            source="huggingface_cache",
+                            is_active=(repo_id == self.text_model_name or repo_id == self.vision_model_name),
+                            is_vllm_loaded=(repo_id in vllm_loaded_ids),
+                        )
+
+        # 4. Always ensure configured active models are present
+        for active_id in (self.text_model_name, self.vision_model_name):
+            if active_id and active_id not in discovered:
+                discovered[active_id] = DownloadedModelInfo(
+                    id=active_id,
+                    name=self._format_model_name(active_id),
+                    source="configured",
+                    is_active=True,
+                    is_vllm_loaded=(active_id in vllm_loaded_ids),
+                )
+
+        model_list = list(discovered.values())
+        # Sort: active first, then vLLM loaded, then alphabetically
+        model_list.sort(key=lambda m: (not m.is_active, not m.is_vllm_loaded, m.name))
+
+        return ModelsListResponse(
+            status="success",
+            active_text_model=self.text_model_name,
+            active_vision_model=self.vision_model_name,
+            models=model_list,
+        )
+
+    def switch_model(self, model_name: str, target: str = "both") -> Tuple[str, str]:
+        target_lower = target.lower()
+        if target_lower in ("text", "both"):
+            self.text_model_name = model_name
+            chat_kwargs: Dict[str, Any] = {
+                "model": self.text_model_name,
+                "api_key": self.text_api_key,
+                "temperature": 0.2,
+            }
+            if self.text_base_url:
+                chat_kwargs["base_url"] = self.text_base_url
+            self._llm = ChatOpenAI(**chat_kwargs)
+            self._structured_llm_chat = self._llm.with_structured_output(
+                ClinicalHistoryRecord,
+                method="function_calling",
+            )
+
+        if target_lower in ("vision", "both"):
+            self.vision_model_name = model_name
+            vision_kwargs: Dict[str, Any] = {
+                "model": self.vision_model_name,
+                "api_key": self.vision_api_key,
+                "temperature": 0.1,
+            }
+            if self.vision_base_url:
+                vision_kwargs["base_url"] = self.vision_base_url
+            self._vision_llm = ChatOpenAI(**vision_kwargs)
+            self._structured_llm_ocr = self._vision_llm.with_structured_output(
+                OCRStructuredResult,
+                method="function_calling",
+            )
+
+        logger.info(
+            "Switched model: text='%s', vision='%s' (target=%s)",
+            self.text_model_name,
+            self.vision_model_name,
+            target,
+        )
+        return (self.text_model_name, self.vision_model_name)
 
 
 

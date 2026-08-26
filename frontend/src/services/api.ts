@@ -62,6 +62,33 @@ export async function scanDocument(
 }
 
 // ----------------------------------------------------------------
+// Models — GET & POST /api/v1/models
+// ----------------------------------------------------------------
+
+export async function fetchAvailableModels() {
+  const { data } = await apiClient.get<{
+    status: string
+    active_text_model: string
+    active_vision_model: string
+    models: import('../types').ModelInfo[]
+  }>('/models')
+  return data
+}
+
+export async function switchActiveModel(modelName: string, target: 'text' | 'vision' | 'both' = 'both') {
+  const { data } = await apiClient.post<{
+    status: string
+    message: string
+    active_text_model: string
+    active_vision_model: string
+  }>('/models/select', {
+    model_name: modelName,
+    target,
+  })
+  return data
+}
+
+// ----------------------------------------------------------------
 // Unified error extractor
 // ----------------------------------------------------------------
 

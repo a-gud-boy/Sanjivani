@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { Globe, ChevronDown, CheckCircle2, User } from 'lucide-react'
 import { LANGUAGES, type Language, type LanguageCode } from '../types'
+import ModelSelector from './ModelSelector'
 
 interface HeaderProps {
   language: LanguageCode
@@ -56,6 +57,9 @@ export default function Header({
 
         {/* ── Right Controls ── */}
         <div className="flex items-center gap-2 sm:gap-3">
+
+          {/* Model Selector Dropdown */}
+          <ModelSelector />
 
           {/* ABHA Status Chip */}
           {abhaLinked ? (

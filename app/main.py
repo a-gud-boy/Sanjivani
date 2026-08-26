@@ -9,6 +9,9 @@ from app.core.config import settings
 from app.models.schemas import (
     ChatRequest,
     ChatResponse,
+    ModelsListResponse,
+    ModelSwitchRequest,
+    ModelSwitchResponse,
     OCRStructuredResult,
     ScanDocumentResponse,
 )
@@ -186,3 +189,43 @@ async def scan_document_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Medical document entity parsing failed: {str(parse_err)}",
         )
+
+
+# ---- Model Management Endpoints ---------------------------------------------
+
+@app.get(
+    f"{settings.API_V1_PREFIX}/models",
+    response_model=ModelsListResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Model Management"],
+    summary="List all downloaded and active local/remote AI models",
+    description="Scans the local Hugging Face model cache and queries active vLLM instances to return available models.",
+)
+async def list_models_endpoint(
+    llm_service: ClinicalLLMService = Depends(get_llm_service),
+) -> ModelsListResponse:
+    return await llm_service.get_available_models()
+
+
+@app.post(
+    f"{settings.API_V1_PREFIX}/models/select",
+    response_model=ModelSwitchResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Model Management"],
+    summary="Switch active model for conversational intake or document OCR",
+    description="Dynamically changes the active inference model on the backend.",
+)
+async def select_model_endpoint(
+    request: ModelSwitchRequest,
+    llm_service: ClinicalLLMService = Depends(get_llm_service),
+) -> ModelSwitchResponse:
+    active_text, active_vision = llm_service.switch_model(
+        model_name=request.model_name,
+        target=request.target,
+    )
+    return ModelSwitchResponse(
+        status="success",
+        message=f"Active model successfully switched to '{request.model_name}'.",
+        active_text_model=active_text,
+        active_vision_model=active_vision,
+    )

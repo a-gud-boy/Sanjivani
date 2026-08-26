@@ -284,9 +284,39 @@ class OCRStructuredResult(BaseModel):
 class ScanDocumentResponse(BaseModel):
     status: str = Field(
         default="success",
-        description="Execution status of the medical document digitization pipeline."
+        description="Status of the document scan processing."
     )
     data: OCRStructuredResult = Field(
         ...,
-        description="The structured medication and lab investigation entities extracted from the medical document."
+        description="Structured clinical entities extracted from the medical document."
     )
+
+
+# ---- Model Management Schemas -----------------------------------------------
+
+class DownloadedModelInfo(BaseModel):
+    id: str = Field(..., description="Unique model identifier or repo ID (e.g. google/medgemma-1.5-4b-it).")
+    name: str = Field(..., description="Human-readable model name.")
+    size_on_disk: Optional[str] = Field(default=None, description="Size of the model on disk (e.g. 8.6 GB).")
+    source: str = Field(default="huggingface_cache", description="Source of the model (huggingface_cache, vllm_server, custom).")
+    is_active: bool = Field(default=False, description="Whether this model is currently active for inference.")
+    is_vllm_loaded: bool = Field(default=False, description="Whether this model is currently served by the local vLLM instance.")
+
+
+class ModelsListResponse(BaseModel):
+    status: str = Field(default="success")
+    active_text_model: str = Field(..., description="Currently active text/conversational model.")
+    active_vision_model: str = Field(..., description="Currently active vision model.")
+    models: List[DownloadedModelInfo] = Field(default_factory=list, description="List of all discovered downloaded local models.")
+
+
+class ModelSwitchRequest(BaseModel):
+    model_name: str = Field(..., description="Model ID to activate.")
+    target: str = Field(default="both", description="Target engine: 'text', 'vision', or 'both'.")
+
+
+class ModelSwitchResponse(BaseModel):
+    status: str = Field(default="success")
+    message: str
+    active_text_model: str
+    active_vision_model: str

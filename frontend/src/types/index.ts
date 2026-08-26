@@ -99,6 +99,24 @@ export interface ScanApiResponse {
   data: OCRStructuredResult
 }
 
+// ---- Model Management -------------------------------------------
+
+export interface ModelInfo {
+  id: string
+  name: string
+  size_on_disk?: string | null
+  source: string
+  is_active: boolean
+  is_vllm_loaded: boolean
+}
+
+export interface ModelsApiResponse {
+  status: 'success' | 'error'
+  active_text_model: string
+  active_vision_model: string
+  models: ModelInfo[]
+}
+
 // ---- Intake State (root orchestration) --------------------------
 
 export type ActiveTab = 'chat' | 'scanner'

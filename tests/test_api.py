@@ -172,3 +172,30 @@ def test_chat_endpoint_llm_failure_propagation():
 
     assert response.status_code == 500
     assert "Rate limit exceeded" in response.json()["detail"]
+
+
+def test_list_models_endpoint():
+    """Verify that GET /api/v1/models returns discovered models and active model names."""
+    response = client.get("/api/v1/models")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert "active_text_model" in data
+    assert "active_vision_model" in data
+    assert isinstance(data["models"], list)
+    assert len(data["models"]) > 0
+
+
+def test_select_model_endpoint():
+    """Verify that POST /api/v1/models/select switches active model in memory."""
+    payload = {
+        "model_name": "google/medgemma-1.5-4b-it",
+        "target": "both",
+    }
+    response = client.post("/api/v1/models/select", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["active_text_model"] == "google/medgemma-1.5-4b-it"
+    assert data["active_vision_model"] == "google/medgemma-1.5-4b-it"
+
