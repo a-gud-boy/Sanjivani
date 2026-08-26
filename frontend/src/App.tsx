@@ -89,8 +89,8 @@ export default function App() {
       const assistantContent = record.next_question_to_ask_patient ??
         'Thank you for sharing. Could you tell me more?'
 
-      // Derive quick-reply chips from context (could be dynamic from backend in future)
-      const quickReplies: string[] = []
+      // Dynamic AI-generated quick-reply chips from clinical record
+      const quickReplies: string[] = record.suggested_quick_replies ?? []
 
       const assistantMsg: ChatMessage = {
         id: newId(),

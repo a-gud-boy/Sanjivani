@@ -63,6 +63,7 @@ export interface ClinicalHistoryRecord {
   }
   red_flag_alert?: boolean
   next_question_to_ask_patient?: string
+  suggested_quick_replies?: string[]
   [key: string]: unknown
 }
 

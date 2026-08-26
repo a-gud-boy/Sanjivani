@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, status
 from langchain_core.messages import (
@@ -30,6 +30,7 @@ SYSTEM_PROMPT_CHAT = (
     "Never ask more than one or two simple questions at once. "
     "If the patient mentions chest pain, severe bleeding, sudden paralysis, or breathlessness, set red_flag_alert to true. "
     "In the next_question_to_ask_patient field, write the exact localized empathetic question for the voice assistant to speak next. "
+    "In the suggested_quick_replies field, generate 3 to 5 short, relevant response options (in the patient's language) that the patient can tap as quick replies to this specific question. "
     "Output ONLY a valid JSON object matching the blueprint."
 )
 
@@ -40,7 +41,8 @@ JSON_BLUEPRINT_CHAT = """{
   "ayush_dashavidha_pariksha": { "prakriti": null, "vikriti": null, "agni": null, "koshtha": null },
   "ahara_vihara_lifestyle": { "diet_habits": null, "sleep_pattern": null, "koshtha_bowel": null, "agni_digestion": null },
   "red_flag_alert": false,
-  "next_question_to_ask_patient": "..."
+  "next_question_to_ask_patient": "...",
+  "suggested_quick_replies": ["Option 1", "Option 2", "Option 3", "Option 4"]
 }"""
 
 SYSTEM_PROMPT_VLM = (
@@ -136,19 +138,23 @@ class ClinicalLLMService:
     # =========================================================================
 
     def _build_chat_system_prompt(self, current_state: Optional[ClinicalHistoryRecord]) -> str:
-        current_state_json = (
-            current_state.model_dump_json(exclude_none=True)
-            if current_state
-            else "{}"
-        )
+        if current_state:
+            state_dict = current_state.model_dump(exclude_none=True)
+            state_dict.pop("next_question_to_ask_patient", None)
+            state_dict.pop("suggested_quick_replies", None)
+            current_state_json = json.dumps(state_dict)
+        else:
+            current_state_json = "{}"
+
         return (
             f"{SYSTEM_PROMPT_CHAT}\n\n"
             f"--- JSON BLUEPRINT FORMAT ---\n"
             f"{JSON_BLUEPRINT_CHAT}\n\n"
-            f"--- CURRENT STRUCTURED CLINICAL STATE ---\n"
+            f"--- CURRENT STRUCTURED CLINICAL FINDINGS (SO FAR) ---\n"
             f"{current_state_json}\n\n"
             f"Integrate any newly reported symptoms into the JSON state while preserving prior fields. "
-            f"Set 'next_question_to_ask_patient' to an empathetic, targeted follow-up question in the patient's language. "
+            f"CRITICAL: Always generate a NEW, PROGRESSIVE follow-up question that advances the medical interview. "
+            f"Never repeat a question that was already asked or answered. "
             f"Output ONLY the valid JSON object."
         )
 
@@ -210,7 +216,101 @@ class ClinicalLLMService:
                     )
         return record
 
-    def _clean_and_parse_chat_json(self, raw_text: str, user_text: str = "") -> ClinicalHistoryRecord:
+    def _synthesize_next_clinical_question(
+        self,
+        data: Dict[str, Any],
+        user_text: str = "",
+        language: str = "en",
+    ) -> Tuple[str, List[str]]:
+        cc = data.get("chief_complaint") or {}
+        hpi = data.get("hpi_socrates") or {}
+        lifestyle = data.get("ahara_vihara_lifestyle") or {}
+        symptom = cc.get("symptom") or user_text or "your symptoms"
+        lang = (language or "en").lower()[:2]
+
+        if not cc.get("duration") and not hpi.get("onset"):
+            if lang == "hi":
+                return (
+                    f"यह {symptom} कब शुरू हुआ, और क्या यह लगातार बना हुआ है या कभी-कभी होता है?",
+                    ["आज ही शुरू हुआ", "2-3 दिन पहले", "लगभग 1 सप्ताह", "2 सप्ताह से अधिक"]
+                )
+            return (
+                f"When did this {symptom} start, and is it constant or does it come and go?",
+                ["Started today", "2–3 days ago", "About 1 week ago", "More than 2 weeks"]
+            )
+
+        if not hpi.get("character"):
+            if lang == "hi":
+                return (
+                    f"आप इस {symptom} को कैसे समझाएंगे? क्या यह तेज, धड़कता हुआ, जलन जैसा, या हल्का दर्द है?",
+                    ["तेज दर्द (Sharp)", "हल्का दर्द (Dull)", "धड़कता हुआ (Throbbing)", "जलन जैसा (Burning)"]
+                )
+            return (
+                f"How would you describe the {symptom}? Is it sharp, throbbing, burning, or a dull ache?",
+                ["Sharp pain", "Dull ache", "Throbbing", "Burning / Pressure", "Cramping"]
+            )
+
+        if not hpi.get("severity_1_to_10"):
+            if lang == "hi":
+                return (
+                    f"1 से 10 के पैमाने पर, अभी यह {symptom} कितना गंभीर महसूस हो रहा है?",
+                    ["हल्का (1–3)", "मध्यम (4–6)", "गंभीर (7–8)", "अत्यधिक गंभीर (9–10)"]
+                )
+            return (
+                f"On a scale of 1 to 10, how severe does the {symptom} feel right now?",
+                ["Mild (1–3)", "Moderate (4–6)", "Severe (7–8)", "Very Severe (9–10)"]
+            )
+
+        if not hpi.get("site") or not hpi.get("radiation"):
+            if lang == "hi":
+                return (
+                    f"दर्द विशेष रूप से किस जगह पर है, और क्या यह किसी अन्य भाग (जैसे गर्दन, पीठ या कंधों) में फैलता है?",
+                    ["एक ही जगह पर है", "गर्दन/कंधों में फैलता है", "पीठ में फैलता है", "पूरे हिस्से में"]
+                )
+            return (
+                f"Where exactly is the {symptom} located, and does it spread or radiate anywhere else?",
+                ["Stays in one spot", "Spreads to neck/shoulders", "Spreads to back", "All over"]
+            )
+
+        if not hpi.get("associations"):
+            if lang == "hi":
+                return (
+                    f"क्या आपको इसके साथ कोई अन्य लक्षण महसूस हो रहे हैं, जैसे मतली, चक्कर, बुखार या कमजोरी?",
+                    ["मतली / उल्टी", "चक्कर आना", "हल्का बुखार", "कोई अन्य लक्षण नहीं"]
+                )
+            return (
+                f"Are you noticing any other symptoms alongside the {symptom}, such as nausea, dizziness, or fever?",
+                ["Nausea / Dizziness", "Fever / Chills", "No other symptoms", "Fatigue / Weakness"]
+            )
+
+        if not lifestyle.get("agni_digestion") and not lifestyle.get("koshtha_bowel"):
+            if lang == "hi":
+                return (
+                    "आपकी भूख, पाचन और पेट साफ होने (मल त्याग) की स्थिति कैसी है?",
+                    ["पाचन ठीक है", "कब्ज की समस्या", "गैस / पेट फूलना", "भूख में कमी"]
+                )
+            return (
+                "How is your appetite, digestion, and bowel evacuation currently?",
+                ["Good appetite & digestion", "Constipation", "Gas / Bloating", "Loss of appetite"]
+            )
+
+        if lang == "hi":
+            return (
+                "क्या कोई विशेष गतिविधि, भोजन या आराम करने से आपके लक्षणों में सुधार होता है या वे बिगड़ते हैं?",
+                ["आराम से सुधार होता है", "चलने-फिरने से दर्द बढ़ता है", "खाने के बाद बढ़ता है", "कोई फर्क नहीं पड़ता"]
+            )
+        return (
+            "Is there anything specific that makes your symptoms better or worse (such as rest, posture, or food)?",
+            ["Rest helps", "Movement makes it worse", "Worse after eating", "Nothing helps"]
+        )
+
+    def _clean_and_parse_chat_json(
+        self,
+        raw_text: str,
+        user_text: str = "",
+        prior_question: str = "",
+        language: str = "en",
+    ) -> ClinicalHistoryRecord:
         cleaned = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
         if "```" in cleaned:
             match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned)
@@ -263,6 +363,14 @@ class ClinicalLLMService:
         elif not cc and user_text:
             data["chief_complaint"] = {"symptom": user_text}
 
+        # Check if user_text provides onset/duration
+        user_lower = user_text.lower()
+        if any(w in user_lower for w in ("started", "ago", "since", "days", "hours", "minutes", "weeks", "yesterday", "morning")):
+            if not (data.get("chief_complaint") or {}).get("duration"):
+                if "chief_complaint" not in data or not isinstance(data["chief_complaint"], dict):
+                    data["chief_complaint"] = {}
+                data["chief_complaint"]["duration"] = user_text
+
         # HPI SOCRATES
         hpi = data.get("hpi_socrates")
         if isinstance(hpi, dict):
@@ -293,7 +401,28 @@ class ClinicalLLMService:
             if hpi_dict:
                 data["hpi_socrates"] = hpi_dict
 
-        # 3. Normalize next question
+        # 3. Normalize suggested quick replies from model
+        qr_raw = (
+            data.get("suggested_quick_replies")
+            or data.get("quick_replies")
+            or data.get("suggestions")
+            or data.get("suggested_replies")
+            or data.get("options")
+            or []
+        )
+        normalized_qr: List[str] = []
+        if isinstance(qr_raw, list):
+            for item in qr_raw:
+                if isinstance(item, str) and item.strip():
+                    cleaned_item = item.strip().strip('"').strip("'")
+                    if 1 < len(cleaned_item) <= 40:
+                        normalized_qr.append(cleaned_item)
+                elif isinstance(item, dict):
+                    val = item.get("text") or item.get("label") or item.get("option")
+                    if val and isinstance(val, str) and 1 < len(val.strip()) <= 40:
+                        normalized_qr.append(val.strip())
+
+        # 4. Normalize & Disambiguate next question
         nq = (
             data.get("next_question_to_ask_patient")
             or data.get("next_question")
@@ -301,19 +430,37 @@ class ClinicalLLMService:
             or data.get("response")
             or data.get("reply")
         )
-        if nq and isinstance(nq, str) and len(nq.strip()) > 5:
-            data["next_question_to_ask_patient"] = nq.strip()
-        else:
-            symptom = (
-                (data.get("chief_complaint") or {}).get("primary_symptom")
-                or user_text
-                or "your symptoms"
-            )
-            data["next_question_to_ask_patient"] = (
-                f"Could you please describe where the {symptom} is located, when it started, and how severe it feels (1 to 10)?"
-            )
 
-        # 4. Red flag detection
+        prior_q_clean = (prior_question or "").lower().strip()
+        new_q_clean = (nq or "").lower().strip()
+
+        # Detect repetitive or already-answered questions
+        has_onset_answered = bool(
+            (data.get("chief_complaint") or {}).get("duration")
+            or (data.get("hpi_socrates") or {}).get("onset")
+        )
+        is_asking_onset = "when" in new_q_clean or "started" in new_q_clean
+
+        is_looping = (
+            not nq
+            or len(nq.strip()) < 8
+            or (prior_q_clean and (new_q_clean == prior_q_clean or new_q_clean in prior_q_clean or prior_q_clean in new_q_clean))
+            or (has_onset_answered and is_asking_onset)
+        )
+
+        if is_looping:
+            synth_q, synth_chips = self._synthesize_next_clinical_question(data, user_text, language)
+            data["next_question_to_ask_patient"] = synth_q
+            data["suggested_quick_replies"] = synth_chips
+        else:
+            data["next_question_to_ask_patient"] = nq.strip()
+            if not normalized_qr:
+                _, synth_chips = self._synthesize_next_clinical_question(data, user_text, language)
+                data["suggested_quick_replies"] = synth_chips
+            else:
+                data["suggested_quick_replies"] = normalized_qr[:5]
+
+        # 5. Red flag detection
         if self._check_red_flags(user_text) or data.get("red_flag_alert") is True:
             data["red_flag_alert"] = True
 
@@ -324,6 +471,7 @@ class ClinicalLLMService:
         user_text: str,
         current_state: Optional[ClinicalHistoryRecord],
         chat_history: List[Dict[str, Any]],
+        language: str = "en",
     ) -> ClinicalHistoryRecord:
         system_content = self._build_chat_system_prompt(current_state)
         formatted_messages = [{"role": "system", "content": system_content}]
@@ -341,6 +489,8 @@ class ClinicalLLMService:
 
         formatted_messages.append({"role": "user", "content": user_text})
 
+        prior_q = current_state.next_question_to_ask_patient if current_state else ""
+
         try:
             response = await self._direct_chat_client.chat.completions.create(
                 model=self.text_model_name,
@@ -349,7 +499,7 @@ class ClinicalLLMService:
                 temperature=0.2,
             )
             raw_content = response.choices[0].message.content or "{}"
-            return self._clean_and_parse_chat_json(raw_content, user_text)
+            return self._clean_and_parse_chat_json(raw_content, user_text, prior_q, language)
         except Exception as json_err:
             logger.warning("json_object format failed (%s), retrying standard prompt.", str(json_err))
             response = await self._direct_chat_client.chat.completions.create(
@@ -358,19 +508,25 @@ class ClinicalLLMService:
                 temperature=0.2,
             )
             raw_content = response.choices[0].message.content or "{}"
-            return self._clean_and_parse_chat_json(raw_content, user_text)
+            return self._clean_and_parse_chat_json(raw_content, user_text, prior_q, language)
 
     async def process_chat(self, request: ChatRequest) -> ClinicalHistoryRecord:
         """
         Process a conversational clinical intake turn using actual model inference.
         Uses fast direct JSON completion as primary strategy with LangChain as fallback.
         """
+        # Determine language preference
+        lang = "en"
+        if request.current_json_state and request.current_json_state.patient_demographics and request.current_json_state.patient_demographics.language_preference:
+            lang = request.current_json_state.patient_demographics.language_preference
+
         # 1. Primary Strategy: Direct JSON completion
         try:
             result = await self._direct_json_chat_completion(
                 user_text=request.user_text,
                 current_state=request.current_json_state,
                 chat_history=request.chat_history,
+                language=lang,
             )
             return self._apply_emergency_guardrail(result, request.user_text)
         except Exception as direct_err:

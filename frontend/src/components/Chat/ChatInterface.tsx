@@ -13,14 +13,6 @@ interface ChatInterfaceProps {
   onSendMessage: (text: string) => void
 }
 
-/** Default clinical quick-reply chips to seed the initial conversation */
-const SEED_CHIPS = [
-  '1–3 Days', '1 Week', 'More than 2 weeks',
-  'Sharp Pain', 'Dull Ache', 'Burning', 'Pressure',
-  'No Prior Allergies', 'Yes, I have allergies',
-  'Mild (1–3)', 'Moderate (4–6)', 'Severe (7–10)',
-]
-
 export default function ChatInterface({
   messages,
   isLoading,
@@ -83,11 +75,9 @@ export default function ChatInterface({
   const fmtDuration = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
-  // Chips: show seed chips when empty, or last assistant's quick replies
+  // Chips: dynamic AI-generated suggestions from the latest assistant message only
   const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
-  const visibleChips = messages.length === 0
-    ? SEED_CHIPS
-    : (lastAssistant?.quickReplies ?? [])
+  const visibleChips = lastAssistant?.quickReplies ?? []
 
   return (
     <div className="flex flex-col h-full">
@@ -113,7 +103,7 @@ export default function ChatInterface({
                 Welcome to Sanjivani Clinical Intake
               </p>
               <p className="text-slate-400 text-sm mt-1 max-w-xs">
-                Describe your symptoms or tap a quick reply below to begin your consultation.
+                Describe your symptoms to begin your clinical consultation.
               </p>
             </div>
           </div>
@@ -159,7 +149,7 @@ export default function ChatInterface({
         <QuickReplyChips
           chips={visibleChips}
           onSelect={(text) => {
-            setInputText(text)
+            setInputText('')
             onSendMessage(text)
           }}
           disabled={isLoading}

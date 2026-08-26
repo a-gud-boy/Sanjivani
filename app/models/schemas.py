@@ -192,6 +192,10 @@ class ClinicalHistoryRecord(BaseModel):
         default="Namaste! Please describe what health problem brings you in today.",
         description="The localized natural language question or clinical instruction to speak to the patient next."
     )
+    suggested_quick_replies: List[str] = Field(
+        default_factory=list,
+        description="3 to 5 dynamic, contextual quick-reply option chips tailored to the current question for the patient to tap (in the patient's language)."
+    )
 
 
 class ChatRequest(BaseModel):
