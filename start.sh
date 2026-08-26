@@ -84,7 +84,7 @@ if [ -f "$ROOT_DIR/.env" ]; then
     fi
 fi
 
-VLLM_MODEL="${VLLM_MODEL:-google/gemma-4-E4B-it}"
+VLLM_MODEL="${VLLM_MODEL:-google/medgemma-1.5-4b-it}"
 VLLM_PORT="${VLLM_PORT:-8001}"
 VLLM_GPU_UTIL="${VLLM_GPU_UTIL:-0.88}"
 VLLM_MAX_LEN="${VLLM_MAX_LEN:-4096}"
