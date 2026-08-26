@@ -301,6 +301,11 @@ class DownloadedModelInfo(BaseModel):
     source: str = Field(default="huggingface_cache", description="Source of the model (huggingface_cache, vllm_server, custom).")
     is_active: bool = Field(default=False, description="Whether this model is currently active for inference.")
     is_vllm_loaded: bool = Field(default=False, description="Whether this model is currently served by the local vLLM instance.")
+    supports_vision: bool = Field(default=True, description="Whether this model supports visual/image understanding (Multimodal VLM).")
+    multimodal_capabilities: List[str] = Field(
+        default_factory=lambda: ["text", "image"],
+        description="Supported input modalities (e.g. text, image)."
+    )
 
 
 class ModelsListResponse(BaseModel):

@@ -1,5 +1,7 @@
+import glob
 import json
 import logging
+import os
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -915,8 +917,86 @@ class ClinicalLLMService:
         return result
 
     # =========================================================================
-    # Phase 3: Dynamic Model Discovery & Switching
+    # Phase 3: Dynamic Model Discovery & Switching (Multimodal Text+Vision)
     # =========================================================================
+
+    MULTIMODAL_MODEL_TYPES = {
+        "gemma3", "gemma3_vl", "gemma_3", "qwen2_vl", "qwen2_5_vl", "qwen_vl",
+        "llava", "llava_next", "llava_onevision", "mllama", "chameleon",
+        "paligemma", "paligemma2", "pixtral", "florence2", "phi3_v", "phi3small_v",
+        "internvl", "internvl2", "idefics", "idefics2", "idefics3", "minicpmv",
+        "minicpm_v", "blip-2", "instructblip", "molmo", "aria", "aquila_vl",
+    }
+
+    MULTIMODAL_ARCHITECTURES = {
+        "Gemma3ForConditionalGeneration", "Qwen2VLForConditionalGeneration",
+        "Qwen2_5_VLForConditionalGeneration", "LlavaForConditionalGeneration",
+        "LlavaNextForConditionalGeneration", "MllamaForConditionalGeneration",
+        "ChameleonForConditionalGeneration", "PaliGemmaForConditionalGeneration",
+        "PixtralForConditionalGeneration", "Phi3VForCausalLM", "InternVLChatModel",
+        "IdeficsForVisionText2Text", "Idefics3ForConditionalGeneration",
+        "MiniCPMV", "Florence2ForConditionalGeneration",
+    }
+
+    MULTIMODAL_NAME_KEYWORDS = (
+        "medgemma", "qwen2-vl", "qwen2.5-vl", "llama-3.2-11b-vision", "llama-3.2-90b-vision",
+        "paligemma", "pixtral", "llava", "florence-2", "phi-3-vision", "phi-3.5-vision",
+        "minicpm-v", "internvl", "gemma-3", "-vl-", "-vl", "vision", "multimodal", "vlm",
+    )
+
+    EXCLUDED_PREFIXES = (
+        "sentence-transformers/", "PaddlePaddle/", "BAAI/", "intfloat/", "facebook/dpr",
+        "cross-encoder/", "nomic-ai/",
+    )
+
+    def _is_multimodal_model(self, model_id: str, repo_snapshot_path: Optional[str] = None) -> bool:
+        """
+        Determine whether a model supports BOTH text and image inputs (Multimodal VLM).
+        Filters out text-only LLMs, embedding models, and single-task OCR weights.
+        """
+        # 1. Check exclusions
+        if any(model_id.startswith(prefix) for prefix in self.EXCLUDED_PREFIXES):
+            return False
+
+        # 2. Check active system models
+        if model_id == self.text_model_name or model_id == self.vision_model_name:
+            if any(k in model_id.lower() for k in ("medgemma", "gemma-4", "gemma-3", "vision", "vl", "multimodal")):
+                return True
+
+        # 3. Check name keywords
+        lower_id = model_id.lower()
+        if any(kw in lower_id for kw in self.MULTIMODAL_NAME_KEYWORDS):
+            return True
+
+        # 4. Check config.json in HF cache snapshots
+        import glob
+        snapshot_dirs = []
+        if repo_snapshot_path and os.path.exists(repo_snapshot_path):
+            snapshot_dirs.append(repo_snapshot_path)
+        else:
+            hf_dir_name = "models--" + model_id.replace("/", "--")
+            hub_path = os.path.expanduser(f"~/.cache/huggingface/hub/{hf_dir_name}")
+            if os.path.exists(hub_path):
+                snapshot_dirs.append(hub_path)
+
+        for s_dir in snapshot_dirs:
+            configs = glob.glob(os.path.join(s_dir, "snapshots", "*", "config.json"))
+            for cfg_file in configs:
+                try:
+                    with open(cfg_file) as f:
+                        cfg = json.load(f)
+                        mtype = str(cfg.get("model_type", "")).lower()
+                        if mtype in self.MULTIMODAL_MODEL_TYPES:
+                            return True
+                        archs = cfg.get("architectures", [])
+                        if any(a in self.MULTIMODAL_ARCHITECTURES for a in archs):
+                            return True
+                        if any(k in cfg for k in ("vision_config", "vision_encoder", "image_token_index", "visual", "image_seq_length", "is_multimodal")):
+                            return True
+                except Exception:
+                    pass
+
+        return False
 
     def _format_model_name(self, model_id: str) -> str:
         parts = model_id.split("/")
@@ -930,7 +1010,7 @@ class ClinicalLLMService:
     async def get_available_models(self) -> ModelsListResponse:
         """
         Scan local Hugging Face hub cache and query active vLLM instance
-        to discover all downloaded and available models.
+        to discover all downloaded models that support BOTH text and image inputs (Multimodal).
         """
         discovered: Dict[str, DownloadedModelInfo] = {}
         vllm_loaded_ids = set()
@@ -940,14 +1020,17 @@ class ClinicalLLMService:
             models_res = await self._direct_chat_client.models.list()
             for m in models_res.data:
                 vllm_loaded_ids.add(m.id)
-                discovered[m.id] = DownloadedModelInfo(
-                    id=m.id,
-                    name=self._format_model_name(m.id),
-                    size_on_disk="Active in VRAM",
-                    source="vllm_server",
-                    is_active=(m.id == self.text_model_name or m.id == self.vision_model_name),
-                    is_vllm_loaded=True,
-                )
+                if self._is_multimodal_model(m.id):
+                    discovered[m.id] = DownloadedModelInfo(
+                        id=m.id,
+                        name=self._format_model_name(m.id),
+                        size_on_disk="Active in VRAM",
+                        source="vllm_server",
+                        is_active=(m.id == self.text_model_name or m.id == self.vision_model_name),
+                        is_vllm_loaded=True,
+                        supports_vision=True,
+                        multimodal_capabilities=["text", "image"],
+                    )
         except Exception as e:
             logger.debug("vLLM live models query skipped: %s", str(e))
 
@@ -958,16 +1041,19 @@ class ClinicalLLMService:
             for repo in cache_info.repos:
                 if repo.repo_type == "model":
                     repo_id = repo.repo_id
-                    is_active = (repo_id == self.text_model_name or repo_id == self.vision_model_name)
-                    is_vllm = repo_id in vllm_loaded_ids
-                    discovered[repo_id] = DownloadedModelInfo(
-                        id=repo_id,
-                        name=self._format_model_name(repo_id),
-                        size_on_disk=repo.size_on_disk_str,
-                        source="huggingface_cache",
-                        is_active=is_active,
-                        is_vllm_loaded=is_vllm,
-                    )
+                    if self._is_multimodal_model(repo_id, str(repo.repo_path)):
+                        is_active = (repo_id == self.text_model_name or repo_id == self.vision_model_name)
+                        is_vllm = repo_id in vllm_loaded_ids
+                        discovered[repo_id] = DownloadedModelInfo(
+                            id=repo_id,
+                            name=self._format_model_name(repo_id),
+                            size_on_disk=repo.size_on_disk_str,
+                            source="huggingface_cache",
+                            is_active=is_active,
+                            is_vllm_loaded=is_vllm,
+                            supports_vision=True,
+                            multimodal_capabilities=["text", "image"],
+                        )
         except Exception as e:
             logger.debug("huggingface_hub cache scan skipped: %s", str(e))
 
@@ -978,24 +1064,29 @@ class ClinicalLLMService:
             for d in os.listdir(hf_hub):
                 if d.startswith("models--"):
                     repo_id = d.replace("models--", "").replace("--", "/")
-                    if repo_id not in discovered:
+                    full_model_dir = os.path.join(hf_hub, d)
+                    if repo_id not in discovered and self._is_multimodal_model(repo_id, full_model_dir):
                         discovered[repo_id] = DownloadedModelInfo(
                             id=repo_id,
                             name=self._format_model_name(repo_id),
                             source="huggingface_cache",
                             is_active=(repo_id == self.text_model_name or repo_id == self.vision_model_name),
                             is_vllm_loaded=(repo_id in vllm_loaded_ids),
+                            supports_vision=True,
+                            multimodal_capabilities=["text", "image"],
                         )
 
-        # 4. Always ensure configured active models are present
+        # 4. Always ensure configured active models are present if multimodal
         for active_id in (self.text_model_name, self.vision_model_name):
-            if active_id and active_id not in discovered:
+            if active_id and active_id not in discovered and self._is_multimodal_model(active_id):
                 discovered[active_id] = DownloadedModelInfo(
                     id=active_id,
                     name=self._format_model_name(active_id),
                     source="configured",
                     is_active=True,
                     is_vllm_loaded=(active_id in vllm_loaded_ids),
+                    supports_vision=True,
+                    multimodal_capabilities=["text", "image"],
                 )
 
         model_list = list(discovered.values())

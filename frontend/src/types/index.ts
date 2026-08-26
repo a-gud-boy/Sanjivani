@@ -108,6 +108,8 @@ export interface ModelInfo {
   source: string
   is_active: boolean
   is_vllm_loaded: boolean
+  supports_vision?: boolean
+  multimodal_capabilities?: string[]
 }
 
 export interface ModelsApiResponse {

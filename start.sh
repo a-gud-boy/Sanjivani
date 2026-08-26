@@ -77,7 +77,14 @@ if [ "$START_VLLM" = true ] && [ -f "$ROOT_DIR/.env" ]; then
     fi
 fi
 
-VLLM_MODEL="${VLLM_MODEL:-google/medgemma-1.5-4b-it}"
+if [ -f "$ROOT_DIR/.env" ]; then
+    ENV_VLLM_MODEL=$(grep -E "^(VLLM_MODEL|TEXT_LLM_MODEL_NAME)=" "$ROOT_DIR/.env" | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | tr -d '\r')
+    if [ -n "$ENV_VLLM_MODEL" ]; then
+        VLLM_MODEL="$ENV_VLLM_MODEL"
+    fi
+fi
+
+VLLM_MODEL="${VLLM_MODEL:-google/gemma-4-E4B-it}"
 VLLM_PORT="${VLLM_PORT:-8001}"
 VLLM_GPU_UTIL="${VLLM_GPU_UTIL:-0.88}"
 VLLM_MAX_LEN="${VLLM_MAX_LEN:-4096}"

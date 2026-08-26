@@ -119,10 +119,10 @@ export default function ModelSelector() {
             <div>
               <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-brand-cyan" />
-                AI Inference Models
+                Multimodal AI Models
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                {models.length} downloaded model{models.length === 1 ? '' : 's'} in local cache
+                {models.length} model{models.length === 1 ? '' : 's'} with Text &amp; Image capabilities
               </p>
             </div>
 
@@ -131,7 +131,7 @@ export default function ModelSelector() {
               disabled={isLoading}
               className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200/60
                          transition-colors disabled:opacity-50"
-              title="Rescan downloaded models"
+              title="Rescan downloaded multimodal models"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
@@ -149,9 +149,9 @@ export default function ModelSelector() {
             {models.length === 0 ? (
               <div className="text-center py-6 px-4">
                 <HardDrive className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-medium text-slate-600">No cached models detected</p>
+                <p className="text-xs font-medium text-slate-600">No multimodal models detected</p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Download models using <code className="bg-slate-100 px-1 py-0.5 rounded">hf download</code> or vLLM.
+                  Download Vision-Language models like <code className="bg-slate-100 px-1 py-0.5 rounded">google/medgemma-1.5-4b-it</code> or <code className="bg-slate-100 px-1 py-0.5 rounded">Qwen2.5-VL</code>.
                 </p>
               </div>
             ) : (
@@ -190,14 +190,16 @@ export default function ModelSelector() {
                         {model.id}
                       </p>
 
-                      <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-500">
+                      <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-500">
+                        <span className="inline-flex items-center gap-1 bg-cyan-50 text-brand-cyan font-medium px-2 py-0.5 rounded-md border border-cyan-100">
+                          Text + Image (VLM)
+                        </span>
                         {model.size_on_disk && (
                           <span className="inline-flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded-md font-medium text-slate-600">
                             <HardDrive className="w-2.5 h-2.5" />
                             {model.size_on_disk}
                           </span>
                         )}
-                        <span className="capitalize">{model.source.replace('_', ' ')}</span>
                       </div>
                     </div>
 
@@ -218,7 +220,7 @@ export default function ModelSelector() {
 
           {/* Footer note */}
           <div className="px-4 py-2.5 bg-slate-50 text-[11px] text-slate-500 flex items-center justify-between">
-            <span>Switches both Chat &amp; Vision OCR targets</span>
+            <span>Supports both Chat &amp; Prescription OCR</span>
             <span className="font-mono text-[10px] text-slate-400">Port 8001 / vLLM</span>
           </div>
         </div>
