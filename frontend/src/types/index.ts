@@ -72,6 +72,12 @@ export interface ChatApiResponse {
   data: ClinicalHistoryRecord
 }
 
+export interface ChatInitApiResponse {
+  status: 'success' | 'error'
+  greeting: string
+  suggested_quick_replies: string[]
+}
+
 // ---- Medications & Lab Results ----------------------------------
 
 export interface Medication {

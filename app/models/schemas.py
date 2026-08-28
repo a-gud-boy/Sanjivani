@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, Field
 
 
@@ -33,7 +33,7 @@ class AgniType(str, Enum):
 
 
 class PatientDemographics(BaseModel):
-    vaya_age_group: Optional[VayaAgeGroup] = Field(
+    vaya_age_group: Optional[Union[VayaAgeGroup, str]] = Field(
         default=None,
         description="Ayurvedic age group classification: Balya (childhood), Madhyama (middle age), or Jirna (elderly)."
     )
@@ -93,16 +93,14 @@ class HpiSocrates(BaseModel):
         default=None,
         description="Exacerbating/Relieving factors: Circumstances, foods, postures, or activities that aggravate or alleviate the symptom."
     )
-    severity_1_to_10: Optional[int] = Field(
+    severity_1_to_10: Optional[Union[int, str]] = Field(
         default=None,
-        ge=1,
-        le=10,
-        description="Severity: Subjective symptom/pain severity rating on a 1 to 10 scale."
+        description="Severity: Subjective symptom/pain severity rating on a 1 to 10 scale or descriptive label (e.g. 7 or 'Moderate')."
     )
 
 
 class AyushDashavidhaPariksha(BaseModel):
-    prakriti: Optional[PrakritiType] = Field(
+    prakriti: Optional[Union[PrakritiType, str]] = Field(
         default=None,
         description="Prakriti: Physical and psychological constitution (Vata, Pitta, Kapha, Dual, Sama)."
     )
@@ -145,11 +143,11 @@ class AyushDashavidhaPariksha(BaseModel):
 
 
 class AharaViharaLifestyle(BaseModel):
-    koshtha_bowel: Optional[KoshthaType] = Field(
+    koshtha_bowel: Optional[Union[KoshthaType, str]] = Field(
         default=None,
         description="Koshtha: Nature of bowel evacuation and gut motility (Krura, Mridu, or Madhya)."
     )
-    agni_digestion: Optional[AgniType] = Field(
+    agni_digestion: Optional[Union[AgniType, str]] = Field(
         default=None,
         description="Agni: State of digestive metabolic fire (Vishamagni, Tikshnagni, Mandagni, Samagni)."
     )
@@ -221,6 +219,21 @@ class ChatResponse(BaseModel):
     data: ClinicalHistoryRecord = Field(
         ...,
         description="The updated structured clinical history record."
+    )
+
+
+class ChatInitResponse(BaseModel):
+    status: str = Field(
+        default="success",
+        description="Execution status of the chat initialization request."
+    )
+    greeting: str = Field(
+        ...,
+        description="The dynamically generated clinical opening greeting message from the AI."
+    )
+    suggested_quick_replies: List[str] = Field(
+        default_factory=list,
+        description="Dynamic quick reply options representing common primary complaints in the chosen language."
     )
 
 

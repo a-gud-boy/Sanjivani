@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { MessageSquare, ScanLine, LayoutDashboard } from 'lucide-react'
 import type {
   IntakeState,
@@ -7,7 +7,12 @@ import type {
   ChatHistoryEntry,
   ActiveTab,
 } from './types'
-import { sendChatMessage, scanDocument, extractErrorMessage } from './services/api'
+import {
+  getInitialGreeting,
+  sendChatMessage,
+  scanDocument,
+  extractErrorMessage,
+} from './services/api'
 
 import Header from './components/Header'
 import RedFlagAlert from './components/RedFlagAlert'
@@ -43,6 +48,60 @@ export default function App() {
   const [chatError, setChatError] = useState<string | null>(null)
   const [scanLoading, setScanLoading] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
+
+  // ── Auto-initialize dynamic AI opening greeting (AI starts first) ───────────
+  useEffect(() => {
+    // Run if chat is empty or if only the initial AI greeting is present and language changed
+    const isOnlyInitialAssistant =
+      state.messages.length === 1 && state.messages[0].role === 'assistant'
+    if (state.messages.length === 0 || isOnlyInitialAssistant) {
+      let isSubscribed = true
+      setChatLoading(true)
+      getInitialGreeting(state.language)
+        .then((res) => {
+          if (!isSubscribed) return
+          const assistantMsg: ChatMessage = {
+            id: newId(),
+            role: 'assistant',
+            content: res.greeting,
+            timestamp: new Date(),
+            quickReplies: res.suggested_quick_replies,
+          }
+          setState((s) => ({
+            ...s,
+            messages: [assistantMsg],
+          }))
+        })
+        .catch((err) => {
+          if (!isSubscribed) return
+          console.warn('Initial greeting fetch failed, using localized dynamic fallback:', err)
+          const fallbackMsg: ChatMessage = {
+            id: newId(),
+            role: 'assistant',
+            content:
+              state.language === 'hi'
+                ? 'नमस्ते! मैं संजीवनी, आपकी क्लिनिकल इनटेक सहायक हूँ। कृपया बताएं कि आज आपको क्या स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?'
+                : 'Hello! I am Sanjivani, your AI clinical intake assistant. What health symptoms or discomfort can I help document for you today?',
+            timestamp: new Date(),
+            quickReplies:
+              state.language === 'hi'
+                ? ['सिरदर्द / बदन दर्द', 'बुखार, सर्दी या खांसी', 'पेट या पाचन की समस्या', 'सामान्य स्वास्थ्य जांच']
+                : ['Headache / Body Ache', 'Fever, Cold or Cough', 'Stomach or Digestion issue', 'General Health Checkup'],
+          }
+          setState((s) => ({
+            ...s,
+            messages: [fallbackMsg],
+          }))
+        })
+        .finally(() => {
+          if (isSubscribed) setChatLoading(false)
+        })
+
+      return () => {
+        isSubscribed = false
+      }
+    }
+  }, [state.language, state.messages.length === 0])
 
   // ── Language ────────────────────────────────────────────────────────────────
   const handleLanguageChange = useCallback((code: LanguageCode) => {

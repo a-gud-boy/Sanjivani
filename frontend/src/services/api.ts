@@ -2,6 +2,7 @@ import axios from 'axios'
 import type {
   ChatApiRequest,
   ChatApiResponse,
+  ChatInitApiResponse,
   LanguageCode,
   ChatHistoryEntry,
   ScanApiResponse,
@@ -18,6 +19,20 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 })
+
+// ----------------------------------------------------------------
+// Chat Init — GET /api/v1/chat/init
+// ----------------------------------------------------------------
+
+export async function getInitialGreeting(
+  language: LanguageCode,
+  patientName?: string,
+): Promise<ChatInitApiResponse> {
+  const params: Record<string, string> = { language }
+  if (patientName) params.patient_name = patientName
+  const { data } = await apiClient.get<ChatInitApiResponse>('/chat/init', { params })
+  return data
+}
 
 // ----------------------------------------------------------------
 // Chat — POST /api/v1/chat

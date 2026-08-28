@@ -27,26 +27,28 @@ from app.models.schemas import (
 logger = logging.getLogger("sanjivani.llm_service")
 
 SYSTEM_PROMPT_CHAT = (
-    "You are an expert AI clinical intake assistant for the Ministry of Ayush. "
-    "Your job is to elicit a comprehensive medical history from a patient using a conversational approach. "
-    "Elicit both Allopathic (SOCRATES: Site, Onset, Character, Radiation, Associated symptoms, Timing, Exacerbating/relieving, Severity 1-10) "
-    "and Ayurvedic data (Dashavidha Pariksha, Agni, Koshtha). "
-    "Never ask more than one or two simple questions at once. "
-    "If the patient mentions chest pain, severe bleeding, sudden paralysis, or breathlessness, set red_flag_alert to true. "
-    "In the next_question_to_ask_patient field, write the exact localized empathetic question for the voice assistant to speak next. "
-    "In the suggested_quick_replies field, generate 3 to 5 short, relevant response options (in the patient's language) that the patient can tap as quick replies to this specific question. "
-    "Output ONLY a valid JSON object matching the blueprint."
+    "You are Sanjivani (संजीवनी), a compassionate, professional AI medical clinician and clinical intake assistant for the Ministry of Ayush.\n\n"
+    "CLINICAL CONSULTATION PRINCIPLES:\n"
+    "1. REAL CLINICAL EXPERTISE: Act like a real doctor. Listen attentively, understand the user's situation in context, and converse naturally and empathetically.\n"
+    "   - General Checkup / Wellness: If the patient wants a general checkup or has no specific complaints, ask about their overall energy levels, sleep patterns, digestion, chronic illnesses (like diabetes or hypertension), or family medical history.\n"
+    "   - Specific Symptoms: If the patient reports pain, fever, cough, skin lesions, or digestive issues, naturally ask relevant follow-up questions to understand the condition (location, duration, quality, triggers) and Ayurvedic digestion/lifestyle factors.\n"
+    "   - Greetings / Casual remarks: Warmly greet back, introduce yourself, and ask how you can assist their health today.\n"
+    "2. CONVERSATIONAL PROGRESSION: In 'next_question_to_ask_patient', formulate ONE clear, polite, and clinically appropriate question or response to advance the consultation in the patient's language.\n"
+    "3. RELEVANT QUICK REPLIES: In 'suggested_quick_replies', generate 3 to 5 natural, short reply chips (2-4 words each) specifically relevant to the question you just asked.\n"
+    "4. STRUCTURED DATA: Incrementally update the clinical record JSON with accurate entities (demographics, chief complaint, SOCRATES details, Ayush Agni/Koshtha parameters) based on what the patient actually shared.\n"
+    "5. EMERGENCY RED FLAGS: If acute life-threatening symptoms (e.g. crushing chest pain with radiation, severe breathlessness, sudden paralysis, heavy bleeding) are described, set 'red_flag_alert': true and advise immediate emergency hospital care.\n\n"
+    "Output ONLY a single valid JSON object matching the blueprint."
 )
 
 JSON_BLUEPRINT_CHAT = """{
   "patient_demographics": { "name": null, "age_years": null, "gender": null, "language_preference": "en" },
-  "chief_complaint": { "symptom": "...", "duration": "..." },
-  "hpi_socrates": { "site": "...", "onset": "...", "character": "...", "radiation": null, "associations": null, "time_course": null, "exacerbating_relieving": null, "severity_1_to_10": null },
+  "chief_complaint": { "symptom": null, "duration": null },
+  "hpi_socrates": { "site": null, "onset": null, "character": null, "radiation": null, "associations": null, "time_course": null, "exacerbating_relieving": null, "severity_1_to_10": null },
   "ayush_dashavidha_pariksha": { "prakriti": null, "vikriti": null, "agni": null, "koshtha": null },
   "ahara_vihara_lifestyle": { "diet_habits": null, "sleep_pattern": null, "koshtha_bowel": null, "agni_digestion": null },
   "red_flag_alert": false,
-  "next_question_to_ask_patient": "...",
-  "suggested_quick_replies": ["Option 1", "Option 2", "Option 3", "Option 4"]
+  "next_question_to_ask_patient": "Empathetic, intelligent doctor next question here",
+  "suggested_quick_replies": ["Relevant option 1", "Relevant option 2", "Relevant option 3"]
 }"""
 
 SYSTEM_PROMPT_VLM = (
@@ -69,6 +71,19 @@ RED_FLAG_KEYWORDS = [
     "shortness of breath",
     "cannot breathe",
     "unconscious",
+]
+
+GREETINGS_PATTERN = re.compile(
+    r"^(hi|hello|hey|hola|namaste|namaskar|pranam|vanakkam|namaskaram|sasriyakaal|adaab|"
+    r"good\s+(morning|afternoon|evening|day|night)|how\s+are\s+you|who\s+are\s+you|"
+    r"what\s+can\s+you\s+do|test|testing|ok|okay|k|help|thanks|thank\s+you|bye|goodbye|"
+    r"sup|yo|wassup|start|begin|hlo|hii+|heyy+|namaskaar)[\s\.\!\?,]*$",
+    re.IGNORECASE,
+)
+
+OFFTOPIC_KEYWORDS = [
+    "weather", "joke", "poem", "song", "who is the prime minister", "president",
+    "cricket", "football", "movie", "cinema", "politics", "recipe", "capital of"
 ]
 
 
@@ -142,24 +157,28 @@ class ClinicalLLMService:
     # =========================================================================
 
     def _build_chat_system_prompt(self, current_state: Optional[ClinicalHistoryRecord]) -> str:
+        state_info = ""
         if current_state:
             state_dict = current_state.model_dump(exclude_none=True)
             state_dict.pop("next_question_to_ask_patient", None)
             state_dict.pop("suggested_quick_replies", None)
-            current_state_json = json.dumps(state_dict)
-        else:
-            current_state_json = "{}"
+            if state_dict:
+                state_info = f"\n\nCURRENT CLINICAL RECORD EXTRACTED SO FAR:\n{json.dumps(state_dict, indent=2)}"
 
         return (
-            f"{SYSTEM_PROMPT_CHAT}\n\n"
-            f"--- JSON BLUEPRINT FORMAT ---\n"
-            f"{JSON_BLUEPRINT_CHAT}\n\n"
-            f"--- CURRENT STRUCTURED CLINICAL FINDINGS (SO FAR) ---\n"
-            f"{current_state_json}\n\n"
-            f"Integrate any newly reported symptoms into the JSON state while preserving prior fields. "
-            f"CRITICAL: Always generate a NEW, PROGRESSIVE follow-up question that advances the medical interview. "
-            f"Never repeat a question that was already asked or answered. "
-            f"Output ONLY the valid JSON object."
+            "You are Sanjivani (संजीवनी), a compassionate, professional AI medical clinician for the Ministry of Ayush.\n"
+            "Your role is to conduct a natural, intelligent patient intake consultation just like an experienced clinical doctor.\n"
+            "Converse empathetically with the patient, listen to their concerns (symptoms, general wellness check, lifestyle, questions), and ask relevant medical follow-up questions.\n\n"
+            "OUTPUT INSTRUCTION:\n"
+            "Respond by outputting ONLY a single JSON object containing:\n"
+            "- \"next_question_to_ask_patient\": Your empathetic, contextual clinical question or reply to the patient (in the patient's language).\n"
+            "- \"suggested_quick_replies\": A list of 3 to 4 short, realistic quick-reply options (2-4 words each) relevant to your question.\n"
+            "- \"chief_complaint\": {\"symptom\": string or null, \"duration\": string or null}\n"
+            "- \"hpi_socrates\": {\"site\": string or null, \"onset\": string or null, \"character\": string or null, \"radiation\": string or null, \"associations\": string or null, \"time_course\": string or null, \"exacerbating_relieving\": string or null, \"severity_1_to_10\": number or string or null}\n"
+            "- \"ayush_dashavidha_pariksha\": {\"prakriti\": string or null, \"vikriti\": string or null, \"agni\": string or null, \"koshtha\": string or null}\n"
+            "- \"ahara_vihara_lifestyle\": {\"diet_habits\": string or null, \"sleep_pattern\": string or null, \"koshtha_bowel\": string or null, \"agni_digestion\": string or null}\n"
+            "- \"red_flag_alert\": boolean (true if emergency symptoms like acute chest pain, stroke signs, or severe respiratory distress are reported, otherwise false)"
+            f"{state_info}"
         )
 
     def _build_chat_messages(
@@ -196,6 +215,25 @@ class ClinicalLLMService:
         lower_text = text.lower()
         return any(keyword in lower_text for keyword in RED_FLAG_KEYWORDS)
 
+    def _is_greeting_or_non_symptom(self, text: Optional[str]) -> bool:
+        if not text:
+            return True
+        cleaned = text.strip().lower()
+        if not cleaned:
+            return True
+        if GREETINGS_PATTERN.match(cleaned):
+            return True
+        pure_words = re.findall(r'[a-zA-Z\u0900-\u097F]+', cleaned)
+        if len(pure_words) <= 3 and all(w in {
+            "hi", "hello", "hey", "namaste", "namaskar", "pranam", "sanjivani",
+            "sir", "madam", "doctor", "doc", "good", "morning", "afternoon",
+            "evening", "there", "friend", "bot", "ai", "aap", "kaise", "ho", "kya", "hal", "hai"
+        } for w in pure_words):
+            return True
+        if any(k in cleaned for k in OFFTOPIC_KEYWORDS):
+            return True
+        return False
+
     def _apply_emergency_guardrail(
         self,
         record: ClinicalHistoryRecord,
@@ -220,93 +258,31 @@ class ClinicalLLMService:
                     )
         return record
 
-    def _synthesize_next_clinical_question(
-        self,
-        data: Dict[str, Any],
-        user_text: str = "",
-        language: str = "en",
-    ) -> Tuple[str, List[str]]:
-        cc = data.get("chief_complaint") or {}
-        hpi = data.get("hpi_socrates") or {}
-        lifestyle = data.get("ahara_vihara_lifestyle") or {}
-        symptom = cc.get("symptom") or user_text or "your symptoms"
-        lang = (language or "en").lower()[:2]
-
-        if not cc.get("duration") and not hpi.get("onset"):
-            if lang == "hi":
-                return (
-                    f"यह {symptom} कब शुरू हुआ, और क्या यह लगातार बना हुआ है या कभी-कभी होता है?",
-                    ["आज ही शुरू हुआ", "2-3 दिन पहले", "लगभग 1 सप्ताह", "2 सप्ताह से अधिक"]
-                )
-            return (
-                f"When did this {symptom} start, and is it constant or does it come and go?",
-                ["Started today", "2–3 days ago", "About 1 week ago", "More than 2 weeks"]
-            )
-
-        if not hpi.get("character"):
-            if lang == "hi":
-                return (
-                    f"आप इस {symptom} को कैसे समझाएंगे? क्या यह तेज, धड़कता हुआ, जलन जैसा, या हल्का दर्द है?",
-                    ["तेज दर्द (Sharp)", "हल्का दर्द (Dull)", "धड़कता हुआ (Throbbing)", "जलन जैसा (Burning)"]
-                )
-            return (
-                f"How would you describe the {symptom}? Is it sharp, throbbing, burning, or a dull ache?",
-                ["Sharp pain", "Dull ache", "Throbbing", "Burning / Pressure", "Cramping"]
-            )
-
-        if not hpi.get("severity_1_to_10"):
-            if lang == "hi":
-                return (
-                    f"1 से 10 के पैमाने पर, अभी यह {symptom} कितना गंभीर महसूस हो रहा है?",
-                    ["हल्का (1–3)", "मध्यम (4–6)", "गंभीर (7–8)", "अत्यधिक गंभीर (9–10)"]
-                )
-            return (
-                f"On a scale of 1 to 10, how severe does the {symptom} feel right now?",
-                ["Mild (1–3)", "Moderate (4–6)", "Severe (7–8)", "Very Severe (9–10)"]
-            )
-
-        if not hpi.get("site") or not hpi.get("radiation"):
-            if lang == "hi":
-                return (
-                    f"दर्द विशेष रूप से किस जगह पर है, और क्या यह किसी अन्य भाग (जैसे गर्दन, पीठ या कंधों) में फैलता है?",
-                    ["एक ही जगह पर है", "गर्दन/कंधों में फैलता है", "पीठ में फैलता है", "पूरे हिस्से में"]
-                )
-            return (
-                f"Where exactly is the {symptom} located, and does it spread or radiate anywhere else?",
-                ["Stays in one spot", "Spreads to neck/shoulders", "Spreads to back", "All over"]
-            )
-
-        if not hpi.get("associations"):
-            if lang == "hi":
-                return (
-                    f"क्या आपको इसके साथ कोई अन्य लक्षण महसूस हो रहे हैं, जैसे मतली, चक्कर, बुखार या कमजोरी?",
-                    ["मतली / उल्टी", "चक्कर आना", "हल्का बुखार", "कोई अन्य लक्षण नहीं"]
-                )
-            return (
-                f"Are you noticing any other symptoms alongside the {symptom}, such as nausea, dizziness, or fever?",
-                ["Nausea / Dizziness", "Fever / Chills", "No other symptoms", "Fatigue / Weakness"]
-            )
-
-        if not lifestyle.get("agni_digestion") and not lifestyle.get("koshtha_bowel"):
-            if lang == "hi":
-                return (
-                    "आपकी भूख, पाचन और पेट साफ होने (मल त्याग) की स्थिति कैसी है?",
-                    ["पाचन ठीक है", "कब्ज की समस्या", "गैस / पेट फूलना", "भूख में कमी"]
-                )
-            return (
-                "How is your appetite, digestion, and bowel evacuation currently?",
-                ["Good appetite & digestion", "Constipation", "Gas / Bloating", "Loss of appetite"]
-            )
-
-        if lang == "hi":
-            return (
-                "क्या कोई विशेष गतिविधि, भोजन या आराम करने से आपके लक्षणों में सुधार होता है या वे बिगड़ते हैं?",
-                ["आराम से सुधार होता है", "चलने-फिरने से दर्द बढ़ता है", "खाने के बाद बढ़ता है", "कोई फर्क नहीं पड़ता"]
-            )
-        return (
-            "Is there anything specific that makes your symptoms better or worse (such as rest, posture, or food)?",
-            ["Rest helps", "Movement makes it worse", "Worse after eating", "Nothing helps"]
-        )
+    @staticmethod
+    def _sanitize_json_entities(obj: Any) -> Any:
+        if isinstance(obj, dict):
+            cleaned = {}
+            for k, v in obj.items():
+                val = ClinicalLLMService._sanitize_json_entities(v)
+                if k in ("symptom", "site", "onset", "character", "radiation", "associations", "time_course", "exacerbating_relieving", "duration"):
+                    if isinstance(val, list):
+                        val = ", ".join(str(x) for x in val if x)
+                elif k in ("prakriti", "vikriti", "agni", "koshtha", "koshtha_bowel", "agni_digestion", "vaya_age_group"):
+                    if isinstance(val, str):
+                        s_lower = val.lower().strip()
+                        if any(w in s_lower for w in ("none mentioned", "none reported", "not specified", "unspecified", "normal", "healthy", "balanced", "n/a", "none")):
+                            val = None
+                cleaned[k] = val
+            return cleaned
+        elif isinstance(obj, list):
+            return [ClinicalLLMService._sanitize_json_entities(item) for item in obj]
+        elif isinstance(obj, str):
+            s = obj.strip()
+            s_lower = s.lower()
+            if s_lower in ("...", "…", "null", "none", "n/a", "not specified", "none mentioned", "none reported", "unknown", "unspecified"):
+                return None
+            return s
+        return obj
 
     def _clean_and_parse_chat_json(
         self,
@@ -329,7 +305,9 @@ class ClinicalLLMService:
         data: Dict[str, Any] = {}
         if brace_start != -1 and brace_end != -1 and brace_end > brace_start:
             try:
-                data = json.loads(cleaned[brace_start : brace_end + 1])
+                parsed = json.loads(cleaned[brace_start : brace_end + 1])
+                if isinstance(parsed, dict):
+                    data = self._sanitize_json_entities(parsed)
             except Exception:
                 data = {}
 
@@ -349,7 +327,7 @@ class ClinicalLLMService:
             if demo:
                 data["patient_demographics"] = demo
 
-        # 2. Normalize chief complaint & SOCRATES from flat or nested 'allopathic_history'
+        # 2. Normalize chief complaint & SOCRATES
         allo = data.get("allopathic_history") if isinstance(data.get("allopathic_history"), dict) else {}
 
         # Chief complaint
@@ -364,16 +342,6 @@ class ClinicalLLMService:
                 "symptom": str(allo.get("chief_complaint")),
                 "duration": str(allo.get("duration")) if allo.get("duration") else None,
             }
-        elif not cc and user_text:
-            data["chief_complaint"] = {"symptom": user_text}
-
-        # Check if user_text provides onset/duration
-        user_lower = user_text.lower()
-        if any(w in user_lower for w in ("started", "ago", "since", "days", "hours", "minutes", "weeks", "yesterday", "morning")):
-            if not (data.get("chief_complaint") or {}).get("duration"):
-                if "chief_complaint" not in data or not isinstance(data["chief_complaint"], dict):
-                    data["chief_complaint"] = {}
-                data["chief_complaint"]["duration"] = user_text
 
         # HPI SOCRATES
         hpi = data.get("hpi_socrates")
@@ -405,7 +373,7 @@ class ClinicalLLMService:
             if hpi_dict:
                 data["hpi_socrates"] = hpi_dict
 
-        # 3. Normalize suggested quick replies from model
+        # 3. Extract and normalize model's suggested quick replies
         qr_raw = (
             data.get("suggested_quick_replies")
             or data.get("quick_replies")
@@ -419,14 +387,14 @@ class ClinicalLLMService:
             for item in qr_raw:
                 if isinstance(item, str) and item.strip():
                     cleaned_item = item.strip().strip('"').strip("'")
-                    if 1 < len(cleaned_item) <= 40:
+                    if 1 < len(cleaned_item) <= 45:
                         normalized_qr.append(cleaned_item)
                 elif isinstance(item, dict):
                     val = item.get("text") or item.get("label") or item.get("option")
-                    if val and isinstance(val, str) and 1 < len(val.strip()) <= 40:
+                    if val and isinstance(val, str) and 1 < len(val.strip()) <= 45:
                         normalized_qr.append(val.strip())
 
-        # 4. Normalize & Disambiguate next question
+        # 4. Extract and preserve model's next conversational question
         nq = (
             data.get("next_question_to_ask_patient")
             or data.get("next_question")
@@ -435,40 +403,85 @@ class ClinicalLLMService:
             or data.get("reply")
         )
 
-        prior_q_clean = (prior_question or "").lower().strip()
-        new_q_clean = (nq or "").lower().strip()
-
-        # Detect repetitive or already-answered questions
-        has_onset_answered = bool(
-            (data.get("chief_complaint") or {}).get("duration")
-            or (data.get("hpi_socrates") or {}).get("onset")
-        )
-        is_asking_onset = "when" in new_q_clean or "started" in new_q_clean
-
-        is_looping = (
-            not nq
-            or len(nq.strip()) < 8
-            or (prior_q_clean and (new_q_clean == prior_q_clean or new_q_clean in prior_q_clean or prior_q_clean in new_q_clean))
-            or (has_onset_answered and is_asking_onset)
-        )
-
-        if is_looping:
-            synth_q, synth_chips = self._synthesize_next_clinical_question(data, user_text, language)
-            data["next_question_to_ask_patient"] = synth_q
-            data["suggested_quick_replies"] = synth_chips
-        else:
+        lang = (language or "en").lower()[:2]
+        if nq and isinstance(nq, str) and len(nq.strip()) >= 5:
             data["next_question_to_ask_patient"] = nq.strip()
-            if not normalized_qr:
-                _, synth_chips = self._synthesize_next_clinical_question(data, user_text, language)
-                data["suggested_quick_replies"] = synth_chips
+        else:
+            if lang == "hi":
+                data["next_question_to_ask_patient"] = "कृपया अपने स्वास्थ्य या लक्षणों के बारे में थोड़ा और बताएं।"
             else:
-                data["suggested_quick_replies"] = normalized_qr[:5]
+                data["next_question_to_ask_patient"] = "Could you please tell me more about what you are experiencing?"
+
+        if normalized_qr:
+            data["suggested_quick_replies"] = normalized_qr[:5]
+        else:
+            if lang == "hi":
+                data["suggested_quick_replies"] = ["हाँ", "नहीं", "मुझे निश्चित नहीं", "और बताएं"]
+            else:
+                data["suggested_quick_replies"] = ["Yes", "No", "Not sure", "Tell me more"]
 
         # 5. Red flag detection
         if self._check_red_flags(user_text) or data.get("red_flag_alert") is True:
             data["red_flag_alert"] = True
 
         return ClinicalHistoryRecord.model_validate(data)
+
+    def _format_alternating_messages(
+        self,
+        system_content: str,
+        chat_history: List[Dict[str, Any]],
+        user_text: str,
+    ) -> List[Dict[str, str]]:
+        """
+        Formats a sequence of messages conforming strictly to the alternating
+        [system] -> user -> assistant -> user -> assistant -> user format
+        required by Gemma, LLaMA, and OpenAI chat templates.
+        """
+        raw_dialogue: List[Dict[str, str]] = []
+
+        # Process chat history window
+        recent_history = chat_history[-10:] if chat_history else []
+        for msg in recent_history:
+            raw_role = str(msg.get("role", "user")).lower().strip()
+            content = str(msg.get("content", "")).strip()
+            if not content:
+                continue
+            role = "assistant" if raw_role in ("assistant", "ai", "bot") else "user"
+            raw_dialogue.append({"role": role, "content": content})
+
+        # Append current user utterance
+        if user_text and user_text.strip():
+            raw_dialogue.append({"role": "user", "content": user_text.strip()})
+
+        # If empty, provide a default user trigger
+        if not raw_dialogue:
+            raw_dialogue.append({"role": "user", "content": "Hello, please start my clinical consultation."})
+
+        # If dialogue starts with assistant (e.g. initial AI greeting), prepend user consultation starter
+        if raw_dialogue[0]["role"] == "assistant":
+            raw_dialogue.insert(0, {"role": "user", "content": "Hello, I am ready to begin my clinical consultation."})
+
+        # Merge consecutive messages with the same role to enforce strict alternation
+        alternating_dialogue: List[Dict[str, str]] = []
+        for m in raw_dialogue:
+            if alternating_dialogue and alternating_dialogue[-1]["role"] == m["role"]:
+                alternating_dialogue[-1]["content"] += "\n" + m["content"]
+            else:
+                alternating_dialogue.append({"role": m["role"], "content": m["content"]})
+
+        # Ensure the conversation starts with 'user'
+        if alternating_dialogue and alternating_dialogue[0]["role"] != "user":
+            alternating_dialogue.insert(0, {"role": "user", "content": "Hello, I am ready to begin my clinical consultation."})
+
+        # Ensure the conversation ends with 'user'
+        if alternating_dialogue and alternating_dialogue[-1]["role"] != "user":
+            alternating_dialogue.append({"role": "user", "content": user_text.strip() or "Please assess my symptoms."})
+
+        final_messages: List[Dict[str, str]] = []
+        if system_content:
+            final_messages.append({"role": "system", "content": system_content})
+        final_messages.extend(alternating_dialogue)
+        return final_messages
 
     async def _direct_json_chat_completion(
         self,
@@ -478,20 +491,11 @@ class ClinicalLLMService:
         language: str = "en",
     ) -> ClinicalHistoryRecord:
         system_content = self._build_chat_system_prompt(current_state)
-        formatted_messages = [{"role": "system", "content": system_content}]
-
-        recent_history = chat_history[-10:] if chat_history else []
-        for msg in recent_history:
-            role = msg.get("role", "user")
-            content = str(msg.get("content", ""))
-            if content:
-                if role in ("patient", "human"):
-                    role = "user"
-                elif role in ("bot", "ai"):
-                    role = "assistant"
-                formatted_messages.append({"role": role, "content": content})
-
-        formatted_messages.append({"role": "user", "content": user_text})
+        formatted_messages = self._format_alternating_messages(
+            system_content=system_content,
+            chat_history=chat_history,
+            user_text=user_text,
+        )
 
         prior_q = current_state.next_question_to_ask_patient if current_state else ""
 
@@ -517,14 +521,14 @@ class ClinicalLLMService:
     async def process_chat(self, request: ChatRequest) -> ClinicalHistoryRecord:
         """
         Process a conversational clinical intake turn using actual model inference.
-        Uses fast direct JSON completion as primary strategy with LangChain as fallback.
+        Uses fast direct JSON completion as primary strategy with resilient fallback.
         """
         # Determine language preference
         lang = "en"
         if request.current_json_state and request.current_json_state.patient_demographics and request.current_json_state.patient_demographics.language_preference:
             lang = request.current_json_state.patient_demographics.language_preference
 
-        # 1. Primary Strategy: Direct JSON completion
+        # 1. Primary Strategy: Direct JSON completion with Gemma alternating message formatting
         try:
             result = await self._direct_json_chat_completion(
                 user_text=request.user_text,
@@ -535,25 +539,141 @@ class ClinicalLLMService:
             return self._apply_emergency_guardrail(result, request.user_text)
         except Exception as direct_err:
             logger.warning(
-                "Direct JSON chat completion failed (%s). Attempting LangChain structured fallback...",
+                "Direct JSON chat completion failed: %s. Attempting resilient clinical fallback...",
                 str(direct_err),
             )
 
-        # 2. Secondary Strategy: LangChain structured output with function_calling
+        # 2. Secondary Strategy: Resilient clinical synthesis with emergency guardrails
         try:
-            messages = self._build_chat_messages(
+            record = self._clean_and_parse_chat_json(
+                raw_text="{}",
                 user_text=request.user_text,
-                current_state=request.current_json_state,
-                chat_history=request.chat_history,
+                prior_question=request.current_json_state.next_question_to_ask_patient if request.current_json_state else "",
+                language=lang,
             )
-            result = await self._structured_llm_chat.ainvoke(messages)
-            return self._apply_emergency_guardrail(result, request.user_text)
-        except Exception as func_err:
-            logger.error("LLM chat processing failed completely: %s", str(func_err))
+            return self._apply_emergency_guardrail(record, request.user_text)
+        except Exception as synth_err:
+            logger.error("Clinical fallback processing failed: %s", str(synth_err))
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"LLM clinical intake inference failed: {str(func_err)}",
+                detail=f"LLM clinical intake inference failed: {str(synth_err)}",
             )
+
+    async def generate_initial_greeting(
+        self,
+        language: str = "en",
+        patient_name: Optional[str] = None,
+    ) -> Tuple[str, List[str]]:
+        """
+        Dynamically generates a warm, localized opening clinical greeting message and
+        initial category chips from the LLM, with a randomized fallback pool.
+        """
+        lang = (language or "en").lower()[:2]
+        patient_context_str = f" Patient name is {patient_name}." if patient_name else ""
+
+        prompt = (
+            f"You are Sanjivani (संजीवनी), an empathetic AI clinical intake assistant for the Ministry of Ayush.{patient_context_str} "
+            f"A patient has just opened a new clinical consultation in language '{language}'. "
+            f"Generate a warm, natural, and compassionate opening greeting introducing yourself and asking what health issue, symptom, or discomfort they are experiencing today. "
+            f"Make your opening sentence natural and varied. "
+            f"Also generate 4 varied starter quick-reply chips representing common initial symptom categories (e.g. pain/headache, fever/cold, digestion/stomach, general checkup) in the same language ({language}). "
+            f"Output ONLY a valid JSON object matching:\n"
+            f'{{"greeting": "...", "suggested_quick_replies": ["...", "...", "...", "..."]}}'
+        )
+
+        try:
+            response = await self._direct_chat_client.chat.completions.create(
+                model=self.text_model_name,
+                messages=[
+                    {"role": "system", "content": "You are Sanjivani AI Clinical Intake Assistant. Output valid JSON only."},
+                    {"role": "user", "content": prompt},
+                ],  # type: ignore
+                response_format={"type": "json_object"},
+                temperature=0.7,
+            )
+            raw_content = response.choices[0].message.content or "{}"
+            cleaned = re.sub(r"<think>.*?</think>", "", raw_content, flags=re.DOTALL).strip()
+            brace_start = cleaned.find("{")
+            brace_end = cleaned.rfind("}")
+            if brace_start != -1 and brace_end != -1 and brace_end > brace_start:
+                parsed = json.loads(cleaned[brace_start : brace_end + 1])
+                greeting = parsed.get("greeting")
+                replies = parsed.get("suggested_quick_replies")
+                if greeting and isinstance(greeting, str) and len(greeting.strip()) > 10:
+                    valid_replies = [r for r in replies if isinstance(r, str) and r.strip()] if isinstance(replies, list) else []
+                    if len(valid_replies) >= 2:
+                        return (greeting.strip(), valid_replies[:5])
+        except Exception as e:
+            logger.warning("LLM dynamic greeting generation fell back to randomized pool: %s", str(e))
+
+        # Diverse randomized fallback greeting pool (varies on every invocation)
+        import random
+        FALLBACK_GREETINGS: Dict[str, List[Tuple[str, List[str]]]] = {
+            "en": [
+                (
+                    "Hello! I am Sanjivani, your AI clinical intake assistant. How are you feeling today, and what symptoms can I help document for the doctor?",
+                    ["Headache / Body Ache", "Fever, Cold or Cough", "Stomach or Digestion issue", "Skin rash or allergy", "General Health Checkup"]
+                ),
+                (
+                    "Welcome to Sanjivani Clinical Intake. I am here to help gather your medical history. What health problem or discomfort brings you in today?",
+                    ["Severe Pain / Ache", "Cough, Sore Throat & Fever", "Acidity / Abdominal Pain", "Fatigue / Weakness", "Routine Consultation"]
+                ),
+                (
+                    "Namaste! I am Sanjivani, your clinical assistant. Please take your time and describe any symptoms or health concerns you are currently experiencing.",
+                    ["Back / Joint Pain", "Fever & Chills", "Stomach Cramps / Nausea", "Dizziness / Headache", "General Checkup"]
+                ),
+                (
+                    "Good day! I am here to assist with your medical intake before you see the physician. What primary symptom or issue would you like to discuss?",
+                    ["Body Pain / Discomfort", "Respiratory / Flu Symptoms", "Digestive / Bowel Concern", "General Wellness Check"]
+                ),
+            ],
+            "hi": [
+                (
+                    "नमस्ते! मैं संजीवनी, आपकी क्लिनिकल इनटेक सहायक हूँ। आज आपको क्या स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?",
+                    ["सिरदर्द / बदन दर्द", "बुखार, सर्दी या खांसी", "पेट या पाचन की समस्या", "त्वचा संबंधी समस्या", "सामान्य स्वास्थ्य जांच"]
+                ),
+                (
+                    "संजीवनी क्लिनिकल इनटेक में आपका स्वागत है। मैं आपकी स्वास्थ्य संबंधी जानकारी दर्ज करने में मदद करूंगी। कृपया बताएं कि आपको क्या तकलीफ है?",
+                    ["जोड़ों / कमर का दर्द", "तेज बुखार व जुकाम", "एसिडिटी / पेट दर्द", "कमजोरी व थकान", "नियमित स्वास्थ्य जांच"]
+                ),
+                (
+                    "नमस्ते! कृपया बिना किसी संकोच के बताएं कि आज आपको क्या शारीरिक समस्या या बेचैनी महसूस हो रही है?",
+                    ["गले में खराश व खांसी", "पेट फूलना / गैस", "सिर में भारीपन", "थकावट व बुखार"]
+                ),
+            ],
+            "ta": [
+                (
+                    "வணக்கம்! நான் சஞ்சீவனி, உங்கள் மருத்துவ உதவி AI. இன்று உங்களுக்கு என்ன உடல்நல பிரச்சனை அல்லது அறிகுறிகள் உள்ளன?",
+                    ["தலைவலி / உடல் வலி", "காய்ச்சல் / சளி / இருமல்", "வயிற்று வலி / செரிமான பிரச்சனை", "பொதுவான உடல் பரிசோதனை"]
+                ),
+            ],
+            "te": [
+                (
+                    "నమస్కారం! నేను సంజీవని, మీ క్లినికల్ ఇన్‌టేక్ అసిస్టెంట్‌ని. ఈ రోజు మీకు ఏ విధమైన అనారోగ్య సమస్య లేదా లక్షణాలు ఉన్నాయి?",
+                    ["తలనొప్పి / ఒంటి నొప్పులు", "జ్వరం / జలుబు / దగ్గు", "కడుపు నొప్పి / జీర్ణ సమస్య", "సాధారణ ఆరోగ్య పరీక్ష"]
+                ),
+            ],
+            "bn": [
+                (
+                    "নমস্কার! আমি সঞ্জীবনী, আপনার ক্লিনিকাল ইনটেক সহকারী। আজ আপনার কী ধরনের স্বাস্থ্য সমস্যা বা শারীরিক অস্বস্তি হচ্ছে?",
+                    ["মাথাব্যথা / গায়ে ব্যথা", "জ্বর, সর্দি বা কাশি", "পেটের বা হজমের समस्या", "সাধারণ স্বাস্থ্য পরীক্ষা"]
+                ),
+            ],
+            "mr": [
+                (
+                    "नमस्कार! मी संजीवनी, तुमची क्लिनिकल इनटेक सहाय्यक आहे. आज तुम्हाला काय त्रास किंवा लक्षणे जाणवत आहेत?",
+                    ["डोकेदुखी / अंगदुखी", "ताप, सर्दी किंवा खोकला", "पोटाची किंवा पचनाची समस्या", "सामान्य आरोग्य तपासणी"]
+                ),
+            ],
+            "gu": [
+                (
+                    "નમસ્તે! હું સંજીવની, તમારી ક્લિનિકલ ઇનટેક સહાયક છું. આજે તમને શું સ્વાસ્થ્ય સમસ્યા કે લક્ષણો જણાય છે?",
+                    ["માથાનો દુખાવો / શરીરનો દુખાવો", "તાવ, શરદી અથવા ઉધરસ", "પેટ અથવા પાચનની તકલીફ", "સામાન્ય સ્વાસ્થ્ય તપાસ"]
+                ),
+            ],
+        }
+        pool = FALLBACK_GREETINGS.get(lang, FALLBACK_GREETINGS["en"])
+        return random.choice(pool)
 
     # =========================================================================
     # Phase 2: 2-Stage Medical Document Digitization Pipeline

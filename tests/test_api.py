@@ -199,3 +199,33 @@ def test_select_model_endpoint():
     assert data["active_text_model"] == "google/medgemma-1.5-4b-it"
     assert data["active_vision_model"] == "google/medgemma-1.5-4b-it"
 
+
+def test_chat_init_endpoint():
+    """Verify GET /api/v1/chat/init returns a dynamic clinical opening greeting and chips."""
+    response = client.get("/api/v1/chat/init?language=en")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert "greeting" in data
+    assert len(data["greeting"]) > 10
+    assert isinstance(data["suggested_quick_replies"], list)
+    assert len(data["suggested_quick_replies"]) >= 2
+
+
+def test_greeting_symptom_filtering():
+    """Verify that greetings like 'hi' or 'hello' are not treated as medical symptoms."""
+    from app.services.llm_service import get_llm_service
+    llm = get_llm_service()
+
+    # Greetings and pleasantries must return True
+    assert llm._is_greeting_or_non_symptom("hi") is True
+    assert llm._is_greeting_or_non_symptom("Hello!") is True
+    assert llm._is_greeting_or_non_symptom("namaste") is True
+    assert llm._is_greeting_or_non_symptom("Good morning") is True
+    assert llm._is_greeting_or_non_symptom("how are you") is True
+
+    # Real symptoms must return False
+    assert llm._is_greeting_or_non_symptom("Severe headache since morning") is False
+    assert llm._is_greeting_or_non_symptom("Chest pain") is False
+    assert llm._is_greeting_or_non_symptom("Fever and cough") is False
+

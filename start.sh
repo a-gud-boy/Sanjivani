@@ -6,6 +6,7 @@
 #   1. vLLM Local Model Server (Optional: google/medgemma-1.5-4b-it on :8001)
 #   2. FastAPI Clinical Backend (Port :8000)
 #   3. React Vite Frontend (Port :5173)
+#   4. Public Secure Tunnel (Cloudflare Quick Tunnel)
 # ==============================================================================
 
 set -e
@@ -62,18 +63,25 @@ if [ ! -d "$ROOT_DIR/frontend/node_modules" ]; then
     (cd "$ROOT_DIR/frontend" && npm install)
 fi
 
-# 4. Check if vLLM Local Server should be started (Enabled by default)
+# 4. Parse Command Line Arguments
 START_VLLM=true
+START_TUNNEL=true
 for arg in "$@"; do
     if [ "$arg" == "--no-vllm" ] || [ "$arg" == "--skip-vllm" ]; then
         START_VLLM=false
     fi
+    if [ "$arg" == "--no-tunnel" ] || [ "$arg" == "--skip-tunnel" ] || [ "$arg" == "--local-only" ]; then
+        START_TUNNEL=false
+    fi
 done
 
-# Check if .env explicitly disables vLLM
-if [ "$START_VLLM" = true ] && [ -f "$ROOT_DIR/.env" ]; then
+# Check if .env explicitly disables vLLM or Tunnel
+if [ -f "$ROOT_DIR/.env" ]; then
     if grep -qE "^START_VLLM=false" "$ROOT_DIR/.env"; then
         START_VLLM=false
+    fi
+    if grep -qE "^ENABLE_PUBLIC_TUNNEL=false" "$ROOT_DIR/.env"; then
+        START_TUNNEL=false
     fi
 fi
 
@@ -86,9 +94,14 @@ fi
 
 VLLM_MODEL="${VLLM_MODEL:-google/medgemma-1.5-4b-it}"
 VLLM_PORT="${VLLM_PORT:-8001}"
-VLLM_GPU_UTIL="${VLLM_GPU_UTIL:-0.88}"
+VLLM_GPU_UTIL="${VLLM_GPU_UTIL:-0.85}"
 VLLM_MAX_LEN="${VLLM_MAX_LEN:-4096}"
 VLLM_QUANT="${VLLM_QUANT:-bitsandbytes}"
+
+# Clean up any lingering processes from prior sessions to free GPU VRAM & ports
+pkill -9 -f "VLLM::EngineCore" 2>/dev/null || true
+pkill -f "vllm.entrypoints.openai.api_server" 2>/dev/null || true
+fuser -k 8000/tcp 8001/tcp 5173/tcp 2>/dev/null || true
 
 echo ""
 echo -e "${BOLD}Starting Services:${NC}"
@@ -96,15 +109,27 @@ if [ "$START_VLLM" = true ]; then
     echo -e "  ${GREEN}► vLLM Model Server:${NC} http://localhost:${VLLM_PORT}/v1 (Model: ${VLLM_MODEL}, 4-bit BnB)"
 fi
 echo -e "  ${GREEN}► FastAPI Backend:${NC}   http://localhost:8000 (Swagger: http://localhost:8000/docs)"
-echo -e "  ${GREEN}► Vite Frontend:${NC}     http://localhost:5173"
+echo -e "  ${GREEN}► Local Frontend:${NC}    http://localhost:5173"
+if [ "$START_TUNNEL" = true ]; then
+    echo -e "  ${GREEN}► Public Tunnel:${NC}     (Initializing secure HTTPS URL...)"
+fi
 echo ""
 echo -e "${YELLOW}Press [Ctrl+C] to stop all services.${NC}"
 echo "------------------------------------------------------------"
 
-# Function to clean up background processes on exit
+TUNNEL_LOG="/tmp/sanjivani_tunnel_$$.log"
+
+# Function to clean up all background processes on exit
 cleanup() {
     echo ""
     echo -e "${YELLOW}Shutting down Sanjivani services...${NC}"
+    if [ -n "$TUNNEL_PID" ]; then
+        echo "Stopping Public Tunnel (PID: $TUNNEL_PID)..."
+        kill "$TUNNEL_PID" 2>/dev/null || true
+    fi
+    if [ -f "$TUNNEL_LOG" ]; then
+        rm -f "$TUNNEL_LOG" 2>/dev/null || true
+    fi
     if [ -n "$VLLM_PID" ]; then
         echo "Stopping vLLM server (PID: $VLLM_PID)..."
         kill "$VLLM_PID" 2>/dev/null || true
@@ -115,6 +140,10 @@ cleanup() {
     if [ -n "$FRONTEND_PID" ]; then
         kill "$FRONTEND_PID" 2>/dev/null || true
     fi
+    pkill -P $$ 2>/dev/null || true
+    pkill -9 -f "VLLM::EngineCore" 2>/dev/null || true
+    pkill -f "vllm.entrypoints.openai.api_server" 2>/dev/null || true
+    pkill -f "cloudflared" 2>/dev/null || true
     wait 2>/dev/null || true
     echo -e "${GREEN}✓ All services stopped cleanly.${NC}"
     exit 0
@@ -122,7 +151,7 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM EXIT
 
-# Start vLLM Model Server if enabled
+# 5. Start vLLM Model Server if enabled
 if [ "$START_VLLM" = true ]; then
     echo -e "${CYAN}Launching vLLM server for '${VLLM_MODEL}' on port ${VLLM_PORT} (4-bit quantization)...${NC}"
     export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
@@ -137,13 +166,51 @@ if [ "$START_VLLM" = true ]; then
     VLLM_PID=$!
 fi
 
-# Start FastAPI Backend
+# 6. Start FastAPI Backend
 "$PYTHON_BIN" -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 
-# Start Vite Frontend
+# 7. Start Vite Frontend
 (cd "$ROOT_DIR/frontend" && npm run dev -- --host) &
 FRONTEND_PID=$!
+
+# 8. Start Public Tunnel if enabled
+if [ "$START_TUNNEL" = true ]; then
+    CLOUDFLARED_BIN=""
+    if command -v cloudflared &>/dev/null; then
+        CLOUDFLARED_BIN="$(command -v cloudflared)"
+    elif [ -f "$ROOT_DIR/.bin/cloudflared" ]; then
+        CLOUDFLARED_BIN="$ROOT_DIR/.bin/cloudflared"
+    else
+        echo -e "${YELLOW}Downloading portable cloudflared binary to .bin/...${NC}"
+        mkdir -p "$ROOT_DIR/.bin"
+        if curl -sL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o "$ROOT_DIR/.bin/cloudflared"; then
+            chmod +x "$ROOT_DIR/.bin/cloudflared"
+            CLOUDFLARED_BIN="$ROOT_DIR/.bin/cloudflared"
+        fi
+    fi
+
+    if [ -n "$CLOUDFLARED_BIN" ]; then
+        "$CLOUDFLARED_BIN" tunnel --url http://localhost:5173 > "$TUNNEL_LOG" 2>&1 &
+        TUNNEL_PID=$!
+        (
+            for i in {1..30}; do
+                if [ -f "$TUNNEL_LOG" ]; then
+                    URL=$(grep -o 'https://[a-zA-Z0-9-]*\.trycloudflare\.com' "$TUNNEL_LOG" | head -n 1 || true)
+                    if [ -n "$URL" ]; then
+                        echo -e "\n  ${GREEN}${BOLD}🌐 PUBLIC URL (Share with anyone):${NC} ${CYAN}${BOLD}${URL}${NC}\n"
+                        break
+                    fi
+                fi
+                sleep 0.5
+            done
+        ) &
+    elif command -v npx &>/dev/null; then
+        echo -e "${CYAN}Starting public tunnel via npx localtunnel (:5173)...${NC}"
+        npx localtunnel --port 5173 &
+        TUNNEL_PID=$!
+    fi
+fi
 
 # Wait for all processes
 wait

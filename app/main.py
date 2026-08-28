@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.models.schemas import (
+    ChatInitResponse,
     ChatRequest,
     ChatResponse,
     ModelsListResponse,
@@ -73,6 +74,41 @@ async def health_check():
         "status": "healthy",
         "service": settings.PROJECT_NAME,
     }
+
+
+@app.get(
+    f"{settings.API_V1_PREFIX}/chat/init",
+    response_model=ChatInitResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Clinical Intake"],
+    summary="Generate dynamic AI clinical opening greeting and starter quick-reply chips",
+    description=(
+        "Generates a warm, natural, non-hardcoded opening greeting in the requested language "
+        "prompting the patient to explain what health issue or symptom brought them in today."
+    ),
+)
+async def chat_init_endpoint(
+    language: str = "en",
+    patient_name: str = "",
+    llm_service: ClinicalLLMService = Depends(get_llm_service),
+) -> ChatInitResponse:
+    try:
+        greeting, chips = await llm_service.generate_initial_greeting(
+            language=language,
+            patient_name=patient_name or None,
+        )
+        return ChatInitResponse(
+            status="success",
+            greeting=greeting,
+            suggested_quick_replies=chips,
+        )
+    except Exception as e:
+        logger.exception("Error generating dynamic initial greeting: %s", str(e))
+        return ChatInitResponse(
+            status="success",
+            greeting="Hello! I am Sanjivani, your AI clinical intake assistant. What health problem or symptoms can I help you document today?",
+            suggested_quick_replies=["Headache / Body Ache", "Fever, Cold or Cough", "Stomach or Digestion issue", "General Health Checkup"],
+        )
 
 
 @app.post(

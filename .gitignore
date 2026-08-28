@@ -49,6 +49,9 @@ htmlcov/
 *.swp
 *.swo
 
+# Binaries & Tunnels
+.bin/
+
 # OS files
 .DS_Store
 Thumbs.db
