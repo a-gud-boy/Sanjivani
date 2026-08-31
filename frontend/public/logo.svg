@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="logoBgGrad" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0891b2"/>
+      <stop offset="45%" stop-color="#0d9488"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="logoLeafGrad" x1="32" y1="24" x2="96" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#ecfdf5"/>
+    </linearGradient>
+    <linearGradient id="logoGold" x1="40" y1="40" x2="88" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <filter id="logoShadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#042f2e" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background Squircle -->
+  <rect width="128" height="128" rx="36" fill="url(#logoBgGrad)"/>
+
+  <!-- Decorative Rings -->
+  <circle cx="64" cy="64" r="52" stroke="#ffffff" stroke-opacity="0.12" stroke-width="2"/>
+  <circle cx="64" cy="64" r="46" stroke="#ffffff" stroke-opacity="0.2" stroke-width="1.5" stroke-dasharray="6 4"/>
+
+  <!-- Central Sanjivani Emblem -->
+  <g filter="url(#logoShadow)">
+    <!-- Right Leaf -->
+    <path d="M64 20 C92 28 106 56 94 86 C84 106 64 108 64 108 C64 108 64 80 64 60 C64 40 64 20 64 20 Z" 
+          fill="url(#logoLeafGrad)" opacity="0.95"/>
+    
+    <!-- Left Leaf -->
+    <path d="M64 20 C36 28 22 56 34 86 C44 106 64 108 64 108 C64 108 64 80 64 60 C64 40 64 20 64 20 Z" 
+          fill="url(#logoLeafGrad)" opacity="0.82"/>
+
+    <!-- Central Stem -->
+    <path d="M64 26 V104" stroke="#0d9488" stroke-width="5" stroke-linecap="round"/>
+
+    <!-- Medical Healing Cross -->
+    <rect x="58" y="46" width="12" height="36" rx="6" fill="#0d9488"/>
+    <rect x="46" y="58" width="36" height="12" rx="6" fill="#0d9488"/>
+
+    <!-- Spark of Life -->
+    <circle cx="64" cy="64" r="6.5" fill="url(#logoGold)"/>
+    <circle cx="64" cy="24" r="3.5" fill="#fef08a"/>
+  </g>
+</svg>

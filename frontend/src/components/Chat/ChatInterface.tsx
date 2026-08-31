@@ -1,16 +1,33 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { Mic, MicOff, Send, Loader2, StopCircle } from 'lucide-react'
-import type { ChatMessage, LanguageCode } from '../../types'
+import { Mic, MicOff, Send, Loader2, StopCircle, PhoneOff } from 'lucide-react'
+import type { ChatMessage, ChatStatus, LanguageCode } from '../../types'
 import { useAudioRecorder } from '../../hooks/useAudioRecorder'
 import ChatBubble from './ChatBubble'
 import QuickReplyChips from './QuickReplyChips'
+import ChatEndOverlay from './ChatEndOverlay'
+
+// Client-side heuristic: phrases that suggest the user is done
+const END_INTENT_PHRASES = [
+  'done', "that's all", "thats all", 'finished', 'end chat', 'end the chat',
+  'bye', 'goodbye', 'thank you', 'thanks', 'no more', "i'm done", "im done",
+  'done sharing', 'enough', 'nothing else', 'that is all', 'stop', 'exit',
+]
+
+function hasEndIntent(text: string): boolean {
+  const lower = text.toLowerCase().trim()
+  return END_INTENT_PHRASES.some((phrase) => lower.includes(phrase))
+}
 
 interface ChatInterfaceProps {
   messages: ChatMessage[]
   isLoading: boolean
   error: string | null
   language: LanguageCode
+  chatStatus: ChatStatus
   onSendMessage: (text: string) => void
+  onEndChat: () => void
+  onContinueChat: () => void
+  onRestartChat: () => void
 }
 
 export default function ChatInterface({
@@ -18,9 +35,14 @@ export default function ChatInterface({
   isLoading,
   error,
   language,
+  chatStatus,
   onSendMessage,
+  onEndChat,
+  onContinueChat,
+  onRestartChat,
 }: ChatInterfaceProps) {
   const [inputText, setInputText] = useState('')
+  const [endIntentBanner, setEndIntentBanner] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -30,11 +52,11 @@ export default function ChatInterface({
     durationSeconds,
     startRecording,
     stopRecording,
-    audioBlob: _audioBlob, // reserved for future backend transcription
+    audioBlob: _audioBlob,
     error: recordingError,
   } = useAudioRecorder()
 
-  // Auto-scroll to bottom whenever messages update
+  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
@@ -47,10 +69,21 @@ export default function ChatInterface({
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`
   }, [inputText])
 
+  // Dismiss end-intent banner when chat is reactivated
+  useEffect(() => {
+    if (chatStatus === 'active') setEndIntentBanner(false)
+  }, [chatStatus])
+
   const handleSubmit = (e?: FormEvent) => {
     e?.preventDefault()
     const text = inputText.trim()
     if (!text || isLoading) return
+
+    // Client-side end-intent detection
+    if (hasEndIntent(text)) {
+      setEndIntentBanner(true)
+    }
+
     onSendMessage(text)
     setInputText('')
     if (inputRef.current) inputRef.current.style.height = 'auto'
@@ -71,16 +104,23 @@ export default function ChatInterface({
     }
   }
 
-  // Format recording duration as MM:SS
   const fmtDuration = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
-  // Chips: dynamic AI-generated suggestions from the latest assistant message only
+  // Chips from last assistant message
   const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
   const visibleChips = lastAssistant?.quickReplies ?? []
 
+  // Show End Chat button after at least one user message
+  const hasUserMessage = messages.some((m) => m.role === 'user')
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+
+      {/* ── Chat Ended Overlay ── */}
+      {chatStatus === 'ended' && (
+        <ChatEndOverlay onContinue={onContinueChat} onRestart={onRestartChat} />
+      )}
 
       {/* ── Message Feed ── */}
       <div
@@ -144,8 +184,32 @@ export default function ChatInterface({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* ── End Intent Banner ── */}
+      {endIntentBanner && chatStatus === 'active' && (
+        <div className="mx-3 mb-1 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200
+                        flex items-center justify-between gap-3 animate-fade-in">
+          <p className="text-xs text-slate-600">Did you mean to end the chat?</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setEndIntentBanner(false)}
+              className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded-lg
+                         hover:bg-slate-100 transition-colors"
+            >
+              No
+            </button>
+            <button
+              onClick={() => { setEndIntentBanner(false); onEndChat() }}
+              className="text-xs font-semibold text-brand-cyan hover:text-brand-cyan-dark
+                         px-2 py-1 rounded-lg hover:bg-brand-cyan-light transition-colors"
+            >
+              Yes, End Chat
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Quick Reply Chips ── */}
-      {!isLoading && (
+      {!isLoading && chatStatus === 'active' && (
         <QuickReplyChips
           chips={visibleChips}
           onSelect={(text) => {
@@ -158,13 +222,31 @@ export default function ChatInterface({
 
       {/* ── Input Toolbar ── */}
       <div className="px-3 pb-3 pt-2 border-t border-surface-border bg-white">
+
+        {/* End Chat button — only visible after first user message */}
+        {hasUserMessage && chatStatus === 'active' && (
+          <div className="flex justify-end mb-2">
+            <button
+              type="button"
+              onClick={onEndChat}
+              className="flex items-center gap-1.5 text-xs font-medium text-slate-400
+                         hover:text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-xl
+                         border border-transparent hover:border-red-200 transition-all duration-150"
+              aria-label="End chat session"
+            >
+              <PhoneOff className="w-3.5 h-3.5" />
+              End Chat
+            </button>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="flex items-end gap-2">
 
           {/* Microphone Button */}
           <button
             type="button"
             onClick={handleMicToggle}
-            disabled={isLoading}
+            disabled={isLoading || chatStatus === 'ended'}
             aria-label={isRecording ? 'Stop recording' : 'Hold to speak'}
             className={`flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center
                         transition-all duration-200 disabled:opacity-40
@@ -202,12 +284,14 @@ export default function ChatInterface({
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={
-                language === 'hi' ? 'अपने लक्षण बताएं…'
-                : language === 'bn' ? 'আপনার লক্ষণ বলুন…'
-                : 'Describe your symptoms or ask a question…'
+                chatStatus === 'ended'
+                  ? 'Chat has ended. Click Continue to resume.'
+                  : language === 'hi' ? 'अपने लक्षण बताएं…'
+                  : language === 'bn' ? 'আপনার লক্ষণ বলুন…'
+                  : 'Describe your symptoms or ask a question…'
               }
               rows={1}
-              disabled={isLoading}
+              disabled={isLoading || chatStatus === 'ended'}
               className="input resize-none pr-2 py-3 min-h-[48px] max-h-[120px]
                          leading-relaxed overflow-hidden disabled:opacity-50"
               aria-label="Type your message"
@@ -217,7 +301,7 @@ export default function ChatInterface({
           {/* Send Button */}
           <button
             type="submit"
-            disabled={!inputText.trim() || isLoading}
+            disabled={!inputText.trim() || isLoading || chatStatus === 'ended'}
             className="flex-shrink-0 w-12 h-12 rounded-xl bg-brand-cyan text-white flex items-center
                        justify-center shadow-sm hover:bg-brand-cyan-dark active:scale-95
                        transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -233,3 +317,4 @@ export default function ChatInterface({
     </div>
   )
 }
+

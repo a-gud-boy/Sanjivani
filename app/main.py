@@ -15,6 +15,8 @@ from app.models.schemas import (
     ModelSwitchResponse,
     OCRStructuredResult,
     ScanDocumentResponse,
+    SummarizeRequest,
+    SummarizeResponse,
 )
 from app.services.llm_service import ClinicalLLMService, get_llm_service
 from app.services.ocr_service import OCRService, get_ocr_service
@@ -228,6 +230,33 @@ async def scan_document_endpoint(
 
 
 # ---- Model Management Endpoints ---------------------------------------------
+
+@app.post(
+    f"{settings.API_V1_PREFIX}/summarize",
+    response_model=SummarizeResponse,
+    status_code=status.HTTP_200_OK,
+    tags=["Clinical Intake"],
+    summary="Generate AI narrative clinical summary from chat + all scanned documents",
+    description=(
+        "Accepts the full chat history, accumulated clinical record, and all scanned document payloads. "
+        "Calls MedGemma to produce a structured pre-consultation summary suitable for physician review."
+    ),
+)
+async def summarize_endpoint(
+    request: SummarizeRequest,
+    llm_service: ClinicalLLMService = Depends(get_llm_service),
+) -> SummarizeResponse:
+    try:
+        return await llm_service.generate_clinical_summary(request)
+    except Exception as e:
+        logger.exception("Summary generation failed: %s", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Summary generation failed: {str(e)}",
+        )
+
+
+# ---- Model Management Endpoints (continued) ---------------------------------
 
 @app.get(
     f"{settings.API_V1_PREFIX}/models",

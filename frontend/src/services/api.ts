@@ -2,10 +2,14 @@ import axios from 'axios'
 import type {
   ChatApiRequest,
   ChatApiResponse,
-  ChatInitApiResponse,
-  LanguageCode,
   ChatHistoryEntry,
+  ChatInitApiResponse,
+  ClinicalHistoryRecord,
+  LanguageCode,
+  OCRStructuredResult,
   ScanApiResponse,
+  ScannedDocument,
+  SummarizeApiResponse,
 } from '../types'
 
 // ----------------------------------------------------------------
@@ -100,6 +104,38 @@ export async function switchActiveModel(modelName: string, target: 'text' | 'vis
     model_name: modelName,
     target,
   })
+  return data
+}
+
+// ----------------------------------------------------------------
+// Clinical Summary — POST /api/v1/summarize
+// ----------------------------------------------------------------
+
+export async function generateSummary(
+  language: LanguageCode,
+  chatHistory: { role: 'user' | 'assistant'; content: string }[],
+  clinicalRecord: ClinicalHistoryRecord | null,
+  scannedDocuments: ScannedDocument[],
+): Promise<SummarizeApiResponse> {
+  const scanResults = scannedDocuments.map((doc) => ({
+    document_label: doc.filename,
+    medications: doc.result?.medications ?? [],
+    lab_investigations: doc.result?.lab_investigations ?? [],
+    raw_text: doc.result?.raw_text ?? null,
+  }))
+
+  const { data } = await apiClient.post<SummarizeApiResponse>(
+    '/summarize',
+    {
+      language,
+      chat_history: chatHistory,
+      clinical_record: clinicalRecord,
+      scan_results: scanResults,
+    },
+    {
+      timeout: 90_000,
+    },
+  )
   return data
 }
 

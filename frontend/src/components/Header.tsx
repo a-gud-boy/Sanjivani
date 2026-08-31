@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { Globe, ChevronDown, CheckCircle2, User } from 'lucide-react'
 import { LANGUAGES, type Language, type LanguageCode } from '../types'
 import ModelSelector from './ModelSelector'
+import BrandLogo from './BrandLogo'
 
 interface HeaderProps {
   language: LanguageCode
@@ -34,17 +35,7 @@ export default function Header({
 
         {/* ── Brand ── */}
         <div className="flex items-center gap-3 min-w-0">
-          {/* Logo mark */}
-          <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-brand-cyan flex items-center justify-center shadow-sm">
-            <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white" stroke="currentColor" strokeWidth="2.2">
-              <path strokeLinecap="round" strokeLinejoin="round"
-                d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" />
-              <path strokeLinecap="round" strokeLinejoin="round"
-                d="M12 8v4l2.5 2.5" />
-              <path strokeLinecap="round" strokeLinejoin="round"
-                d="M8.5 15.5C9.5 17 10.7 18 12 18c1.3 0 2.5-1 3.5-2.5" />
-            </svg>
-          </div>
+          <BrandLogo size="md" />
           <div className="min-w-0">
             <h1 className="text-[15px] font-bold text-slate-900 leading-tight truncate">
               Sanjivani <span className="text-brand-cyan">संजीवनी</span>

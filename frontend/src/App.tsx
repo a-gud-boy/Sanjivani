@@ -6,11 +6,13 @@ import type {
   LanguageCode,
   ChatHistoryEntry,
   ActiveTab,
+  ScannedDocument,
 } from './types'
 import {
   getInitialGreeting,
   sendChatMessage,
   scanDocument,
+  generateSummary,
   extractErrorMessage,
 } from './services/api'
 
@@ -34,11 +36,15 @@ const INITIAL_STATE: IntakeState = {
   abhaLinked: false,
   abhaId: null,
   messages: [],
+  chatStatus: 'active',
   clinicalRecord: null,
   redFlagActive: false,
-  scanResult: null,
+  scannedDocuments: [],
   activeTab: 'chat',
   summaryOpen: false,
+  aiSummaryText: null,
+  aiSummarySections: null,
+  summaryLoading: false,
 }
 
 // ── App ──────────────────────────────────────────────────────────────────────
@@ -49,9 +55,8 @@ export default function App() {
   const [scanLoading, setScanLoading] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
 
-  // ── Auto-initialize dynamic AI opening greeting (AI starts first) ───────────
+  // ── Auto-initialize dynamic AI opening greeting ───────────────────────────
   useEffect(() => {
-    // Run if chat is empty or if only the initial AI greeting is present and language changed
     const isOnlyInitialAssistant =
       state.messages.length === 1 && state.messages[0].role === 'assistant'
     if (state.messages.length === 0 || isOnlyInitialAssistant) {
@@ -74,7 +79,7 @@ export default function App() {
         })
         .catch((err) => {
           if (!isSubscribed) return
-          console.warn('Initial greeting fetch failed, using localized dynamic fallback:', err)
+          console.warn('Initial greeting fetch failed, using fallback:', err)
           const fallbackMsg: ChatMessage = {
             id: newId(),
             role: 'assistant',
@@ -112,7 +117,6 @@ export default function App() {
   const handleSendMessage = useCallback(async (text: string) => {
     setChatError(null)
 
-    // Append user message immediately
     const userMsg: ChatMessage = {
       id: newId(),
       role: 'user',
@@ -128,7 +132,6 @@ export default function App() {
     setChatLoading(true)
 
     try {
-      // Build history from current messages (before appending the new one)
       const history: ChatHistoryEntry[] = state.messages.map((m) => ({
         role: m.role,
         content: m.content,
@@ -144,11 +147,9 @@ export default function App() {
       const record = response.data
       const isRedFlag = record.red_flag_alert === true
 
-      // Build assistant message from the next question
       const assistantContent = record.next_question_to_ask_patient ??
         'Thank you for sharing. Could you tell me more?'
 
-      // Dynamic AI-generated quick-reply chips from clinical record
       const quickReplies: string[] = record.suggested_quick_replies ?? []
 
       const assistantMsg: ChatMessage = {
@@ -174,28 +175,110 @@ export default function App() {
     }
   }, [state.messages, state.language, state.clinicalRecord])
 
-  // ── Document Scanner ────────────────────────────────────────────────────────
-  const handleScanFile = useCallback(async (file: File | Blob) => {
+  // ── Chat End / Continue / Restart ───────────────────────────────────────────
+  const handleEndChat = useCallback(() => {
+    setState((s) => ({ ...s, chatStatus: 'ended' }))
+  }, [])
+
+  const handleContinueChat = useCallback(() => {
+    setState((s) => ({ ...s, chatStatus: 'active' }))
+  }, [])
+
+  const handleRestartChat = useCallback(() => {
+    // Reset chat and clinical record only; keep scannedDocuments and language
+    setState((s) => ({
+      ...s,
+      messages: [],
+      chatStatus: 'active',
+      clinicalRecord: null,
+      redFlagActive: false,
+      aiSummaryText: null,
+      aiSummarySections: null,
+    }))
+    setChatError(null)
+  }, [])
+
+  // ── Document Scanner (multi-document) ────────────────────────────────────────
+  const handleAddDocument = useCallback(async (file: File | Blob, filename = 'document.png') => {
     setScanError(null)
     setScanLoading(true)
 
+    // Generate a temporary preview URL
+    const previewUrl = URL.createObjectURL(file)
+    const docId = newId()
+
     try {
-      const response = await scanDocument(file)
-      setState((s) => ({ ...s, scanResult: response.data }))
+      const response = await scanDocument(file, filename)
+      const newDoc: ScannedDocument = {
+        id: docId,
+        filename,
+        previewUrl,
+        result: response.data,
+      }
+      setState((s) => ({
+        ...s,
+        scannedDocuments: [...s.scannedDocuments, newDoc],
+        // Invalidate any prior AI summary since data changed
+        aiSummaryText: null,
+        aiSummarySections: null,
+      }))
     } catch (err) {
+      URL.revokeObjectURL(previewUrl)
       setScanError(extractErrorMessage(err))
     } finally {
       setScanLoading(false)
     }
   }, [])
 
-  const handleScanReset = useCallback(() => {
-    setState((s) => ({ ...s, scanResult: null }))
-    setScanError(null)
+  const handleRemoveDocument = useCallback((id: string) => {
+    setState((s) => ({
+      ...s,
+      scannedDocuments: s.scannedDocuments.filter((d) => d.id !== id),
+      // Invalidate AI summary since documents changed
+      aiSummaryText: null,
+      aiSummarySections: null,
+    }))
   }, [])
 
   // ── Summary Modal ──────────────────────────────────────────────────────────
-  const handleSummaryOpen = useCallback(() => setState((s) => ({ ...s, summaryOpen: true })), [])
+  const handleGenerateSummary = useCallback(async () => {
+    setState((s) => ({ ...s, summaryLoading: true, aiSummaryText: null, aiSummarySections: null }))
+    try {
+      const history: ChatHistoryEntry[] = state.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }))
+      const result = await generateSummary(
+        state.language,
+        history,
+        state.clinicalRecord,
+        state.scannedDocuments,
+      )
+      setState((s) => ({
+        ...s,
+        aiSummaryText: result.summary_text,
+        aiSummarySections: result.summary_sections,
+        summaryLoading: false,
+      }))
+    } catch (err) {
+      console.error('Summary generation failed:', err)
+      const errorMsg = extractErrorMessage(err)
+      setState((s) => ({
+        ...s,
+        aiSummaryText: errorMsg || 'Summary generation failed. Please try again.',
+        aiSummarySections: null,
+        summaryLoading: false,
+      }))
+    }
+  }, [state.messages, state.language, state.clinicalRecord, state.scannedDocuments])
+
+  const handleSummaryOpen = useCallback(() => {
+    setState((s) => ({ ...s, summaryOpen: true }))
+    if (!state.aiSummaryText && !state.summaryLoading) {
+      handleGenerateSummary()
+    }
+  }, [state.aiSummaryText, state.summaryLoading, handleGenerateSummary])
+
   const handleSummaryClose = useCallback(() => setState((s) => ({ ...s, summaryOpen: false })), [])
 
   // ── Red Flag Dismiss ───────────────────────────────────────────────────────
@@ -223,7 +306,7 @@ export default function App() {
         onSummaryOpen={handleSummaryOpen}
       />
 
-      {/* ── Red Flag Alert (sits below header, above content) ── */}
+      {/* ── Red Flag Alert ── */}
       {state.redFlagActive && (
         <RedFlagAlert
           message={typeof redFlagMessage === 'string' && redFlagMessage.toLowerCase().includes('emergency')
@@ -251,7 +334,11 @@ export default function App() {
                 isLoading={chatLoading}
                 error={chatError}
                 language={state.language}
+                chatStatus={state.chatStatus}
                 onSendMessage={handleSendMessage}
+                onEndChat={handleEndChat}
+                onContinueChat={handleContinueChat}
+                onRestartChat={handleRestartChat}
               />
             </div>
           </div>
@@ -264,11 +351,11 @@ export default function App() {
             </div>
             <div className="flex-1 overflow-hidden">
               <ScannerPanel
+                documents={state.scannedDocuments}
                 isLoading={scanLoading}
                 error={scanError}
-                scanResult={state.scanResult}
-                onScanFile={handleScanFile}
-                onReset={handleScanReset}
+                onAddDocument={handleAddDocument}
+                onRemoveDocument={handleRemoveDocument}
               />
             </div>
           </div>
@@ -285,15 +372,19 @@ export default function App() {
                 isLoading={chatLoading}
                 error={chatError}
                 language={state.language}
+                chatStatus={state.chatStatus}
                 onSendMessage={handleSendMessage}
+                onEndChat={handleEndChat}
+                onContinueChat={handleContinueChat}
+                onRestartChat={handleRestartChat}
               />
             ) : (
               <ScannerPanel
+                documents={state.scannedDocuments}
                 isLoading={scanLoading}
                 error={scanError}
-                scanResult={state.scanResult}
-                onScanFile={handleScanFile}
-                onReset={handleScanReset}
+                onAddDocument={handleAddDocument}
+                onRemoveDocument={handleRemoveDocument}
               />
             )}
           </div>
@@ -340,8 +431,12 @@ export default function App() {
         isOpen={state.summaryOpen}
         onClose={handleSummaryClose}
         clinicalRecord={state.clinicalRecord}
-        scanResult={state.scanResult}
+        documents={state.scannedDocuments}
         messages={state.messages}
+        aiSummaryText={state.aiSummaryText}
+        aiSummarySections={state.aiSummarySections}
+        summaryLoading={state.summaryLoading}
+        onGenerateSummary={handleGenerateSummary}
       />
     </div>
   )

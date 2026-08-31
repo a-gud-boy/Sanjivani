@@ -26,6 +26,8 @@ export const LANGUAGES: Language[] = [
 
 export type MessageRole = 'user' | 'assistant'
 
+export type ChatStatus = 'active' | 'ended'
+
 export interface ChatMessage {
   id: string
   role: MessageRole
@@ -105,6 +107,38 @@ export interface ScanApiResponse {
   data: OCRStructuredResult
 }
 
+// ---- Scanned Documents ------------------------------------------
+
+export interface ScannedDocument {
+  /** Client-generated unique ID */
+  id: string
+  /** Original filename or camera snapshot label */
+  filename: string
+  /** Object URL for preview thumbnail (revoke when removed) */
+  previewUrl: string | null
+  /** Extracted clinical entities from OCR */
+  result: OCRStructuredResult
+}
+
+// ---- Clinical Summary -------------------------------------------
+
+export interface SummarySections {
+  patient_info?: string | null
+  chief_complaint?: string | null
+  history?: string | null
+  clinical_narrative?: string | null
+  documents?: string | null
+  ayush_assessment?: string | null
+  red_flags?: string | null
+  recommendations?: string | null
+}
+
+export interface SummarizeApiResponse {
+  status: 'success' | 'error'
+  summary_text: string
+  summary_sections: SummarySections
+}
+
 // ---- Model Management -------------------------------------------
 
 export interface ModelInfo {
@@ -138,14 +172,22 @@ export interface IntakeState {
   abhaId: string | null
   /** Full chat history */
   messages: ChatMessage[]
+  /** Chat session status — 'active' or 'ended' */
+  chatStatus: ChatStatus
   /** Latest clinical record returned by the backend */
   clinicalRecord: ClinicalHistoryRecord | null
   /** Whether a red-flag emergency has been raised */
   redFlagActive: boolean
-  /** OCR scan results from document scanner */
-  scanResult: OCRStructuredResult | null
+  /** All uploaded scanned documents (multi-document support) */
+  scannedDocuments: ScannedDocument[]
   /** Which panel is active on mobile/tablet */
   activeTab: ActiveTab
   /** Whether the summary modal is open */
   summaryOpen: boolean
+  /** AI-generated narrative summary text (null until generated) */
+  aiSummaryText: string | null
+  /** AI summary section breakdown */
+  aiSummarySections: SummarySections | null
+  /** Whether the summary is being generated */
+  summaryLoading: boolean
 }

@@ -338,3 +338,67 @@ class ModelSwitchResponse(BaseModel):
     message: str
     active_text_model: str
     active_vision_model: str
+
+
+# ---- Clinical Summary Schemas ------------------------------------------------
+
+class ScannedDocumentSummary(BaseModel):
+    """Lightweight representation of a scanned document's extracted content for summary generation."""
+    document_label: Optional[str] = Field(
+        default=None,
+        description="Label / filename of the uploaded document (e.g. 'prescription.jpg', 'lab_report_2.png')."
+    )
+    medications: List[Union[ExtractedMedication, Dict[str, Any]]] = Field(
+        default_factory=list,
+        description="Medications extracted from this document."
+    )
+    lab_investigations: List[Union[ExtractedLabInvestigation, Dict[str, Any]]] = Field(
+        default_factory=list,
+        description="Lab investigation results extracted from this document."
+    )
+    raw_text: Optional[str] = Field(
+        default=None,
+        description="Raw OCR text from this document."
+    )
+
+
+class SummarizeRequest(BaseModel):
+    language: str = Field(
+        default="en",
+        description="Target language for the narrative summary (ISO-639-1 code or full name)."
+    )
+    chat_history: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Full conversation history: [{'role': 'user'|'assistant', 'content': '...'}]."
+    )
+    clinical_record: Optional[Union[ClinicalHistoryRecord, Dict[str, Any]]] = Field(
+        default=None,
+        description="Latest accumulated clinical JSON record from the chat session."
+    )
+    scan_results: List[Union[ScannedDocumentSummary, Dict[str, Any]]] = Field(
+        default_factory=list,
+        description="List of scanned document payloads (one per uploaded document)."
+    )
+
+
+class SummarySections(BaseModel):
+    patient_info: Optional[str] = Field(default=None, description="Patient demographics and identifying info.")
+    chief_complaint: Optional[str] = Field(default=None, description="Primary presenting complaint and duration.")
+    history: Optional[str] = Field(default=None, description="History of presenting illness and associated symptoms.")
+    clinical_narrative: Optional[str] = Field(default=None, description="Narrative synthesis of the conversation.")
+    documents: Optional[str] = Field(default=None, description="Summary of all uploaded medical documents.")
+    ayush_assessment: Optional[str] = Field(default=None, description="Ayurvedic assessment parameters if available.")
+    red_flags: Optional[str] = Field(default=None, description="Any emergency or red-flag findings noted.")
+    recommendations: Optional[str] = Field(default=None, description="AI-suggested next steps or clinical action points.")
+
+
+class SummarizeResponse(BaseModel):
+    status: str = Field(default="success")
+    summary_text: str = Field(
+        ...,
+        description="Full narrative clinical summary paragraph suitable for physician review."
+    )
+    summary_sections: SummarySections = Field(
+        default_factory=SummarySections,
+        description="Summary broken into labelled clinical sections."
+    )

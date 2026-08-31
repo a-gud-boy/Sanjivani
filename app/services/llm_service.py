@@ -22,6 +22,10 @@ from app.models.schemas import (
     DownloadedModelInfo,
     ModelsListResponse,
     OCRStructuredResult,
+    ScannedDocumentSummary,
+    SummarizeRequest,
+    SummarizeResponse,
+    SummarySections,
 )
 
 logger = logging.getLogger("sanjivani.llm_service")
@@ -169,6 +173,10 @@ class ClinicalLLMService:
             "You are Sanjivani (संजीवनी), a compassionate, professional AI medical clinician for the Ministry of Ayush.\n"
             "Your role is to conduct a natural, intelligent patient intake consultation just like an experienced clinical doctor.\n"
             "Converse empathetically with the patient, listen to their concerns (symptoms, general wellness check, lifestyle, questions), and ask relevant medical follow-up questions.\n\n"
+            "STRICT CLINICAL EXTRACTION RULES:\n"
+            "1. In the JSON state, ONLY populate fields with facts that the patient has EXPLICITLY mentioned in the conversation.\n"
+            "2. If a detail (e.g. onset, timing, severity, radiation, character, Ayush Prakriti/Agni) has NOT been explicitly stated by the patient, you MUST set it to null. NEVER guess, assume, or default to values like 'intermittent', 'acute', or 'moderate' unless the patient explicitly said so.\n"
+            "3. If the patient answers your question with a brief phrase (e.g., 'Upper right'), only update the relevant field (e.g., site: 'Upper right'). Do not fabricate answers to your other questions.\n\n"
             "OUTPUT INSTRUCTION:\n"
             "Respond by outputting ONLY a single JSON object containing:\n"
             "- \"next_question_to_ask_patient\": Your empathetic, contextual clinical question or reply to the patient (in the patient's language).\n"
@@ -1259,6 +1267,300 @@ class ClinicalLLMService:
             target,
         )
         return (self.text_model_name, self.vision_model_name)
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Clinical Summary Generation
+    # ──────────────────────────────────────────────────────────────────────────
+
+    async def generate_clinical_summary(self, request: SummarizeRequest) -> SummarizeResponse:
+        """
+        Generate a structured clinical summary.
+
+        Strategy:
+        - Structured fields (patient info, symptoms, HPI, medications, labs) are assembled
+          DETERMINISTICALLY in Python — zero hallucination risk.
+        - Only the conversational narrative section (what the patient said in chat) is sent
+          to the LLM for natural-language synthesis, with a very tight instruction to NOT add
+          anything that isn't in the transcript.
+        - All sections are merged at the end into a SummarizeResponse.
+        """
+        lang = request.language or "en"
+
+        # ══════════════════════════════════════════════════════════════════════
+        # 1. DETERMINISTIC SECTIONS (never touch the LLM)
+        # ══════════════════════════════════════════════════════════════════════
+
+        def _get(obj: Any, key: str, default: Any = None) -> Any:
+            if obj is None:
+                return default
+            if isinstance(obj, dict):
+                return obj.get(key, default)
+            return getattr(obj, key, default)
+
+        # ── Patient info ──────────────────────────────────────────────────────
+        patient_info_parts: list[str] = []
+        if request.clinical_record:
+            demo = _get(request.clinical_record, "patient_demographics")
+            if demo:
+                age = _get(demo, "age_years")
+                gender = _get(demo, "gender")
+                lang_pref = _get(demo, "language_preference")
+                if age:
+                    patient_info_parts.append(f"Age {age} years")
+                if gender:
+                    patient_info_parts.append(f"Gender: {gender}")
+                if lang_pref:
+                    patient_info_parts.append(f"Language: {str(lang_pref).upper()}")
+        patient_info = ", ".join(patient_info_parts) if patient_info_parts else None
+
+        # ── Chief complaint ───────────────────────────────────────────────────
+        chief_complaint: Optional[str] = None
+        if request.clinical_record:
+            cc = _get(request.clinical_record, "chief_complaint")
+            if cc:
+                symp = _get(cc, "symptom")
+                dur = _get(cc, "duration")
+                if symp:
+                    chief_complaint = str(symp).strip()
+                    if dur:
+                        dur_str = str(dur).strip()
+                        qualitative = {"intermittent", "constant", "sudden", "gradual", "none", "null", "unknown", "unspecified"}
+                        if dur_str.lower() not in qualitative:
+                            chief_complaint += f" ({dur_str})"
+
+        # ── History of presenting illness ─────────────────────────────────────
+        hpi_parts: list[str] = []
+        if request.clinical_record:
+            hpi = _get(request.clinical_record, "hpi_socrates")
+            if hpi:
+                site = _get(hpi, "site")
+                onset = _get(hpi, "onset")
+                character = _get(hpi, "character")
+                radiation = _get(hpi, "radiation")
+                severity = _get(hpi, "severity_1_to_10")
+                associations = _get(hpi, "associations")
+                time_course = _get(hpi, "time_course")
+                exacerbating_relieving = _get(hpi, "exacerbating_relieving")
+
+                if site:
+                    hpi_parts.append(f"Location: {site}")
+                if onset:
+                    hpi_parts.append(f"Pattern: {onset}")
+                if character:
+                    hpi_parts.append(f"Character: {character}")
+                if radiation:
+                    hpi_parts.append(f"Radiation: {radiation}")
+                if severity:
+                    hpi_parts.append(f"Severity: {severity}/10")
+                if associations:
+                    hpi_parts.append(f"Associated symptoms: {associations}")
+                if time_course and (not onset or str(time_course).strip().lower() != str(onset).strip().lower()):
+                    hpi_parts.append(f"Timing: {time_course}")
+                if exacerbating_relieving:
+                    hpi_parts.append(f"Aggravating/relieving: {exacerbating_relieving}")
+
+            lifestyle = _get(request.clinical_record, "ahara_vihara_lifestyle")
+            if lifestyle:
+                sleep = _get(lifestyle, "sleep_pattern")
+                diet = _get(lifestyle, "diet_habits")
+                bowel = _get(lifestyle, "koshtha_bowel")
+                agni = _get(lifestyle, "agni_digestion")
+
+                if sleep:
+                    hpi_parts.append(f"Sleep: {sleep}")
+                if diet:
+                    hpi_parts.append(f"Diet: {diet}")
+                if bowel:
+                    hpi_parts.append(f"Bowel habit: {bowel}")
+                if agni:
+                    hpi_parts.append(f"Digestion: {agni}")
+
+        hpi_text = " | ".join(hpi_parts) if hpi_parts else None
+
+        # ── Ayush assessment ──────────────────────────────────────────────────
+        ayush_parts: list[str] = []
+        if request.clinical_record:
+            ayush = _get(request.clinical_record, "ayush_dashavidha_pariksha")
+            if ayush:
+                prakriti = _get(ayush, "prakriti")
+                vikriti = _get(ayush, "vikriti")
+                agni = _get(ayush, "agni")
+                koshtha = _get(ayush, "koshtha")
+
+                if prakriti:
+                    ayush_parts.append(f"Prakriti: {prakriti}")
+                if vikriti:
+                    ayush_parts.append(f"Vikriti: {vikriti}")
+                if agni:
+                    ayush_parts.append(f"Agni: {agni}")
+                if koshtha:
+                    ayush_parts.append(f"Koshtha: {koshtha}")
+        ayush_text = " | ".join(ayush_parts) if ayush_parts else None
+
+        # ── Red flags ─────────────────────────────────────────────────────────
+        red_flags: Optional[str] = None
+        if request.clinical_record and _get(request.clinical_record, "red_flag_alert"):
+            red_flags = "⚠️ EMERGENCY: Patient has reported acute life-threatening symptoms. Immediate hospital referral required."
+
+        # ── Documents & Investigations ────────────────────────────────────────
+        doc_lines: list[str] = []
+        for i, doc in enumerate(request.scan_results, 1):
+            label = _get(doc, "document_label") or f"Document {i}"
+            doc_lines.append(f"📄 {label}")
+
+            meds = _get(doc, "medications") or []
+            if meds:
+                doc_lines.append("  Medications:")
+                for m in meds:
+                    drug_name = _get(m, "drug_name")
+                    if not drug_name:
+                        continue
+                    med_line = f"    • {drug_name}"
+                    details: list[str] = []
+                    dosage = _get(m, "dosage")
+                    freq = _get(m, "frequency")
+                    duration = _get(m, "duration")
+                    if dosage:
+                        details.append(str(dosage))
+                    if freq:
+                        details.append(str(freq))
+                    if duration:
+                        details.append(f"for {duration}")
+                    if details:
+                        med_line += " — " + ", ".join(details)
+                    doc_lines.append(med_line)
+
+            labs = _get(doc, "lab_investigations") or []
+            if labs:
+                doc_lines.append("  Lab Investigations:")
+                for lab in labs:
+                    param_name = _get(lab, "parameter_name")
+                    if not param_name:
+                        continue
+                    is_abn = _get(lab, "is_abnormal")
+                    obs_val = _get(lab, "observed_value")
+                    unit = _get(lab, "unit")
+                    status_flag = " [ABNORMAL]" if is_abn else ""
+                    value_str = str(obs_val) if obs_val is not None else "?"
+                    unit_str = f" {unit}" if unit else ""
+                    doc_lines.append(f"    • {param_name}: {value_str}{unit_str}{status_flag}")
+
+            raw_txt = _get(doc, "raw_text")
+            if not meds and not labs:
+                if raw_txt:
+                    doc_lines.append("  Raw OCR Text:")
+                    doc_lines.append(f"    {str(raw_txt)[:300]}...")
+
+            doc_lines.append("")  # Blank line between documents
+
+        documents_text = "\n".join(doc_lines).strip() if doc_lines else None
+
+
+        # ══════════════════════════════════════════════════════════════════════
+        # 2. LLM SECTION: Narrative from patient chat only
+        # ══════════════════════════════════════════════════════════════════════
+        llm_narrative: Optional[str] = None
+        llm_recommendations: Optional[str] = None
+
+        patient_utterances = [
+            entry["content"]
+            for entry in request.chat_history
+            if entry.get("role") == "user" and entry.get("content")
+        ]
+
+        if patient_utterances:
+            chat_block = "\n".join(f"- {u}" for u in patient_utterances)
+
+            lang_instruction = (
+                "Respond in Hindi (Devanagari script)." if lang.startswith("hi")
+                else "Respond in English."
+            )
+
+            system_prompt = (
+                "You are a clinical scribe writing a brief intake note for a physician. "
+                f"{lang_instruction}\n\n"
+                "STRICT RULES:\n"
+                "1. ONLY summarize what the patient said in the consultation. NEVER invent, assume, or hallucinate symptoms.\n"
+                "2. If a patient's statement is a short phrase (e.g. 'Gas', 'Upper abdomen'), accurately state that the patient reported these symptoms.\n"
+                "3. Write a concise clinical paragraph (2-4 sentences).\n"
+                "4. Do NOT repeat document or lab data.\n"
+                "5. End with 'RECOMMENDATIONS:' followed by 2-3 logical clinical next steps."
+            )
+
+            user_prompt = (
+                "Patient statements during intake:\n"
+                f"{chat_block}\n\n"
+                "Write the clinical narrative and RECOMMENDATIONS."
+            )
+
+            try:
+                messages = self._format_alternating_messages(
+                    system_content=system_prompt,
+                    chat_history=[],
+                    user_text=user_prompt,
+                )
+                response = await self._llm.ainvoke(messages)
+                raw_llm = response.content if hasattr(response, "content") else str(response)
+
+                # Clean special tokens and internal reasoning traces
+                clean_llm = raw_llm
+                if "<unused" in clean_llm:
+                    parts = re.split(r"<unused\d+>", clean_llm)
+                    clean_llm = parts[-1].strip()
+                clean_llm = re.sub(r"<thought>.*?</thought>", "", clean_llm, flags=re.DOTALL).strip()
+
+                # Split out RECOMMENDATIONS line safely
+                rec_match = re.search(r"(?:^|\n)\s*RECOMMENDATIONS\s*:\s*", clean_llm, flags=re.IGNORECASE)
+                if rec_match:
+                    llm_narrative = clean_llm[:rec_match.start()].strip()
+                    llm_recommendations = clean_llm[rec_match.end():].strip()
+                else:
+                    llm_narrative = clean_llm.strip()
+
+            except Exception as e:
+                logger.exception("Summary LLM narrative call failed: %s", e)
+                llm_narrative = None
+
+        # ══════════════════════════════════════════════════════════════════════
+        # 3. ASSEMBLE FINAL RESPONSE
+        # ══════════════════════════════════════════════════════════════════════
+        sections = SummarySections(
+            patient_info=patient_info,
+            chief_complaint=chief_complaint,
+            history=hpi_text,
+            clinical_narrative=llm_narrative,
+            documents=documents_text,
+            ayush_assessment=ayush_text,
+            red_flags=red_flags,
+            recommendations=llm_recommendations,
+        )
+
+        # Build full narrative text for display
+        narrative_parts: list[str] = []
+        if patient_info:
+            narrative_parts.append(f"PATIENT INFO: {patient_info}")
+        if chief_complaint:
+            narrative_parts.append(f"CHIEF COMPLAINT: {chief_complaint}")
+        if hpi_text:
+            narrative_parts.append(f"HISTORY OF PRESENTING ILLNESS: {hpi_text}")
+        if llm_narrative:
+            narrative_parts.append(f"CLINICAL NARRATIVE:\n{llm_narrative}")
+        if documents_text:
+            narrative_parts.append(f"DOCUMENTS & INVESTIGATIONS:\n{documents_text}")
+        if ayush_text:
+            narrative_parts.append(f"AYUSH ASSESSMENT: {ayush_text}")
+        if red_flags:
+            narrative_parts.append(f"RED FLAGS: {red_flags}")
+        if llm_recommendations:
+            narrative_parts.append(f"RECOMMENDATIONS:\n{llm_recommendations}")
+
+        narrative = "\n\n".join(narrative_parts) if narrative_parts else "No clinical data collected yet. Start a conversation or scan a document."
+
+        return SummarizeResponse(
+            status="success",
+            summary_text=narrative,
+            summary_sections=sections,
+        )
 
 
 

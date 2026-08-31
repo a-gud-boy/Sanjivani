@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="sanjivaniGrad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0891b2"/>
+      <stop offset="50%" stop-color="#0d9488"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="16" y1="12" x2="48" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#ecfdf5"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="20" y1="20" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background Squircle -->
+  <rect width="64" height="64" rx="16" fill="url(#sanjivaniGrad)"/>
+
+  <!-- Inner Circle Border -->
+  <circle cx="32" cy="32" r="26" stroke="#ffffff" stroke-opacity="0.2" stroke-width="1.5" stroke-dasharray="3 3"/>
+
+  <!-- Right Leaf -->
+  <path d="M32 10 C46 14 53 28 47 43 C42 53 32 54 32 54 C32 54 32 40 32 30 C32 20 32 10 32 10 Z" 
+        fill="url(#leafGrad)" opacity="0.95"/>
+  
+  <!-- Left Leaf -->
+  <path d="M32 10 C18 14 11 28 17 43 C22 53 32 54 32 54 C32 54 32 40 32 30 C32 20 32 10 32 10 Z" 
+        fill="url(#leafGrad)" opacity="0.82"/>
+
+  <!-- Leaf Stem -->
+  <path d="M32 14 V52" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Medical Cross -->
+  <rect x="29" y="23" width="6" height="18" rx="3" fill="#0d9488"/>
+  <rect x="23" y="29" width="18" height="6" rx="3" fill="#0d9488"/>
+
+  <!-- Spark of Life -->
+  <circle cx="32" cy="32" r="3.2" fill="url(#goldGrad)"/>
+  <circle cx="32" cy="13" r="2" fill="#fef08a"/>
+</svg>
