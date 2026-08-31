@@ -909,10 +909,9 @@ class ClinicalLLMService:
         image_data_url = f"data:{mime_type};base64,{base64_image.strip()}"
 
         vision_prompt = (
-            "You are an expert medical transcriptionist. "
-            "Transcribe all text from this medical prescription or diagnostic laboratory report image exactly as written. "
-            "Include doctor details, patient details, diagnosis, and all prescribed medicines (Rx, dosage, frequency). "
-            "Output ONLY the transcribed text."
+            "Transcribe all text from this medical prescription or laboratory report image exactly as written.\n"
+            "Include patient details, clinical findings, and all prescribed medicines (Rx, dosage, frequency).\n"
+            "If this image does NOT contain a medical document or readable text, reply ONLY: NO_DOCUMENT_TEXT_FOUND"
         )
 
         # Build candidate vision models (excluding text-only models)
@@ -944,20 +943,30 @@ class ClinicalLLMService:
                             ],
                         },
                     ],
-                    temperature=0.2,
+                    temperature=0.15,
                     max_tokens=2048,
                     extra_body={"presence_penalty": 0.3, "frequency_penalty": 0.3},
                 )
                 raw_text = response.choices[0].message.content or ""
-                # Clean thinking trace / special tokens if present
-                raw_text = re.sub(r"<unused94>thought.*?<unused95>", "", raw_text, flags=re.DOTALL)
-                raw_text = re.sub(r"<unused94>thought.*", "", raw_text, flags=re.DOTALL)
-                if "</think>" in raw_text:
-                    raw_text = raw_text.split("</think>")[-1].strip()
-                elif "<think>" in raw_text:
-                    raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
 
-                raw_text = raw_text.replace("<end_of_turn>", "").strip()
+                # Robust thought token cleaner (handles models with chain-of-thought tokens)
+                if "<unused95>" in raw_text:
+                    after_thought = raw_text.split("<unused95>")[-1].strip()
+                    if len(after_thought) > 10:
+                        raw_text = after_thought
+                elif "</think>" in raw_text:
+                    after_thought = raw_text.split("</think>")[-1].strip()
+                    if len(after_thought) > 10:
+                        raw_text = after_thought
+
+                # Strip residual markers
+                raw_text = re.sub(r"<unused94>thought\s*", "", raw_text)
+                raw_text = re.sub(r"<think>\s*", "", raw_text)
+                raw_text = raw_text.replace("<unused95>", "").replace("</think>", "").replace("<end_of_turn>", "").strip()
+
+                if "NO_DOCUMENT_TEXT_FOUND" in raw_text.upper():
+                    logger.info("Stage 1: Non-document image detected by model '%s'.", model)
+                    return "NO_DOCUMENT_TEXT_FOUND"
 
                 if raw_text.strip():
                     logger.info("Stage 1 transcription succeeded with model '%s' (%d chars).", model, len(raw_text))
@@ -977,19 +986,43 @@ class ClinicalLLMService:
         Takes the transcribed raw text and extracts standardized medications,
         lab investigations, and full verbatim text into OCRStructuredResult.
         """
-        if not raw_text or not raw_text.strip():
-            return OCRStructuredResult(raw_text="")
+        if not raw_text or not raw_text.strip() or "NO_DOCUMENT_TEXT_FOUND" in raw_text.upper():
+            return OCRStructuredResult(
+                medications=[],
+                lab_investigations=[],
+                raw_text="No document text detected in this image. Please upload a clear photo or scan of a prescription or laboratory report.",
+            )
+
+        # Check for non-document descriptions
+        lower_raw = raw_text.lower().strip()
+        non_doc_indicators = (
+            "photo of a person", "photograph of a person", "photo of a man",
+            "photo of a woman", "portrait of", "picture of a person",
+            "picture of a man", "picture of a woman", "this image shows a person",
+            "this image shows a man", "this image shows a woman", "no text found",
+            "no text is visible", "not a medical document", "not a prescription",
+            "no text present", "a man with", "a woman with", "a person with",
+        )
+        if any(ind in lower_raw for ind in non_doc_indicators) and "mg" not in lower_raw and "tablet" not in lower_raw and "rx" not in lower_raw:
+            return OCRStructuredResult(
+                medications=[],
+                lab_investigations=[],
+                raw_text="Uploaded image does not appear to be a medical document. No clinical entities extracted.",
+            )
 
         system_instruction = (
             "You are an expert AI clinical data interpreter and pharmacist.\n"
             "Analyze the transcribed medical prescription or diagnostic laboratory report text.\n\n"
-            "Rules for Extraction:\n"
-            "1. 'medications': Extract all prescribed drugs, tinctures, solutions, tablets, syrups, or compounding formulas (e.g. Tr Belladonna, Amphenol, Amoxicillin 500mg).\n"
+            "STRICT EXTRACTION RULES:\n"
+            "1. ONLY extract medications or lab investigations that are EXPLICITLY and CLEARLY written in the text.\n"
+            "2. If the text does NOT contain prescribed medications or laboratory test results, return empty lists: 'medications': [], 'lab_investigations': [].\n"
+            "3. NEVER invent, simulate, or hallucinate medications (like Paracetamol or Montelukast) if they are not in the text.\n"
+            "4. 'medications': Extract all prescribed drugs, tinctures, solutions, tablets, syrups, or compounding formulas.\n"
             "   - drug_name: standard medication or formulation name\n"
             "   - dosage: strength/quantity/volume (e.g. '500mg', '5ml', or null if unspecified)\n"
             "   - frequency: dosing schedule (e.g. '5ml thrice daily before meals (t.d. ac.)', '1 cap 3x a day', 'TDS')\n"
             "   - duration: duration of course (e.g. '7 days' or null)\n"
-            "2. 'lab_investigations': Extract ONLY genuine diagnostic laboratory biomarkers (e.g. Hemoglobin, Glucose, WBC, Platelets, Creatinine, TSH).\n"
+            "5. 'lab_investigations': Extract ONLY genuine diagnostic laboratory biomarkers (e.g. Hemoglobin, Glucose, WBC, Platelets, Creatinine, TSH).\n"
             "   - STRICTLY EXCLUDE administrative numbers (EXP DATE, LOT NO, B NUMBER, S/N, Sig, Lic No, PTR No, Phone, Dates) from lab investigations.\n"
             "   - If no diagnostic lab tests are present in the document, return 'lab_investigations': [].\n\n"
             "Output strictly valid JSON matching:\n"
@@ -1012,7 +1045,7 @@ class ClinicalLLMService:
                     {"role": "user", "content": f"Extract clinical entities from this prescription/lab document text:\n\n{raw_text}"},
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.1,
+                temperature=0.0,
             )
             raw_content = response.choices[0].message.content or "{}"
             result = self._clean_and_parse_ocr_json(raw_content, raw_text)

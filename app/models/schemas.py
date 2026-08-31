@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class VayaAgeGroup(str, Enum):
@@ -97,6 +97,16 @@ class HpiSocrates(BaseModel):
         default=None,
         description="Severity: Subjective symptom/pain severity rating on a 1 to 10 scale or descriptive label (e.g. 7 or 'Moderate')."
     )
+
+    @field_validator("severity_1_to_10")
+    @classmethod
+    def validate_severity(cls, v: Any) -> Any:
+        if v is None:
+            return None
+        if isinstance(v, int):
+            if v < 1 or v > 10:
+                raise ValueError("Severity score must be between 1 and 10.")
+        return v
 
 
 class AyushDashavidhaPariksha(BaseModel):
