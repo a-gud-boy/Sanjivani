@@ -24,9 +24,19 @@ wheels/
 .installed.cfg
 *.egg
 
+# Node / Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+.stylelintcache
+dist-ssr/
+*.local
+
 # Virtual environments
 sihvenv312
-.env
 .venv
 env/
 venv/
@@ -34,10 +44,34 @@ ENV/
 env.bak/
 venv.bak/
 
+# Environment variables
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# SQLite / Local Databases
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Logs
+*.log
+
 # Testing & Coverage
 .pytest_cache/
 .coverage
+.coverage.*
+coverage.xml
+*.cover
 htmlcov/
+
+# Type checking & Linters
+.mypy_cache/
+.ruff_cache/
 
 # IDE files
 .vscode/*
