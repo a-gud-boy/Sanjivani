@@ -59,7 +59,9 @@ It bridges modern allopathic medicine with traditional Indian healthcare systems
 
 ---
 
-### Option A: Using the Bash Launcher (Linux / macOS)
+> 🪟 **Running on Windows?** Check the dedicated [Windows Setup Guide (README_WINDOWS.md)](./README_WINDOWS.md) for step-by-step PowerShell, WSL 2, and troubleshooting instructions.
+
+### Option A: Using the Bash Launcher (Linux / macOS / WSL 2)
 ```bash
 # Default: Starts database migration, backend (:8000), and frontend (:5173)
 ./start.sh
@@ -73,8 +75,8 @@ It bridges modern allopathic medicine with traditional Indian healthcare systems
 
 ### Option B: Using the Cross-Platform Python Runner (Windows / Linux / macOS)
 ```bash
-# Default launcher
-python run.py
+# On Windows PowerShell / CMD:
+python run.py --no-vllm
 
 # Skip local vLLM
 python run.py --no-vllm
@@ -115,6 +117,8 @@ The database is pre-seeded with test profiles for instant evaluation:
 Sanjivani/
 ├── start.sh                       # Unified launcher script (Bash)
 ├── run.py                         # Cross-platform runner with auto-venv & DB sync (Python)
+├── README.md                      # Main project documentation
+├── README_WINDOWS.md              # Dedicated Windows setup guide (PowerShell, WSL 2, Docker)
 ├── requirements.txt               # Backend dependencies (FastAPI, SQLAlchemy, Pydantic v2)
 ├── sanjivani.db                   # SQLite database (auto-created and seeded)
 ├── .devcontainer/
