@@ -19,13 +19,17 @@ import {
   Clock,
   History,
 } from 'lucide-react'
-import type { User, PatientDashboardData, SavedDocument } from '../../types'
+import type { User, PatientDashboardData, SavedDocument, LanguageCode } from '../../types'
 import BrandLogo from '../BrandLogo'
+import LanguageSelector from '../LanguageSelector'
+import { useTranslation } from '../../i18n/translations'
 
 interface PatientDashboardProps {
   patient: User
   dashboardData: PatientDashboardData | null
   isLoading: boolean
+  language: LanguageCode
+  onLanguageChange: (code: LanguageCode) => void
   onStartIntake: () => void
   onOpenProfile: () => void
   onLogout: () => void
@@ -37,12 +41,15 @@ export default function PatientDashboard({
   patient,
   dashboardData,
   isLoading,
+  language,
+  onLanguageChange,
   onStartIntake,
   onOpenProfile,
   onLogout,
   onDeleteDocument,
   onDeleteIntakeSession,
 }: PatientDashboardProps) {
+  const t = useTranslation(language)
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null)
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null)
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null)
@@ -106,13 +113,18 @@ export default function PatientDashboard({
           </div>
 
           <div className="flex items-center gap-2 sm:gap-2.5">
+            <LanguageSelector
+              language={language}
+              onLanguageChange={onLanguageChange}
+            />
+
             <button
               onClick={onOpenProfile}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-surface-border rounded-xl transition-colors"
               title="View & Edit Full Personal Profile"
             >
               <UserIcon className="w-3.5 h-3.5 text-brand-cyan" />
-              <span>Profile</span>
+              <span>{t.dashboard.profile}</span>
             </button>
 
             <button
@@ -120,7 +132,7 @@ export default function PatientDashboard({
               className="btn-primary text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm hover:shadow-md"
             >
               <PlusCircle className="w-3.5 h-3.5" />
-              <span>Add Details</span>
+              <span>{t.dashboard.addDetails}</span>
             </button>
 
             <button
@@ -129,7 +141,7 @@ export default function PatientDashboard({
               title="Sign Out"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Sign Out</span>
+              <span className="hidden sm:inline">{t.dashboard.signOut}</span>
             </button>
           </div>
         </div>

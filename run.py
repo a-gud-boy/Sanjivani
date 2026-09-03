@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """
 Sanjivani Dev Runner
-Starts:
-  1. vLLM Local Model Server (Optional: google/medgemma-1.5-4b-it on :8001)
-  2. FastAPI Backend (:8000)
-  3. Vite Frontend (:5173)
+Unified cross-platform launcher for:
+  1. Local vLLM Model Server (Optional: google/medgemma-1.5-4b-it on :8001)
+  2. Database Schema Sync & Pre-seeded ABHA Accounts
+  3. FastAPI Clinical Backend (:8000)
+  4. React Vite Frontend (:5173)
+
+Supports both local virtualenvs (sihvenv312, .venv) and Dev Containers.
 Handles graceful shutdown on Ctrl+C (SIGINT / SIGTERM).
 """
 
+import argparse
+import asyncio
 import os
 import signal
 import subprocess
@@ -34,55 +39,131 @@ def get_python_executable() -> str:
     return sys.executable
 
 
+def load_env_file(env_path: Path):
+    """Load environment variables from .env file into os.environ."""
+    if not env_path.exists():
+        return
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(env_path)
+    except ImportError:
+        # Fallback basic parser if python-dotenv is not yet available
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip().strip("'\"")
+                if k not in os.environ:
+                    os.environ[k] = v
+
+
 def main():
+    parser = argparse.ArgumentParser(description="Sanjivani Dev Runner")
+    parser.add_argument(
+        "--no-vllm", "--skip-vllm",
+        action="store_true",
+        help="Skip starting the local vLLM server (runs only Backend + Frontend)"
+    )
+    parser.add_argument(
+        "--reset-db", "--clean-db",
+        action="store_true",
+        help="Reset the local SQLite database before startup"
+    )
+    args = parser.parse_args()
+
+    # If invoked by a different python (e.g. system python) but a project venv exists,
+    # re-execute using the venv's python executable so all packages are available.
+    py_exe = get_python_executable()
+    try:
+        if Path(sys.executable).resolve() != Path(py_exe).resolve():
+            os.execv(py_exe, [py_exe] + sys.argv)
+    except Exception:
+        pass
+
     print("=" * 60)
     print("    Sanjivani (संजीवनी) - Clinical Intake & Digitization")
     print("=" * 60)
-
-    py_exe = get_python_executable()
     print(f"✓ Python runtime: {py_exe}")
 
+    # 1. Check & copy .env
     env_file = ROOT_DIR / ".env"
     if not env_file.exists() and (ROOT_DIR / ".env.example").exists():
         print("⚠ .env not found. Copying .env.example to .env...")
-        with open(ROOT_DIR / ".env.example", "r") as src, open(env_file, "w") as dst:
+        with open(ROOT_DIR / ".env.example", "r", encoding="utf-8") as src, open(env_file, "w", encoding="utf-8") as dst:
             dst.write(src.read())
 
+    load_env_file(env_file)
+
+    # 2. Check frontend dependencies
     if not (FRONTEND_DIR / "node_modules").exists():
         print("⚠ frontend/node_modules not found. Running npm install...")
         subprocess.run(["npm", "install"], cwd=str(FRONTEND_DIR), check=True)
 
-    # Check for vLLM flag (Enabled by default)
-    start_vllm = True
-    if "--no-vllm" in sys.argv or "--skip-vllm" in sys.argv:
-        start_vllm = False
-    elif env_file.exists():
+    # 3. Handle Database Reset
+    db_file = ROOT_DIR / "sanjivani.db"
+    if args.reset_db and db_file.exists():
+        print("⚠ Resetting local database (sanjivani.db)...")
         try:
-            with open(env_file, "r") as f:
-                content = f.read()
-                if "START_VLLM=false" in content:
-                    start_vllm = False
-        except Exception:
-            pass
+            db_file.unlink()
+        except Exception as e:
+            print(f"Warning: Could not remove {db_file}: {e}")
 
-    vllm_model = os.getenv("VLLM_MODEL", "google/medgemma-1.5-4b-it")
+    # 4. Synchronize Database & Seed Demo Accounts
+    print("✓ Initializing Database & Pre-Seeding Demo Accounts...")
+    try:
+        from app.db.seed import init_db, seed_demo_data
+
+        async def init():
+            await init_db()
+            await seed_demo_data()
+
+        asyncio.run(init())
+    except Exception as e:
+        print(f"⚠ Warning initializing database: {e}")
+
+    # 5. Determine vLLM configuration
+    start_vllm = not args.no_vllm
+
+    # Check if .env explicitly disables vLLM or sets cloud AI
+    if os.getenv("START_VLLM", "").lower() == "false":
+        start_vllm = False
+
+    vllm_model = os.getenv("VLLM_MODEL") or os.getenv("TEXT_LLM_MODEL_NAME") or "google/medgemma-1.5-4b-it"
+    has_cloud_ai = bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+    if has_cloud_ai or any(k in vllm_model.lower() for k in ["gemini", "gemma-2"]):
+        # If cloud AI is configured, skip local GPU server by default unless forced
+        if not args.no_vllm and os.getenv("FORCE_VLLM", "").lower() != "true":
+            start_vllm = False
+
     vllm_port = os.getenv("VLLM_PORT", "8001")
-    vllm_gpu_util = os.getenv("VLLM_GPU_UTIL", "0.88")
+    vllm_gpu_util = os.getenv("VLLM_GPU_UTIL", "0.85")
     vllm_max_len = os.getenv("VLLM_MAX_LEN", "4096")
     vllm_quant = os.getenv("VLLM_QUANT", "bitsandbytes")
+    database_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./sanjivani.db")
 
     print("\nStarting Services:")
     if start_vllm:
         print(f"  ► vLLM Model Server: http://localhost:{vllm_port}/v1 (Model: {vllm_model}, 4-bit BnB)")
+    else:
+        model_display = os.getenv("TEXT_LLM_MODEL_NAME", "Google Cloud Gemini")
+        print(f"  ► Clinical AI Model: {model_display} (Local vLLM skipped)")
+    print(f"  ► Database Engine:   {database_url}")
     print("  ► FastAPI Backend:   http://localhost:8000 (Swagger: http://localhost:8000/docs)")
-    print("  ► Vite Frontend:     http://localhost:5173")
+    print("  ► React Frontend:    http://localhost:5173")
+
+    print("\nPre-Registered Demo Credentials:")
+    print("  👤 Patient: Ramesh Sharma  | ABHA: 14-1234-5678-9012 | OTP: 123456")
+    print("  🩺 Doctor:  Dr. Priya Nair | ABHA: 14-9988-7766-5544 | OTP: 123456")
     print("\nPress [Ctrl+C] to stop all services.\n" + "-" * 60)
 
     procs = []
 
     # 1. vLLM Server if enabled
     if start_vllm:
-        print(f"Launching vLLM server for '{vllm_model}' on port {vllm_port} (4-bit quantization)...")
+        print(f"Launching vLLM server for '{vllm_model}' on port {vllm_port}...")
         vllm_env = os.environ.copy()
         vllm_env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
         vllm_env["VLLM_USE_FLASHINFER_SAMPLER"] = "0"

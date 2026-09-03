@@ -41,9 +41,20 @@ function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
+// ── Stored language helper ───────────────────────────────────────────────────
+const getStoredLanguage = (): LanguageCode => {
+  try {
+    const saved = localStorage.getItem('sanjivani_language')
+    if (saved && ['en', 'hi', 'bn', 'ta', 'te', 'mr', 'gu'].includes(saved)) {
+      return saved as LanguageCode
+    }
+  } catch {}
+  return 'en'
+}
+
 // ── Initial state ────────────────────────────────────────────────────────────
 const INITIAL_STATE: IntakeState = {
-  language: 'en',
+  language: getStoredLanguage(),
   abhaLinked: false,
   abhaId: null,
   messages: [],
@@ -56,6 +67,38 @@ const INITIAL_STATE: IntakeState = {
   aiSummaryText: null,
   aiSummarySections: null,
   summaryLoading: false,
+}
+
+// ── Instant Localized Greetings Mapping ──────────────────────────────────────
+const INSTANT_GREETINGS: Record<LanguageCode, { greeting: string; chips: string[] }> = {
+  en: {
+    greeting: 'I am Sanjivani AI. Tell me what symptoms or health problems you are experiencing.',
+    chips: ['Headache / Body Ache', 'Fever, Cold or Cough', 'Stomach or Digestion issue', 'General Health Checkup'],
+  },
+  hi: {
+    greeting: 'मैं संजीवनी एआई हूँ। कृपया बताएं कि आज आपको क्या स्वास्थ्य समस्या या लक्षण हैं।',
+    chips: ['सिरदर्द / बदन दर्द', 'बुखार, सर्दी या खांसी', 'पेट या पाचन की समस्या', 'सामान्य स्वास्थ्य जांच'],
+  },
+  bn: {
+    greeting: 'আমি সঞ্জীবনী এআই। অনুগ্রহ করে বলুন আজ আপনার কী ধরনের স্বাস্থ্য সমস্যা বা শারীরিক অস্বস্তি হচ্ছে।',
+    chips: ['মাথাব্যথা / গায়ে ব্যথা', 'জ্বর, সর্দি বা কাশি', 'পেটের বা হজমের সমস্যা', 'সাধারণ স্বাস্থ্য পরীক্ষা'],
+  },
+  ta: {
+    greeting: 'நான் சஞ்சீவனி ஏஐ. இன்று உங்களுக்கு என்ன உடல்நலக் கோளாறு அல்லது அறிகுறிகள் உள்ளன என்று கூறுங்கள்.',
+    chips: ['தலைவலி / உடல் வலி', 'காய்ச்சல், சளி அல்லது இருமல்', 'வயிற்று அல்லது செரிமான பிரச்சனை', 'பொது சுகாதார பரிசோதனை'],
+  },
+  te: {
+    greeting: 'నేను సంజీవని AI. ఈరోజు మీకు ఉన్న ఆరోగ్య సమస్య లేదా లక్షణాల గురించి చెప్పండి.',
+    chips: ['తలనొప్పి / ఒంటి నొప్పులు', 'జ్వరం, జలుబు లేదా దగ్గు', 'కడుపు లేదా జీర్ణ సమస్య', 'సాధారణ ఆరోగ్య తనిఖీ'],
+  },
+  mr: {
+    greeting: 'मी संजीवनी एआय आहे. कृपया सांगा आज तुम्हाला कोणती आरोग्य समस्या किंवा लक्षणे जाणवत आहेत.',
+    chips: ['डोकेदुखी / अंगदुखी', 'ताप, सर्दी किंवा खोकला', 'पोटाची किंवा पचनाची समस्या', 'सामान्य आरोग्य तपासणी'],
+  },
+  gu: {
+    greeting: 'હું સંજીવની એઆઈ છું. કૃપા કરીને જણાવો કે આજે તમને શું સ્વાસ્થ્ય સમસ્યા અથવા લક્ષણો જણાય છે.',
+    chips: ['માથાનો દુખાવો / શરીરનો દુખાવો', 'તાવ, શરદી અથવા ઉધરસ', 'પેટ અથવા પાચનની તકલીફ', 'સામાન્ય સ્વાસ્થ્ય તપાસ'],
+  },
 }
 
 // ── App ──────────────────────────────────────────────────────────────────────
@@ -144,7 +187,10 @@ export default function App() {
     setCurrentUser(null)
     setDashboardData(null)
     setCurrentView('login')
-    setState(INITIAL_STATE)
+    setState((s) => ({
+      ...INITIAL_STATE,
+      language: s.language,
+    }))
   }
 
   const handleStartIntake = () => {
@@ -197,18 +243,13 @@ export default function App() {
         .catch((err) => {
           if (!isSubscribed) return
           console.warn('Initial greeting fetch failed, using fallback:', err)
+          const fallback = INSTANT_GREETINGS[state.language] || INSTANT_GREETINGS.en
           const fallbackMsg: ChatMessage = {
             id: newId(),
             role: 'assistant',
-            content:
-              state.language === 'hi'
-                ? `मैं संजीवनी एआई हूँ। कृपया बताएं कि आज आपको क्या स्वास्थ्य समस्या या लक्षण हैं।`
-                : `I am Sanjivani AI. Tell me what symptoms or health problems you are experiencing.`,
+            content: fallback.greeting,
             timestamp: new Date(),
-            quickReplies:
-              state.language === 'hi'
-                ? ['सिरदर्द / बदन दर्द', 'बुखार, सर्दी या खांसी', 'पेट या पाचन की समस्या', 'सामान्य स्वास्थ्य जांच']
-                : ['Headache / Body Ache', 'Fever, Cold or Cough', 'Stomach or Digestion issue', 'General Health Checkup'],
+            quickReplies: fallback.chips,
           }
           setState((s) => ({
             ...s,
@@ -227,7 +268,31 @@ export default function App() {
 
   // ── Language ────────────────────────────────────────────────────────────────
   const handleLanguageChange = useCallback((code: LanguageCode) => {
-    setState((s) => ({ ...s, language: code }))
+    try {
+      localStorage.setItem('sanjivani_language', code)
+    } catch {}
+    setState((s) => {
+      // Rapid switching support: if displaying only initial greeting, instantly switch it in 0ms!
+      const isOnlyInitialAssistant =
+        s.messages.length === 1 && s.messages[0].role === 'assistant'
+      if (s.messages.length === 0 || isOnlyInitialAssistant) {
+        const instant = INSTANT_GREETINGS[code] || INSTANT_GREETINGS.en
+        return {
+          ...s,
+          language: code,
+          messages: [
+            {
+              id: newId(),
+              role: 'assistant',
+              content: instant.greeting,
+              timestamp: new Date(),
+              quickReplies: instant.chips,
+            },
+          ],
+        }
+      }
+      return { ...s, language: code }
+    })
   }, [])
 
   // ── Chat ────────────────────────────────────────────────────────────────────
@@ -468,7 +533,13 @@ export default function App() {
 
   // ── ROUTE 1: Login Page ────────────────────────────────────────────────────
   if (currentView === 'login' || !currentUser) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />
+    return (
+      <LoginPage
+        onLoginSuccess={handleLoginSuccess}
+        language={state.language}
+        onLanguageChange={handleLanguageChange}
+      />
+    )
   }
 
   // ── ROUTE 2: Doctor Portal Placeholder ─────────────────────────────────────
@@ -490,6 +561,8 @@ export default function App() {
           patient={currentUser}
           dashboardData={dashboardData}
           isLoading={dashboardLoading}
+          language={state.language}
+          onLanguageChange={handleLanguageChange}
           onStartIntake={handleStartIntake}
           onOpenProfile={handleOpenProfile}
           onLogout={handleLogout}

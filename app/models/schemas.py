@@ -219,6 +219,10 @@ class ChatRequest(BaseModel):
         default_factory=list,
         description="Complete conversational history with previous turns [{'role': 'user'|'assistant', 'content': '...'}]."
     )
+    language: Optional[str] = Field(
+        default="en",
+        description="Target interaction language code (e.g., 'en', 'hi', 'ta', 'te', 'bn', 'mr', 'gu')."
+    )
 
 
 class ChatResponse(BaseModel):

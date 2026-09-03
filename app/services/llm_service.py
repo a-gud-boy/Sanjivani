@@ -168,7 +168,9 @@ class ClinicalLLMService:
     # Phase 1: Conversational Chat Intake
     # =========================================================================
 
-    def _build_chat_system_prompt(self, current_state: Optional[ClinicalHistoryRecord]) -> str:
+    def _build_chat_system_prompt(
+        self, current_state: Optional[ClinicalHistoryRecord], language: str = "en"
+    ) -> str:
         state_info = ""
         if current_state:
             state_dict = current_state.model_dump(exclude_none=True)
@@ -177,9 +179,27 @@ class ClinicalLLMService:
             if state_dict:
                 state_info = f"\n\nCURRENT CLINICAL RECORD EXTRACTED SO FAR:\n{json.dumps(state_dict, indent=2)}"
 
+        lang_code = (language or "en").lower()[:2]
+        lang_name_map = {
+            "en": "English",
+            "hi": "Hindi (हिन्दी)",
+            "bn": "Bengali (বাংলা)",
+            "ta": "Tamil (தமிழ்)",
+            "te": "Telugu (తెలుగు)",
+            "mr": "Marathi (मराठी)",
+            "gu": "Gujarati (ગુજરાતી)",
+        }
+        lang_name = lang_name_map.get(lang_code, "English")
+
         return (
             "You are Sanjivani (संजीवनी), a professional, direct AI medical clinician and intake assistant for the Ministry of Ayush.\n"
             "Your role is to conduct a structured, highly efficient clinical intake consultation.\n\n"
+            f"CRITICAL MULTILINGUAL INSTRUCTION:\n"
+            f"- The patient's requested consultation language is: {lang_name} (code: '{lang_code}').\n"
+            f"- You MUST formulate 'next_question_to_ask_patient' in {lang_name}.\n"
+            f"- You MUST formulate all items in 'suggested_quick_replies' in {lang_name}.\n"
+            f"- Formulate fluent, direct, natural {lang_name} questions and quick replies.\n"
+            f"- Internal clinical JSON entities (such as symptoms, anatomy, onset, severity, diagnosis, Ayush Prakriti) should be standardized in English for doctor clinical records, but the patient interaction ('next_question_to_ask_patient' and 'suggested_quick_replies') MUST be in {lang_name}.\n\n"
             "CRITICAL INSTRUCTION - DIRECT CLINICAL QUESTIONS ONLY (NO EMPATHY FILLER):\n"
             "- Ask clinical questions DIRECTLY without conversational empathy, sympathy, pleasantries, or acknowledging filler.\n"
             "- NEVER use phrases like 'I am sorry to hear that...', 'I'm sorry to hear...', 'I understand...', 'Thank you for sharing...', 'To help me understand better...', or 'It must be uncomfortable...'.\n"
@@ -193,8 +213,8 @@ class ClinicalLLMService:
             "3. If the patient answers your question with a brief phrase (e.g., 'Upper right'), only update the relevant field (e.g., site: 'Upper right'). Do not fabricate answers to your other questions.\n\n"
             "OUTPUT INSTRUCTION:\n"
             "Respond by outputting ONLY a single JSON object containing:\n"
-            "- \"next_question_to_ask_patient\": A direct, focused clinical question to the patient (in the patient's language) with ZERO conversational empathy or filler.\n"
-            "- \"suggested_quick_replies\": A list of 3 to 4 short, realistic quick-reply ANSWERS (2-4 words each) that the PATIENT can tap to answer your question. MUST BE PATIENT RESPONSES/ANSWERS, NEVER QUESTIONS. Do not include question marks.\n"
+            f"- \"next_question_to_ask_patient\": A direct, focused clinical question to the patient in {lang_name} with ZERO conversational empathy or filler.\n"
+            f"- \"suggested_quick_replies\": A list of 3 to 4 short, realistic quick-reply ANSWERS (2-4 words each) in {lang_name} that the PATIENT can tap to answer your question. MUST BE PATIENT RESPONSES/ANSWERS, NEVER QUESTIONS. Do not include question marks.\n"
             "- \"chief_complaint\": {\"symptom\": string or null, \"duration\": string or null}\n"
             "- \"hpi_socrates\": {\"site\": string or null, \"onset\": string or null, \"character\": string or null, \"radiation\": string or null, \"associations\": string or null, \"time_course\": string or null, \"exacerbating_relieving\": string or null, \"severity_1_to_10\": number or string or null}\n"
             "- \"ayush_dashavidha_pariksha\": {\"prakriti\": string or null, \"vikriti\": string or null, \"agni\": string or null, \"koshtha\": string or null}\n"
@@ -208,9 +228,10 @@ class ClinicalLLMService:
         user_text: str,
         current_state: Optional[ClinicalHistoryRecord],
         chat_history: List[Dict[str, Any]],
+        language: str = "en",
     ) -> List[BaseMessage]:
         messages: List[BaseMessage] = []
-        messages.append(SystemMessage(content=self._build_chat_system_prompt(current_state)))
+        messages.append(SystemMessage(content=self._build_chat_system_prompt(current_state, language=language)))
 
         # Conversational State Injection (keep recent history window)
         recent_history = chat_history[-10:] if chat_history else []
@@ -376,7 +397,18 @@ class ClinicalLLMService:
                 return ["हाँ, बिल्कुल", "नहीं, ऐसा कुछ नहीं", "हल्का सा है", "निश्चित नहीं"]
             return ["Yes, definitely", "No, nothing else", "Mildly present", "Not sure"]
 
-        # 8. General conversational reply choices
+        # 8. General conversational reply choices across supported Indian languages
+        DEFAULT_REPLIES: Dict[str, List[str]] = {
+            "hi": ["सिरदर्द या बदन दर्द है", "बुखार या सर्दी है", "पेट दर्द या पाचन समस्या", "सामान्य जांच करवानी है"],
+            "bn": ["মাথাব্যথা বা গায়ে ব্যথা", "জ্বর বা সর্দি-কাশি", "পেটের সমস্যা বা গ্যাস", "সাধারণ স্বাস্থ্য পরীক্ষা"],
+            "ta": ["தலைவலி அல்லது உடல் வலி", "காய்ச்சல் அல்லது சளி", "வயிற்று வலி அல்லது செரிமான பிரச்சனை", "பொது பரிசோதனை"],
+            "te": ["తలనొప్పి లేదా ఒంటి నొప్పులు", "జ్వరం లేదా జలుబు", "కడుపు నొప్పి లేదా జీర్ణ సమస్య", "సాధారణ పరీక్ష"],
+            "mr": ["डोकेदुखी किंवा अंगदुखी", "ताप किंवा सर्दी-खोकला", "पोटदुखी किंवा अपचन", "सामान्य तपासणी"],
+            "gu": ["માથાનો દુખાવો કે શરીરનો દુખાવો", "તાવ કે શરદી-ઉધરસ", "પેટનો દુખાવો કે અપચો", "સામાન્ય તપાસ"],
+            "en": ["Headache or body ache", "Fever, cold or cough", "Stomach or digestion issue", "General checkup"],
+        }
+        return DEFAULT_REPLIES.get(lang, DEFAULT_REPLIES["en"])
+
     def _strip_empathy_preambles(self, text: str) -> str:
         """
         Strips conversational empathy, sympathy, acknowledging phrases, and pleasantries
@@ -461,10 +493,10 @@ class ClinicalLLMService:
                 demo["age_years"] = int(data["age"])
             if "gender" in data:
                 demo["gender"] = str(data["gender"])
-            if "language_preference" in data:
-                demo["language_preference"] = str(data["language_preference"])
-            if demo:
-                data["patient_demographics"] = demo
+            demo["language_preference"] = language
+            data["patient_demographics"] = demo
+        elif isinstance(data.get("patient_demographics"), dict):
+            data["patient_demographics"]["language_preference"] = language
 
         # 2. Normalize chief complaint & SOCRATES
         allo = data.get("allopathic_history") if isinstance(data.get("allopathic_history"), dict) else {}
@@ -562,8 +594,8 @@ class ClinicalLLMService:
         if len(normalized_qr) >= 2:
             data["suggested_quick_replies"] = normalized_qr[:5]
         else:
-            data["suggested_quick_replies"] = self._generate_contextual_patient_quick_replies(
-                next_q, language=lang
+            data["suggested_quick_replies"] = (
+                self._generate_contextual_patient_quick_replies(next_q, language=lang) or []
             )
 
         # 5. Red flag detection
@@ -636,7 +668,7 @@ class ClinicalLLMService:
         chat_history: List[Dict[str, Any]],
         language: str = "en",
     ) -> ClinicalHistoryRecord:
-        system_content = self._build_chat_system_prompt(current_state)
+        system_content = self._build_chat_system_prompt(current_state, language=language)
         formatted_messages = self._format_alternating_messages(
             system_content=system_content,
             chat_history=chat_history,
@@ -671,10 +703,12 @@ class ClinicalLLMService:
         Process a conversational clinical intake turn using actual model inference.
         Uses fast direct JSON completion as primary strategy with resilient fallback.
         """
-        # Determine language preference
-        lang = "en"
-        if request.current_json_state and request.current_json_state.patient_demographics and request.current_json_state.patient_demographics.language_preference:
-            lang = request.current_json_state.patient_demographics.language_preference
+        # Determine language preference: prioritize explicit request language for mid-chat switches
+        lang = (request.language or "").strip()
+        if not lang and request.current_json_state and request.current_json_state.patient_demographics:
+            lang = (request.current_json_state.patient_demographics.language_preference or "").strip()
+        if not lang:
+            lang = "en"
 
         # 1. Primary Strategy: Direct JSON completion with Gemma alternating message formatting
         try:

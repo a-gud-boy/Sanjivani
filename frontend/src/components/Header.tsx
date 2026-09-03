@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react'
-import { Globe, ChevronDown, CheckCircle2, User as UserIcon, ArrowLeft, Save, Loader2 } from 'lucide-react'
-import { LANGUAGES, type Language, type LanguageCode, type User } from '../types'
+import { ArrowLeft, CheckCircle2, Loader2, Save, User as UserIcon } from 'lucide-react'
+import type { LanguageCode, User } from '../types'
 import BrandLogo from './BrandLogo'
+import LanguageSelector from './LanguageSelector'
+import { useTranslation } from '../i18n/translations'
 
 interface HeaderProps {
   language: LanguageCode
@@ -28,15 +29,7 @@ export default function Header({
   onSubmitDetails,
   isSubmitting = false,
 }: HeaderProps) {
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  const currentLang = LANGUAGES.find((l) => l.code === language) ?? LANGUAGES[0]
-
-  const handleSelect = (lang: Language) => {
-    onLanguageChange(lang.code)
-    setDropdownOpen(false)
-  }
+  const t = useTranslation(language)
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-surface-border shadow-sm">
@@ -51,7 +44,7 @@ export default function Header({
               title="Return to Dashboard"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Dashboard</span>
+              <span className="hidden sm:inline">{t.header.dashboard}</span>
             </button>
           )}
 
@@ -60,7 +53,7 @@ export default function Header({
             <h1 className="text-[15px] font-bold text-slate-900 leading-tight truncate">
               {user ? (
                 <>
-                  {user.name} <span className="text-xs font-normal text-slate-400">({user.user_type === 'patient' ? 'Patient' : 'Doctor'})</span>
+                  {user.name} <span className="text-xs font-normal text-slate-400">({user.user_type === 'patient' ? t.auth.patient : t.auth.doctor})</span>
                 </>
               ) : (
                 <>
@@ -82,13 +75,13 @@ export default function Header({
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full
                             bg-brand-mint-light text-emerald-700 text-xs font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>ABHA: {abhaId ?? 'Linked'}</span>
+              <span>{t.header.abhaLinked}: {abhaId ?? 'Linked'}</span>
             </div>
           ) : (
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full
                             bg-slate-100 text-slate-500 text-xs font-medium">
               <UserIcon className="w-3.5 h-3.5 flex-shrink-0" />
-              <span>Walk-in Patient</span>
+              <span>{t.header.walkInPatient}</span>
             </div>
           )}
 
@@ -102,59 +95,22 @@ export default function Header({
               title="View & Edit Patient Profile"
             >
               <UserIcon className="w-3.5 h-3.5 text-brand-cyan flex-shrink-0" />
-              <span className="hidden sm:inline">Profile</span>
+              <span className="hidden sm:inline">{t.header.profile}</span>
             </button>
           )}
 
           {/* Language Switcher */}
-          <div className="relative" ref={dropdownRef}>
-            <button
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-surface-border
-                         bg-white hover:bg-surface-muted text-slate-700 text-xs font-medium
-                         transition-colors duration-150 min-h-[40px]"
-              onClick={() => setDropdownOpen((o) => !o)}
-              aria-haspopup="listbox"
-              aria-expanded={dropdownOpen}
-              aria-label="Change language"
-            >
-              <Globe className="w-3.5 h-3.5 text-brand-cyan flex-shrink-0" />
-              <span>{currentLang.nativeLabel}</span>
-              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-150 ${dropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {dropdownOpen && (
-              <div
-                className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-panel
-                           border border-surface-border overflow-hidden z-50 animate-fade-in"
-                role="listbox"
-              >
-                {LANGUAGES.map((lang) => (
-                  <button
-                    key={lang.code}
-                    className={`w-full flex items-center justify-between px-4 py-2.5
-                                text-sm transition-colors duration-100
-                                ${lang.code === language
-                                  ? 'bg-brand-cyan/10 text-brand-cyan font-semibold'
-                                  : 'text-slate-700 hover:bg-surface-muted'
-                                }`}
-                    role="option"
-                    aria-selected={lang.code === language}
-                    onClick={() => handleSelect(lang)}
-                  >
-                    <span>{lang.nativeLabel}</span>
-                    <span className="text-xs text-slate-400">{lang.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <LanguageSelector
+            language={language}
+            onLanguageChange={onLanguageChange}
+          />
 
           {/* Summary Button */}
           <button
             className="btn-secondary text-xs hidden sm:flex min-h-[40px]"
             onClick={onSummaryOpen}
           >
-            View Summary
+            {t.header.viewSummary}
           </button>
 
           {/* Submit Details Button (Save to Health Record) */}
@@ -167,12 +123,12 @@ export default function Header({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Saving...</span>
+                  <span>{t.header.saving}</span>
                 </>
               ) : (
                 <>
                   <Save className="w-3.5 h-3.5" />
-                  <span>Submit Details</span>
+                  <span>{t.header.submitDetails}</span>
                 </>
               )}
             </button>

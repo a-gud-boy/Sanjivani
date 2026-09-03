@@ -5,6 +5,7 @@ import { useAudioRecorder } from '../../hooks/useAudioRecorder'
 import ChatBubble from './ChatBubble'
 import QuickReplyChips from './QuickReplyChips'
 import ChatEndOverlay from './ChatEndOverlay'
+import { useTranslation } from '../../i18n/translations'
 
 // Client-side heuristic: phrases that suggest the user is done
 const END_INTENT_PHRASES = [
@@ -41,6 +42,7 @@ export default function ChatInterface({
   onContinueChat,
   onRestartChat,
 }: ChatInterfaceProps) {
+  const t = useTranslation(language)
   const [inputText, setInputText] = useState('')
   const [endIntentBanner, setEndIntentBanner] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -238,7 +240,7 @@ export default function ChatInterface({
               aria-label="End chat session"
             >
               <PhoneOff className="w-3.5 h-3.5" />
-              End Chat
+              {t.chat.finishChat}
             </button>
           </div>
         )}
@@ -250,7 +252,7 @@ export default function ChatInterface({
             type="button"
             onClick={handleMicToggle}
             disabled={isLoading || chatStatus === 'ended'}
-            aria-label={isRecording ? 'Stop recording' : 'Hold to speak'}
+            aria-label={isRecording ? 'Stop recording' : t.chat.speak}
             className={`flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center
                         transition-all duration-200 disabled:opacity-40
                         ${isRecording
@@ -288,10 +290,8 @@ export default function ChatInterface({
               onKeyDown={handleKeyDown}
               placeholder={
                 chatStatus === 'ended'
-                  ? 'Chat has ended. Click Continue to resume.'
-                  : language === 'hi' ? 'अपने लक्षण बताएं…'
-                  : language === 'bn' ? 'আপনার লক্ষণ বলুন…'
-                  : 'Describe your symptoms or ask a question…'
+                  ? t.chat.chatCompleted
+                  : t.chat.inputPlaceholder
               }
               rows={1}
               disabled={isLoading || chatStatus === 'ended'}
@@ -308,7 +308,7 @@ export default function ChatInterface({
             className="flex-shrink-0 w-12 h-12 rounded-xl bg-brand-cyan text-white flex items-center
                        justify-center shadow-sm hover:bg-brand-cyan-dark active:scale-95
                        transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
-            aria-label="Send message"
+            aria-label={t.chat.send}
           >
             {isLoading
               ? <Loader2 className="w-5 h-5 animate-spin" />

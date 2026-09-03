@@ -11,16 +11,24 @@ import {
   RefreshCw,
   UserPlus,
 } from 'lucide-react'
-import type { User, UserType } from '../../types'
+import type { User, UserType, LanguageCode } from '../../types'
 import { requestOtp, verifyOtp, extractErrorMessage } from '../../services/api'
 import BrandLogo from '../BrandLogo'
 import RegisterModal from './RegisterModal'
+import LanguageSelector from '../LanguageSelector'
+import { useTranslation } from '../../i18n/translations'
 
 interface LoginPageProps {
   onLoginSuccess: (user: User) => void
+  language: LanguageCode
+  onLanguageChange: (code: LanguageCode) => void
 }
 
-export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
+export default function LoginPage({
+  onLoginSuccess,
+  language,
+  onLanguageChange,
+}: LoginPageProps) {
   const [role, setRole] = useState<UserType>('patient')
   const [abhaId, setAbhaId] = useState('14-1234-5678-9012')
   const [otp, setOtp] = useState('')
@@ -31,6 +39,8 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isRegisterOpen, setIsRegisterOpen] = useState(false)
+
+  const t = useTranslation(language)
 
   // ── Handle Role Switch ─────────────────────────────────────────
   const handleRoleChange = (newRole: UserType) => {
@@ -126,13 +136,20 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
+          {/* Language Selector */}
+          <LanguageSelector
+            language={language}
+            onLanguageChange={onLanguageChange}
+            variant="subtle"
+          />
+
           <button
             onClick={() => setIsRegisterOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-brand-cyan bg-brand-cyan/10 hover:bg-brand-cyan/20 rounded-xl transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-brand-cyan bg-brand-cyan/10 hover:bg-brand-cyan/20 rounded-xl transition-colors min-h-[38px]"
           >
             <UserPlus className="w-3.5 h-3.5" />
-            <span>Register</span>
+            <span>{t.auth.register}</span>
           </button>
         </div>
       </header>
@@ -146,10 +163,10 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <ShieldCheck className="w-7 h-7" />
             </div>
             <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              Sign In with ABHA
+              {t.auth.title}
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              Ayushman Bharat Health Account &amp; OTP Authentication
+              {t.auth.subtitle}
             </p>
 
             {/* Role Switcher */}
@@ -164,7 +181,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 }`}
               >
                 <UserIcon className="w-4 h-4" />
-                <span>Patient (मरीज़)</span>
+                <span>{t.auth.patientRoleTag}</span>
               </button>
               <button
                 type="button"
@@ -176,7 +193,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 }`}
               >
                 <Stethoscope className="w-4 h-4" />
-                <span>Doctor (चिकित्सक)</span>
+                <span>{t.auth.doctorRoleTag}</span>
               </button>
             </div>
           </div>
@@ -195,7 +212,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <form onSubmit={handleRequestOtp} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    {role === 'patient' ? 'Patient ABHA ID / Health Card Number' : 'Doctor ABHA ID / Practitioner Number'}
+                    {role === 'patient' ? t.auth.patientAbhaLabel : t.auth.doctorAbhaLabel}
                   </label>
                   <div className="relative">
                     <input
@@ -209,7 +226,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     <KeyRound className="w-4 h-4 absolute right-3.5 top-3.5 text-slate-400" />
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1">
-                    Standard 14-digit national identity format
+                    {t.auth.abhaFormat}
                   </p>
                 </div>
 
@@ -221,11 +238,11 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   {loading ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Sending OTP...</span>
+                      <span>{t.auth.sendingOtp}</span>
                     </>
                   ) : (
                     <>
-                      <span>Request ABHA OTP</span>
+                      <span>{t.auth.requestOtp}</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
@@ -237,18 +254,18 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 <div className="p-3 bg-brand-cyan-light/30 rounded-2xl border border-brand-cyan/20">
                   <div className="flex items-center justify-between text-xs mb-1">
                     <span className="font-semibold text-brand-cyan">
-                      {userName ? `Welcome, ${userName}` : 'OTP Dispatched'}
+                      {userName ? `${t.auth.welcome}, ${userName}` : t.auth.otpSent}
                     </span>
                     <button
                       type="button"
                       onClick={() => setOtpSent(false)}
                       className="text-[11px] text-slate-500 hover:text-slate-800 underline"
                     >
-                      Change ABHA
+                      {t.auth.changeAbha}
                     </button>
                   </div>
                   <p className="text-[11px] text-slate-600">
-                    Sent to registered mobile <span className="font-semibold text-slate-800">{maskedPhone}</span>
+                    {t.auth.sentToMobile} <span className="font-semibold text-slate-800">{maskedPhone}</span>
                   </p>
                   {simulatedOtp && (
                     <div
@@ -257,10 +274,10 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                       title="Click to auto-fill"
                     >
                       <span className="text-[11px] font-medium text-slate-600">
-                        Demo Sandbox Code:
+                        {t.auth.demoSandboxCode}:
                       </span>
                       <span className="text-xs font-mono font-bold text-brand-cyan tracking-wider">
-                        {simulatedOtp} (Click to Fill)
+                        {simulatedOtp} ({t.auth.clickToFill})
                       </span>
                     </div>
                   )}
@@ -268,7 +285,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Enter 6-Digit OTP
+                    {t.auth.enterOtp}
                   </label>
                   <input
                     type="text"
@@ -289,12 +306,12 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   {loading ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Verifying...</span>
+                      <span>{t.auth.verifying}</span>
                     </>
                   ) : (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>Verify &amp; Enter Portal</span>
+                      <span>{t.auth.verifyAndEnter}</span>
                     </>
                   )}
                 </button>
@@ -305,7 +322,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
             <div className="pt-4 border-t border-surface-border space-y-2">
               <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>One-Click Test Accounts</span>
+                <span>{t.auth.oneClickTestAccounts}</span>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -317,7 +334,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   <div className="flex items-center gap-1.5">
                     <UserIcon className="w-3.5 h-3.5 text-brand-cyan" />
                     <span className="text-xs font-bold text-slate-800 group-hover:text-brand-cyan">
-                      Demo Patient
+                      {t.auth.demoPatient}
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-500 mt-0.5 truncate">
@@ -333,7 +350,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   <div className="flex items-center gap-1.5">
                     <Stethoscope className="w-3.5 h-3.5 text-emerald-600" />
                     <span className="text-xs font-bold text-slate-800 group-hover:text-emerald-700">
-                      Demo Doctor
+                      {t.auth.demoDoctor}
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-500 mt-0.5 truncate">
@@ -348,7 +365,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
       {/* ── Footer ── */}
       <footer className="py-4 text-center text-xs text-slate-400">
-        Sanjivani Clinical AI • Built for Indian Healthcare Facilities &amp; AYUSH Centers
+        {t.auth.footer}
       </footer>
 
       {/* Register Modal */}
