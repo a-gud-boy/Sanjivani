@@ -107,9 +107,12 @@ export default function ChatInterface({
   const fmtDuration = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
-  // Chips from last assistant message
+  // Chips from last assistant message (filtered defensively so they are always patient answers)
   const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
-  const visibleChips = lastAssistant?.quickReplies ?? []
+  const rawChips = lastAssistant?.quickReplies ?? []
+  const visibleChips = rawChips.filter(
+    (chip) => !chip.trim().endsWith('?') && !/^(when|how|why|what|where)\b/i.test(chip.trim())
+  )
 
   // Show End Chat button after at least one user message
   const hasUserMessage = messages.some((m) => m.role === 'user')

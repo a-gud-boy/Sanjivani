@@ -16,6 +16,7 @@ from langchain_openai import ChatOpenAI
 from openai import AsyncOpenAI
 
 from app.core.config import settings
+from app.core.date_utils import extract_prescription_date_from_text
 from app.models.schemas import (
     ChatRequest,
     ClinicalHistoryRecord,
@@ -31,14 +32,21 @@ from app.models.schemas import (
 logger = logging.getLogger("sanjivani.llm_service")
 
 SYSTEM_PROMPT_CHAT = (
-    "You are Sanjivani (संजीवनी), a compassionate, professional AI medical clinician and clinical intake assistant for the Ministry of Ayush.\n\n"
+    "You are Sanjivani (संजीवनी), a professional, direct AI medical clinician and intake assistant for the Ministry of Ayush.\n\n"
     "CLINICAL CONSULTATION PRINCIPLES:\n"
-    "1. REAL CLINICAL EXPERTISE: Act like a real doctor. Listen attentively, understand the user's situation in context, and converse naturally and empathetically.\n"
-    "   - General Checkup / Wellness: If the patient wants a general checkup or has no specific complaints, ask about their overall energy levels, sleep patterns, digestion, chronic illnesses (like diabetes or hypertension), or family medical history.\n"
-    "   - Specific Symptoms: If the patient reports pain, fever, cough, skin lesions, or digestive issues, naturally ask relevant follow-up questions to understand the condition (location, duration, quality, triggers) and Ayurvedic digestion/lifestyle factors.\n"
-    "   - Greetings / Casual remarks: Warmly greet back, introduce yourself, and ask how you can assist their health today.\n"
-    "2. CONVERSATIONAL PROGRESSION: In 'next_question_to_ask_patient', formulate ONE clear, polite, and clinically appropriate question or response to advance the consultation in the patient's language.\n"
-    "3. RELEVANT QUICK REPLIES: In 'suggested_quick_replies', generate 3 to 5 natural, short reply chips (2-4 words each) specifically relevant to the question you just asked.\n"
+    "1. DIRECT CLINICAL QUESTIONS (NO EMPATHY FILLER): Act like an efficient, focused clinical doctor. Ask questions DIRECTLY without conversational empathy, sympathy, pleasantries, or acknowledging filler.\n"
+    "   - ABSOLUTE RULE: NEVER use phrases like 'I am sorry to hear that...', 'I understand...', 'Thank you for sharing...', 'To help me understand better...', or 'It must be uncomfortable...'.\n"
+    "   - State the medical question DIRECTLY. For example, instead of 'I'm sorry to hear that you have a rash. Could you tell me where it is located?', ask DIRECTLY: 'Where on your body is the rash located, and when did you first notice it?'\n"
+    "   - If the patient gave an answer (e.g. 'On my arms'), do NOT say 'I understand, it's on your arms. How long...'. Ask DIRECTLY: 'How long has this rash been present on your arms?'\n"
+    "   - General Checkup / Wellness: If the patient wants a general checkup or has no specific complaints, ask directly about their overall health, energy levels, sleep patterns, digestion, chronic illnesses (like diabetes or hypertension), or family medical history.\n"
+    "   - Specific Symptoms: If the patient reports pain, fever, cough, skin lesions, or digestive issues, directly ask relevant SOCRATES follow-up questions (location, duration, quality, triggers) and Ayurvedic digestion/lifestyle factors.\n"
+    "   - Greetings / Casual remarks: Briefly greet, introduce yourself, and ask directly what symptoms or health concerns they wish to document today.\n"
+    "2. CONVERSATIONAL PROGRESSION: In 'next_question_to_ask_patient', formulate ONE clear, direct clinical question in the patient's language without any filler.\n"
+    "3. PATIENT QUICK-REPLY ANSWERS: In 'suggested_quick_replies', generate 3 to 4 short, realistic ANSWERS or RESPONSES (2-4 words each) that the PATIENT can tap to directly answer your question.\n"
+    "   - CRITICAL RULE: 'suggested_quick_replies' must NEVER BE QUESTIONS! Do NOT put question marks or ask questions in these chips. They are 1-tap shortcut answers from the patient's perspective.\n"
+    "   - Example: If you ask 'When did it start?', replies MUST be: ['Since today morning', 'For 2-3 days', 'About 1 week ago', 'Just started today'].\n"
+    "   - Example: If you ask 'How severe is the pain on a scale of 1-10?', replies MUST be: ['Mild (1-3)', 'Moderate (4-6)', 'Severe (7-9)', 'Unbearable (10)'].\n"
+    "   - Example: If you ask 'Do you also have a cough or sore throat?', replies MUST be: ['Yes, dry cough', 'Yes, sore throat', 'Both cough and throat pain', 'No, neither'].\n"
     "4. STRUCTURED DATA: Incrementally update the clinical record JSON with accurate entities (demographics, chief complaint, SOCRATES details, Ayush Agni/Koshtha parameters) based on what the patient actually shared.\n"
     "5. EMERGENCY RED FLAGS: If acute life-threatening symptoms (e.g. crushing chest pain with radiation, severe breathlessness, sudden paralysis, heavy bleeding) are described, set 'red_flag_alert': true and advise immediate emergency hospital care.\n\n"
     "Output ONLY a single valid JSON object matching the blueprint."
@@ -51,8 +59,8 @@ JSON_BLUEPRINT_CHAT = """{
   "ayush_dashavidha_pariksha": { "prakriti": null, "vikriti": null, "agni": null, "koshtha": null },
   "ahara_vihara_lifestyle": { "diet_habits": null, "sleep_pattern": null, "koshtha_bowel": null, "agni_digestion": null },
   "red_flag_alert": false,
-  "next_question_to_ask_patient": "Empathetic, intelligent doctor next question here",
-  "suggested_quick_replies": ["Relevant option 1", "Relevant option 2", "Relevant option 3"]
+  "next_question_to_ask_patient": "Direct doctor clinical question here (no empathy or filler)",
+  "suggested_quick_replies": ["Patient answer option 1", "Patient answer option 2", "Patient answer option 3"]
 }"""
 
 SYSTEM_PROMPT_VLM = (
@@ -170,17 +178,23 @@ class ClinicalLLMService:
                 state_info = f"\n\nCURRENT CLINICAL RECORD EXTRACTED SO FAR:\n{json.dumps(state_dict, indent=2)}"
 
         return (
-            "You are Sanjivani (संजीवनी), a compassionate, professional AI medical clinician for the Ministry of Ayush.\n"
-            "Your role is to conduct a natural, intelligent patient intake consultation just like an experienced clinical doctor.\n"
-            "Converse empathetically with the patient, listen to their concerns (symptoms, general wellness check, lifestyle, questions), and ask relevant medical follow-up questions.\n\n"
+            "You are Sanjivani (संजीवनी), a professional, direct AI medical clinician and intake assistant for the Ministry of Ayush.\n"
+            "Your role is to conduct a structured, highly efficient clinical intake consultation.\n\n"
+            "CRITICAL INSTRUCTION - DIRECT CLINICAL QUESTIONS ONLY (NO EMPATHY FILLER):\n"
+            "- Ask clinical questions DIRECTLY without conversational empathy, sympathy, pleasantries, or acknowledging filler.\n"
+            "- NEVER use phrases like 'I am sorry to hear that...', 'I'm sorry to hear...', 'I understand...', 'Thank you for sharing...', 'To help me understand better...', or 'It must be uncomfortable...'.\n"
+            "- Example BAD: 'I'm sorry to hear that you're dealing with a rash. To help me understand better, where is it located?'\n"
+            "- Example GOOD: 'Where on your body is the rash located, and when did you first notice it?'\n"
+            "- Example BAD: 'I understand, it's on your arms. How long has this rash been present?'\n"
+            "- Example GOOD: 'How long has this rash been present on your arms?'\n\n"
             "STRICT CLINICAL EXTRACTION RULES:\n"
             "1. In the JSON state, ONLY populate fields with facts that the patient has EXPLICITLY mentioned in the conversation.\n"
             "2. If a detail (e.g. onset, timing, severity, radiation, character, Ayush Prakriti/Agni) has NOT been explicitly stated by the patient, you MUST set it to null. NEVER guess, assume, or default to values like 'intermittent', 'acute', or 'moderate' unless the patient explicitly said so.\n"
             "3. If the patient answers your question with a brief phrase (e.g., 'Upper right'), only update the relevant field (e.g., site: 'Upper right'). Do not fabricate answers to your other questions.\n\n"
             "OUTPUT INSTRUCTION:\n"
             "Respond by outputting ONLY a single JSON object containing:\n"
-            "- \"next_question_to_ask_patient\": Your empathetic, contextual clinical question or reply to the patient (in the patient's language).\n"
-            "- \"suggested_quick_replies\": A list of 3 to 4 short, realistic quick-reply options (2-4 words each) relevant to your question.\n"
+            "- \"next_question_to_ask_patient\": A direct, focused clinical question to the patient (in the patient's language) with ZERO conversational empathy or filler.\n"
+            "- \"suggested_quick_replies\": A list of 3 to 4 short, realistic quick-reply ANSWERS (2-4 words each) that the PATIENT can tap to answer your question. MUST BE PATIENT RESPONSES/ANSWERS, NEVER QUESTIONS. Do not include question marks.\n"
             "- \"chief_complaint\": {\"symptom\": string or null, \"duration\": string or null}\n"
             "- \"hpi_socrates\": {\"site\": string or null, \"onset\": string or null, \"character\": string or null, \"radiation\": string or null, \"associations\": string or null, \"time_course\": string or null, \"exacerbating_relieving\": string or null, \"severity_1_to_10\": number or string or null}\n"
             "- \"ayush_dashavidha_pariksha\": {\"prakriti\": string or null, \"vikriti\": string or null, \"agni\": string or null, \"koshtha\": string or null}\n"
@@ -292,6 +306,117 @@ class ClinicalLLMService:
             return s
         return obj
 
+    @staticmethod
+    def _is_question_like(text: str) -> bool:
+        """Determines if a string is phrased as a question rather than a patient answer."""
+        t = text.strip()
+        if t.endswith("?") or t.endswith("？"):
+            return True
+        lower = t.lower()
+        question_starters = (
+            "when ", "what ", "why ", "where ", "how ", "who ", "which ",
+            "is it", "is there", "are you", "do you", "did it", "did you", "does it",
+            "can you", "could you", "would you", "should you", "have you",
+            "tell me", "explain", "describe",
+            "कब ", "कैसे ", "कहाँ ", "क्या ", "किस ", "कौन ", "बताएं"
+        )
+        if any(lower.startswith(q) for q in question_starters):
+            return True
+        return False
+
+    @staticmethod
+    def _generate_contextual_patient_quick_replies(next_question: str, language: str = "en") -> List[str]:
+        """
+        Generates realistic, clickable 1-tap patient response options
+        matching the specific clinical question being asked by the doctor.
+        """
+        q_lower = (next_question or "").lower()
+        lang = (language or "en").lower()[:2]
+        is_hindi = lang == "hi"
+
+        # 1. Onset / Duration / Timing (e.g. When did it start? How long?)
+        if any(w in q_lower for w in ["when", "how long", "duration", "start", "since", "began", "days", "hours", "weeks", "months", "time", "कब", "कितने दिन", "कब से"]):
+            if is_hindi:
+                return ["आज सुबह से", "2-3 दिन पहले से", "लगभग 1 हफ्ते से", "काफी समय से"]
+            return ["Since today morning", "Started 2-3 days ago", "About a week ago", "More than a month"]
+
+        # 2. Pain Severity / Rating scale (e.g. Rate 1 to 10, How severe?)
+        if any(w in q_lower for w in ["scale", "severity", "1 to 10", "1-10", "how severe", "rate", "mild", "intense", "तीव्रता", "दर्द कितना"]):
+            if is_hindi:
+                return ["हल्का (1-3)", "मध्यम (4-6)", "तेज़ (7-9)", "असहनीय (10)"]
+            return ["Mild (1-3)", "Moderate (4-6)", "Severe (7-9)", "Unbearable (10)"]
+
+        # 3. Pain Character / Quality (e.g. Sharp, throbbing, dull, burning)
+        if any(w in q_lower for w in ["feel like", "character", "sharp", "dull", "burning", "throbbing", "stabbing", "cramping", "aching", "कैसा दर्द", "जलन", "चुभन"]):
+            if is_hindi:
+                return ["धड़कता हुआ दर्द", "तेज़ चुभन जैसा", "हल्का धीमा दर्द", "जलन जैसा दर्द"]
+            return ["Throbbing sensation", "Sharp stabbing pain", "Dull continuous ache", "Burning sensation"]
+
+        # 4. Location / Radiation (e.g. Where is it? Does it spread?)
+        if any(w in q_lower for w in ["where", "radiat", "spread", "location", "which side", "left", "right", "कहाँ", "किस तरफ", "फैलता"]):
+            if is_hindi:
+                return ["दाहिनी तरफ", "बाईं तरफ", "दोनों तरफ", "गले या पीठ की ओर"]
+            return ["Right side", "Left side", "Both sides", "Radiates to neck/back"]
+
+        # 5. Ayush Digestion / Agni / Bowel / Sleep (e.g. How is your digestion, sleep, appetite?)
+        if any(w in q_lower for w in ["digestion", "appetite", "bowel", "constipat", "sleep", "motion", "भूख", "पाचन", "नींद", "पेट"]):
+            if is_hindi:
+                return ["भूख और पाचन सामान्य है", "भूख कम लगती है", "कब्ज़ या गैस की समस्या है", "नींद अच्छी नहीं आती"]
+            return ["Digestion is normal", "Poor appetite / Indigestion", "Constipation or gas", "Disturbed sleep"]
+
+        # 6. Exacerbating / Relieving factors (e.g. What makes it better or worse?)
+        if any(w in q_lower for w in ["better", "worse", "reliev", "aggravat", "triggers", "बढ़ता", "आराम"]):
+            if is_hindi:
+                return ["आराम करने से बेहतर होता है", "चलने-फिरने से बढ़ता है", "दवा से हल्का आराम मिलता है", "कुछ खास पता नहीं"]
+            return ["Better with rest", "Worse with movement", "Relieved by warm fluids", "No specific trigger"]
+
+        # 7. Associated symptoms / Binary yes-no confirmation
+        if any(w in q_lower for w in ["also", "associated", "accompanied", "any other", "do you have", "have you noticed", "along with", "cough", "fever", "vomit", "क्या आपको", "साथ में"]):
+            if is_hindi:
+                return ["हाँ, बिल्कुल", "नहीं, ऐसा कुछ नहीं", "हल्का सा है", "निश्चित नहीं"]
+            return ["Yes, definitely", "No, nothing else", "Mildly present", "Not sure"]
+
+        # 8. General conversational reply choices
+    def _strip_empathy_preambles(self, text: str) -> str:
+        """
+        Strips conversational empathy, sympathy, acknowledging phrases, and pleasantries
+        so the consultation directly asks the next clinical question.
+        """
+        EMPATHY_PATTERNS = [
+            # English empathy & acknowledging preambles
+            r"^(?:I(?:\'m| am)?\s+(?:very\s+)?sorry\s+to\s+hear\s+(?:that\s+)?(?:you(?:\'re| are)?\s+)?(?:dealing with|experiencing|feeling|having|going through|suffering from)?[^.!?]+[.!?]\s*)",
+            r"^(?:I(?:\'m| am)?\s+sorry\s+to\s+hear\s+that[^.!?]*[.!?]\s*)",
+            r"^(?:I\s+understand(?:\s*,\s*|\s+that\s+)[^.!?]*?[.!?]\s*)",
+            r"^(?:I\s+understand\s*[.!?]\s*)",
+            r"^(?:I\s+see(?:\s*,\s*|\s+that\s+)[^.!?]*?[.!?]\s*)",
+            r"^(?:I\s+see\s*[.!?]\s*)",
+            r"^(?:Thank\s+you\s+for\s+(?:sharing|providing|letting me know)[^.!?]*[.!?]\s*)",
+            r"^(?:That\s+must\s+be\s+(?:uncomfortable|difficult|painful|concerning|hard)[^.!?]*[.!?]\s*)",
+            r"^(?:To\s+help\s+me\s+understand\s+(?:better|your condition better|this better|more clearly)\s*,\s*)",
+            r"^(?:To\s+better\s+understand\s+(?:your\s+situation|what you are experiencing)\s*,\s*)",
+            r"^(?:To\s+assist\s+you\s+better\s*,\s*)",
+            # Hindi empathy preambles
+            r"^(?:मुझे\s+यह\s+सुनकर\s+(?:बहुत\s+)?दुख\s+हुआ\s+कि[^.!?।]+[.!?।]\s*)",
+            r"^(?:यह\s+सुनकर\s+दुख\s+हुआ\s+कि[^.!?।]+[.!?।]\s*)",
+            r"^(?:मैं\s+समझ\s+सकता\s+हूँ\s+कि[^.!?।]+[.!?।]\s*)",
+            r"^(?:मैं\s+समझता\s+हूँ(?:\s*,\s*|\s+कि\s+)[^.!?।]*?[.!?।]\s*)",
+            r"^(?:यह\s+जानकर\s+दुख\s+हुआ[^.!?।]+[.!?।]\s*)",
+        ]
+
+        cleaned = text.strip()
+        changed = True
+        while changed:
+            changed = False
+            for pat in EMPATHY_PATTERNS:
+                new_text = re.sub(pat, "", cleaned, flags=re.IGNORECASE).strip()
+                if new_text != cleaned and len(new_text) >= 5:
+                    cleaned = new_text
+                    changed = True
+
+        if cleaned and cleaned[0].islower():
+            cleaned = cleaned[0].upper() + cleaned[1:]
+        return cleaned or text.strip()
+
     def _clean_and_parse_chat_json(
         self,
         raw_text: str,
@@ -299,7 +424,13 @@ class ClinicalLLMService:
         prior_question: str = "",
         language: str = "en",
     ) -> ClinicalHistoryRecord:
-        cleaned = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
+        cleaned = re.sub(r"<thought>.*?</thought>", "", raw_text, flags=re.DOTALL)
+        if "</thought>" in cleaned:
+            cleaned = cleaned.split("</thought>")[-1].strip()
+        cleaned = re.sub(r"<think>.*?</think>", "", cleaned, flags=re.DOTALL).strip()
+        if "</think>" in cleaned:
+            cleaned = cleaned.split("</think>")[-1].strip()
+
         if "```" in cleaned:
             match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned)
             if match:
@@ -381,7 +512,28 @@ class ClinicalLLMService:
             if hpi_dict:
                 data["hpi_socrates"] = hpi_dict
 
-        # 3. Extract and normalize model's suggested quick replies
+        # 3. Extract and preserve model's next conversational question
+        nq = (
+            data.get("next_question_to_ask_patient")
+            or data.get("next_question")
+            or data.get("question")
+            or data.get("response")
+            or data.get("reply")
+        )
+
+        lang = (language or "en").lower()[:2]
+        if nq and isinstance(nq, str) and len(nq.strip()) >= 5:
+            next_q = self._strip_empathy_preambles(nq.strip())
+            data["next_question_to_ask_patient"] = next_q
+        else:
+            if lang == "hi":
+                next_q = "कृपया अपने स्वास्थ्य या लक्षणों के बारे में थोड़ा और बताएं।"
+            else:
+                next_q = "Could you please tell me more about what you are experiencing?"
+            data["next_question_to_ask_patient"] = next_q
+
+        # 4. Extract, sanitize, and validate patient quick-reply answers
+        # Quick replies MUST be patient answers, NEVER questions!
         qr_raw = (
             data.get("suggested_quick_replies")
             or data.get("quick_replies")
@@ -393,40 +545,26 @@ class ClinicalLLMService:
         normalized_qr: List[str] = []
         if isinstance(qr_raw, list):
             for item in qr_raw:
+                cleaned_item = ""
                 if isinstance(item, str) and item.strip():
                     cleaned_item = item.strip().strip('"').strip("'")
-                    if 1 < len(cleaned_item) <= 45:
-                        normalized_qr.append(cleaned_item)
                 elif isinstance(item, dict):
                     val = item.get("text") or item.get("label") or item.get("option")
-                    if val and isinstance(val, str) and 1 < len(val.strip()) <= 45:
-                        normalized_qr.append(val.strip())
+                    if val and isinstance(val, str) and val.strip():
+                        cleaned_item = val.strip().strip('"').strip("'")
 
-        # 4. Extract and preserve model's next conversational question
-        nq = (
-            data.get("next_question_to_ask_patient")
-            or data.get("next_question")
-            or data.get("question")
-            or data.get("response")
-            or data.get("reply")
-        )
+                if cleaned_item and 1 < len(cleaned_item) <= 45:
+                    # Filter out items that are questions rather than patient answers
+                    if not self._is_question_like(cleaned_item):
+                        normalized_qr.append(cleaned_item)
 
-        lang = (language or "en").lower()[:2]
-        if nq and isinstance(nq, str) and len(nq.strip()) >= 5:
-            data["next_question_to_ask_patient"] = nq.strip()
-        else:
-            if lang == "hi":
-                data["next_question_to_ask_patient"] = "कृपया अपने स्वास्थ्य या लक्षणों के बारे में थोड़ा और बताएं।"
-            else:
-                data["next_question_to_ask_patient"] = "Could you please tell me more about what you are experiencing?"
-
-        if normalized_qr:
+        # Ensure valid patient reply chips are present; if model output questions or too few answers, synthesize contextual options
+        if len(normalized_qr) >= 2:
             data["suggested_quick_replies"] = normalized_qr[:5]
         else:
-            if lang == "hi":
-                data["suggested_quick_replies"] = ["हाँ", "नहीं", "मुझे निश्चित नहीं", "और बताएं"]
-            else:
-                data["suggested_quick_replies"] = ["Yes", "No", "Not sure", "Tell me more"]
+            data["suggested_quick_replies"] = self._generate_contextual_patient_quick_replies(
+                next_q, language=lang
+            )
 
         # 5. Red flag detection
         if self._check_red_flags(user_text) or data.get("red_flag_alert") is True:
@@ -513,6 +651,7 @@ class ClinicalLLMService:
                 messages=formatted_messages,  # type: ignore
                 response_format={"type": "json_object"},
                 temperature=0.2,
+                max_tokens=4096,
             )
             raw_content = response.choices[0].message.content or "{}"
             return self._clean_and_parse_chat_json(raw_content, user_text, prior_q, language)
@@ -522,6 +661,7 @@ class ClinicalLLMService:
                 model=self.text_model_name,
                 messages=formatted_messages,  # type: ignore
                 temperature=0.2,
+                max_tokens=4096,
             )
             raw_content = response.choices[0].message.content or "{}"
             return self._clean_and_parse_chat_json(raw_content, user_text, prior_q, language)
@@ -580,11 +720,11 @@ class ClinicalLLMService:
         patient_context_str = f" Patient name is {patient_name}." if patient_name else ""
 
         prompt = (
-            f"You are Sanjivani (संजीवनी), an empathetic AI clinical intake assistant for the Ministry of Ayush.{patient_context_str} "
+            f"You are Sanjivani AI, a medical clinical intake assistant for the Ministry of Ayush.{patient_context_str} "
             f"A patient has just opened a new clinical consultation in language '{language}'. "
-            f"Generate a warm, natural, and compassionate opening greeting introducing yourself and asking what health issue, symptom, or discomfort they are experiencing today. "
-            f"Make your opening sentence natural and varied. "
-            f"Also generate 4 varied starter quick-reply chips representing common initial symptom categories (e.g. pain/headache, fever/cold, digestion/stomach, general checkup) in the same language ({language}). "
+            f"Generate a VERY BRIEF 1-sentence opening greeting (under 12 words) introducing yourself as Sanjivani AI and directly asking the patient to tell you their symptoms or health problems. "
+            f"Example format: 'I am Sanjivani AI. Tell me what symptoms or health problems you are experiencing.' "
+            f"Also generate 4 short starter quick-reply chips representing common initial symptom categories (e.g. ['Headache / Body Ache', 'Fever, Cold or Cough', 'Stomach or Digestion issue', 'General Health Checkup']) in the same language ({language}). "
             f"Output ONLY a valid JSON object matching:\n"
             f'{{"greeting": "...", "suggested_quick_replies": ["...", "...", "...", "..."]}}'
         )
@@ -593,21 +733,28 @@ class ClinicalLLMService:
             response = await self._direct_chat_client.chat.completions.create(
                 model=self.text_model_name,
                 messages=[
-                    {"role": "system", "content": "You are Sanjivani AI Clinical Intake Assistant. Output valid JSON only."},
+                    {"role": "system", "content": "You are Sanjivani AI. Keep greetings very brief and direct. Output valid JSON only."},
                     {"role": "user", "content": prompt},
                 ],  # type: ignore
                 response_format={"type": "json_object"},
-                temperature=0.7,
+                temperature=0.4,
+                max_tokens=2048,
             )
             raw_content = response.choices[0].message.content or "{}"
-            cleaned = re.sub(r"<think>.*?</think>", "", raw_content, flags=re.DOTALL).strip()
+            cleaned = re.sub(r"<thought>.*?</thought>", "", raw_content, flags=re.DOTALL)
+            if "</thought>" in cleaned:
+                cleaned = cleaned.split("</thought>")[-1].strip()
+            cleaned = re.sub(r"<think>.*?</think>", "", cleaned, flags=re.DOTALL).strip()
+            if "</think>" in cleaned:
+                cleaned = cleaned.split("</think>")[-1].strip()
+
             brace_start = cleaned.find("{")
             brace_end = cleaned.rfind("}")
             if brace_start != -1 and brace_end != -1 and brace_end > brace_start:
                 parsed = json.loads(cleaned[brace_start : brace_end + 1])
                 greeting = parsed.get("greeting")
                 replies = parsed.get("suggested_quick_replies")
-                if greeting and isinstance(greeting, str) and len(greeting.strip()) > 10:
+                if greeting and isinstance(greeting, str) and len(greeting.strip()) > 5:
                     valid_replies = [r for r in replies if isinstance(r, str) and r.strip()] if isinstance(replies, list) else []
                     if len(valid_replies) >= 2:
                         return (greeting.strip(), valid_replies[:5])
@@ -619,34 +766,26 @@ class ClinicalLLMService:
         FALLBACK_GREETINGS: Dict[str, List[Tuple[str, List[str]]]] = {
             "en": [
                 (
-                    "Hello! I am Sanjivani, your AI clinical intake assistant. How are you feeling today, and what symptoms can I help document for the doctor?",
+                    "I am Sanjivani AI. Tell me what symptoms or health problems you are experiencing.",
                     ["Headache / Body Ache", "Fever, Cold or Cough", "Stomach or Digestion issue", "Skin rash or allergy", "General Health Checkup"]
                 ),
                 (
-                    "Welcome to Sanjivani Clinical Intake. I am here to help gather your medical history. What health problem or discomfort brings you in today?",
+                    "I am Sanjivani AI. What symptoms or health concerns can I document for you?",
                     ["Severe Pain / Ache", "Cough, Sore Throat & Fever", "Acidity / Abdominal Pain", "Fatigue / Weakness", "Routine Consultation"]
                 ),
                 (
-                    "Namaste! I am Sanjivani, your clinical assistant. Please take your time and describe any symptoms or health concerns you are currently experiencing.",
+                    "I am Sanjivani AI. Please describe your symptoms or what health problem you have.",
                     ["Back / Joint Pain", "Fever & Chills", "Stomach Cramps / Nausea", "Dizziness / Headache", "General Checkup"]
-                ),
-                (
-                    "Good day! I am here to assist with your medical intake before you see the physician. What primary symptom or issue would you like to discuss?",
-                    ["Body Pain / Discomfort", "Respiratory / Flu Symptoms", "Digestive / Bowel Concern", "General Wellness Check"]
                 ),
             ],
             "hi": [
                 (
-                    "नमस्ते! मैं संजीवनी, आपकी क्लिनिकल इनटेक सहायक हूँ। आज आपको क्या स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?",
+                    "मैं संजीवनी एआई हूँ। कृपया बताएं कि आज आपको क्या स्वास्थ्य समस्या या लक्षण हैं।",
                     ["सिरदर्द / बदन दर्द", "बुखार, सर्दी या खांसी", "पेट या पाचन की समस्या", "त्वचा संबंधी समस्या", "सामान्य स्वास्थ्य जांच"]
                 ),
                 (
-                    "संजीवनी क्लिनिकल इनटेक में आपका स्वागत है। मैं आपकी स्वास्थ्य संबंधी जानकारी दर्ज करने में मदद करूंगी। कृपया बताएं कि आपको क्या तकलीफ है?",
+                    "मैं संजीवनी एआई हूँ। आज आपको क्या स्वास्थ्य समस्या या तकलीफ है?",
                     ["जोड़ों / कमर का दर्द", "तेज बुखार व जुकाम", "एसिडिटी / पेट दर्द", "कमजोरी व थकान", "नियमित स्वास्थ्य जांच"]
-                ),
-                (
-                    "नमस्ते! कृपया बिना किसी संकोच के बताएं कि आज आपको क्या शारीरिक समस्या या बेचैनी महसूस हो रही है?",
-                    ["गले में खराश व खांसी", "पेट फूलना / गैस", "सिर में भारीपन", "थकावट व बुखार"]
                 ),
             ],
             "ta": [
@@ -828,6 +967,15 @@ class ClinicalLLMService:
             except Exception:
                 data = {}
 
+        # Extract prescription / document date
+        source_text = default_raw_text or raw_text
+        doc_date = data.get("document_date") or data.get("prescription_date") or data.get("date")
+        parsed_doc_date = extract_prescription_date_from_text(str(doc_date)) if doc_date else None
+        if not parsed_doc_date and source_text:
+            parsed_doc_date = extract_prescription_date_from_text(source_text)
+
+        doc_date_str = parsed_doc_date.isoformat() if parsed_doc_date else None
+
         # Filter out administrative keywords from lab tests if model mistakenly included them
         METADATA_DISALLOW = {'exp date', 'expiry', 'exp', 'lot no', 'lot', 'b number', 'batch', 's/n', 'serial', 'edition', 'lic no', 'ptr no', 'sig', 'seg', 'rx'}
 
@@ -845,11 +993,15 @@ class ClinicalLLMService:
                 if isinstance(m, dict):
                     drug = m.get("drug_name") or m.get("name") or m.get("drug")
                     if drug and str(drug).lower().strip() not in METADATA_DISALLOW:
+                        m_date = m.get("prescription_date") or m.get("date")
+                        parsed_m_date = extract_prescription_date_from_text(str(m_date)) if m_date else None
+                        med_date_str = parsed_m_date.isoformat() if parsed_m_date else doc_date_str
                         normalized_meds.append({
                             "drug_name": str(drug),
                             "dosage": str(m.get("dosage") or m.get("strength") or "") or None,
                             "frequency": str(m.get("frequency") or m.get("sig") or "") or None,
                             "duration": str(m.get("duration") or "") or None,
+                            "prescription_date": med_date_str,
                         })
 
         # Normalize labs
@@ -876,14 +1028,17 @@ class ClinicalLLMService:
                         })
 
         # Fallback to regex extraction if either list is empty
-        source_text = default_raw_text or raw_text
         if not normalized_meds and source_text:
             normalized_meds = self._extract_medications_regex(source_text)
+            for nm in normalized_meds:
+                if not nm.get("prescription_date"):
+                    nm["prescription_date"] = doc_date_str
 
         if not normalized_labs and source_text:
             normalized_labs = self._extract_labs_regex(source_text)
 
         result_dict = {
+            "document_date": doc_date_str,
             "medications": normalized_meds,
             "lab_investigations": normalized_labs,
             "raw_text": default_raw_text or raw_text,
@@ -910,7 +1065,9 @@ class ClinicalLLMService:
 
         vision_prompt = (
             "Transcribe all text from this medical prescription or laboratory report image exactly as written.\n"
-            "Include patient details, clinical findings, and all prescribed medicines (Rx, dosage, frequency).\n"
+            "CRITICAL: Be sure to transcribe the exact PRESCRIPTION DATE, VISIT DATE, or consultation date written or stamped on the document.\n"
+            "Include patient details, clinical findings, and all prescribed medicines (Rx, dosage, frequency, duration).\n"
+            "CRITICAL: Output ONLY the verbatim transcribed document text. Do NOT include internal reasoning, self-talk, handwriting analysis, or commentary.\n"
             "If this image does NOT contain a medical document or readable text, reply ONLY: NO_DOCUMENT_TEXT_FOUND"
         )
 
@@ -945,12 +1102,16 @@ class ClinicalLLMService:
                     ],
                     temperature=0.15,
                     max_tokens=2048,
-                    extra_body={"presence_penalty": 0.3, "frequency_penalty": 0.3},
+                    **({"extra_body": {"presence_penalty": 0.3, "frequency_penalty": 0.3}} if "gemini" not in model.lower() and "googleapis" not in (self.vision_base_url or "") else {}),
                 )
                 raw_text = response.choices[0].message.content or ""
 
-                # Robust thought token cleaner (handles models with chain-of-thought tokens)
-                if "<unused95>" in raw_text:
+                # Robust thought token cleaner (handles models with chain-of-thought tokens like Gemma 4, DeepSeek, Qwen)
+                if "</thought>" in raw_text:
+                    after_thought = raw_text.split("</thought>")[-1].strip()
+                    if len(after_thought) > 10:
+                        raw_text = after_thought
+                elif "<unused95>" in raw_text:
                     after_thought = raw_text.split("<unused95>")[-1].strip()
                     if len(after_thought) > 10:
                         raw_text = after_thought
@@ -960,9 +1121,12 @@ class ClinicalLLMService:
                         raw_text = after_thought
 
                 # Strip residual markers
+                raw_text = re.sub(r"<thought>.*?</thought>", "", raw_text, flags=re.DOTALL)
+                raw_text = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL)
                 raw_text = re.sub(r"<unused94>thought\s*", "", raw_text)
                 raw_text = re.sub(r"<think>\s*", "", raw_text)
-                raw_text = raw_text.replace("<unused95>", "").replace("</think>", "").replace("<end_of_turn>", "").strip()
+                raw_text = re.sub(r"<thought>\s*", "", raw_text)
+                raw_text = raw_text.replace("<unused95>", "").replace("</think>", "").replace("</thought>", "").replace("<end_of_turn>", "").strip()
 
                 if "NO_DOCUMENT_TEXT_FOUND" in raw_text.upper():
                     logger.info("Stage 1: Non-document image detected by model '%s'.", model)
@@ -1014,21 +1178,24 @@ class ClinicalLLMService:
             "You are an expert AI clinical data interpreter and pharmacist.\n"
             "Analyze the transcribed medical prescription or diagnostic laboratory report text.\n\n"
             "STRICT EXTRACTION RULES:\n"
-            "1. ONLY extract medications or lab investigations that are EXPLICITLY and CLEARLY written in the text.\n"
-            "2. If the text does NOT contain prescribed medications or laboratory test results, return empty lists: 'medications': [], 'lab_investigations': [].\n"
-            "3. NEVER invent, simulate, or hallucinate medications (like Paracetamol or Montelukast) if they are not in the text.\n"
-            "4. 'medications': Extract all prescribed drugs, tinctures, solutions, tablets, syrups, or compounding formulas.\n"
+            "1. ONLY extract medications, dates, or lab investigations that are EXPLICITLY and CLEARLY written in the text.\n"
+            "2. 'document_date': Extract the exact prescription date or visit date written or printed on the document (e.g. '1990-03-12', '12-03-90', '23 JAN 99', or null if no date written).\n"
+            "3. If the text does NOT contain prescribed medications or laboratory test results, return empty lists: 'medications': [], 'lab_investigations': [].\n"
+            "4. NEVER invent, simulate, or hallucinate medications (like Paracetamol or Montelukast) if they are not in the text.\n"
+            "5. 'medications': Extract all prescribed drugs, tinctures, solutions, tablets, syrups, or compounding formulas.\n"
             "   - drug_name: standard medication or formulation name\n"
             "   - dosage: strength/quantity/volume (e.g. '500mg', '5ml', or null if unspecified)\n"
             "   - frequency: dosing schedule (e.g. '5ml thrice daily before meals (t.d. ac.)', '1 cap 3x a day', 'TDS')\n"
             "   - duration: duration of course (e.g. '7 days' or null)\n"
-            "5. 'lab_investigations': Extract ONLY genuine diagnostic laboratory biomarkers (e.g. Hemoglobin, Glucose, WBC, Platelets, Creatinine, TSH).\n"
+            "   - prescription_date: the date written on the prescription for this medicine, or null if same as document_date\n"
+            "6. 'lab_investigations': Extract ONLY genuine diagnostic laboratory biomarkers (e.g. Hemoglobin, Glucose, WBC, Platelets, Creatinine, TSH).\n"
             "   - STRICTLY EXCLUDE administrative numbers (EXP DATE, LOT NO, B NUMBER, S/N, Sig, Lic No, PTR No, Phone, Dates) from lab investigations.\n"
             "   - If no diagnostic lab tests are present in the document, return 'lab_investigations': [].\n\n"
             "Output strictly valid JSON matching:\n"
             "{\n"
+            '  "document_date": "...",\n'
             '  "medications": [\n'
-            '    {"drug_name": "...", "dosage": "...", "frequency": "...", "duration": null}\n'
+            '    {"drug_name": "...", "dosage": "...", "frequency": "...", "duration": null, "prescription_date": "..."}\n'
             "  ],\n"
             '  "lab_investigations": [],\n'
             '  "raw_text": "..."\n'
@@ -1100,7 +1267,7 @@ class ClinicalLLMService:
     }
 
     MULTIMODAL_NAME_KEYWORDS = (
-        "medgemma", "qwen2-vl", "qwen2.5-vl", "llama-3.2-11b-vision", "llama-3.2-90b-vision",
+        "gemini", "medgemma", "qwen2-vl", "qwen2.5-vl", "llama-3.2-11b-vision", "llama-3.2-90b-vision",
         "paligemma", "pixtral", "llava", "florence-2", "phi-3-vision", "phi-3.5-vision",
         "minicpm-v", "internvl", "gemma-3", "-vl-", "-vl", "vision", "multimodal", "vlm",
     )
@@ -1160,6 +1327,26 @@ class ClinicalLLMService:
         return False
 
     def _format_model_name(self, model_id: str) -> str:
+        lower = model_id.lower()
+        if "gemma-4-26b" in lower:
+            return "Gemma 4 26B (Google Cloud AI)"
+        if "gemma-4-31b" in lower:
+            return "Gemma 4 31B (Google Cloud AI)"
+        if "gemini-3.5-flash" in lower:
+            return "Gemini 3.5 Flash (Google Cloud AI)"
+        if "gemini-3.7-flash" in lower:
+            return "Gemini 3.7 Flash (Google Cloud AI)"
+        if "gemini-2.5-flash" in lower:
+            return "Gemini 2.5 Flash (Google Cloud AI)"
+        if "gemini-2.5-pro" in lower:
+            return "Gemini 2.5 Pro (Google Cloud AI)"
+        if "gemini-1.5-flash" in lower:
+            return "Gemini 1.5 Flash (Google Cloud AI)"
+        if "gemini-2.0-flash" in lower:
+            return "Gemini 2.0 Flash (Google Cloud AI)"
+        if "gemini" in lower:
+            return f"Gemini ({model_id})"
+
         parts = model_id.split("/")
         org = parts[0] if len(parts) > 1 else ""
         base = parts[-1]
@@ -1250,9 +1437,34 @@ class ClinicalLLMService:
                     multimodal_capabilities=["text", "image"],
                 )
 
+        # 5. If Gemini / Gemma is configured or active, add Google Cloud models to catalog
+        if settings.effective_gemini_key or any(k in (self.text_model_name or "").lower() for k in ("gemini", "gemma")):
+            gemini_catalog = [
+                ("gemma-4-26b-a4b-it", "Gemma 4 26B (Google Cloud AI)"),
+                ("gemma-4-31b-it", "Gemma 4 31B (Google Cloud AI)"),
+                ("gemini-3.5-flash", "Gemini 3.5 Flash (Google Cloud AI)"),
+                ("gemini-3.7-flash", "Gemini 3.7 Flash (Google Cloud AI)"),
+                ("gemini-2.5-flash", "Gemini 2.5 Flash (Google Cloud AI)"),
+                ("gemini-2.5-pro", "Gemini 2.5 Pro (Google Cloud AI)"),
+                ("gemini-1.5-flash", "Gemini 1.5 Flash (Google Cloud AI)"),
+                ("gemini-2.0-flash", "Gemini 2.0 Flash (Google Cloud AI)"),
+            ]
+            for gid, gname in gemini_catalog:
+                is_active = (gid == self.text_model_name or gid == self.vision_model_name)
+                discovered[gid] = DownloadedModelInfo(
+                    id=gid,
+                    name=gname,
+                    size_on_disk="Google Cloud Hosted",
+                    source="google_gemini_api",
+                    is_active=is_active,
+                    is_vllm_loaded=False,
+                    supports_vision=True,
+                    multimodal_capabilities=["text", "image"],
+                )
+
         model_list = list(discovered.values())
-        # Sort: active first, then vLLM loaded, then alphabetically
-        model_list.sort(key=lambda m: (not m.is_active, not m.is_vllm_loaded, m.name))
+        # Sort: active first, then Gemini models, then vLLM loaded, then alphabetically
+        model_list.sort(key=lambda m: (not m.is_active, not ("gemini" in m.id.lower()), not m.is_vllm_loaded, m.name))
 
         return ModelsListResponse(
             status="success",
@@ -1263,8 +1475,21 @@ class ClinicalLLMService:
 
     def switch_model(self, model_name: str, target: str = "both") -> Tuple[str, str]:
         target_lower = target.lower()
+        is_gemini = any(k in model_name.lower() for k in ("gemini", "gemma"))
+
         if target_lower in ("text", "both"):
             self.text_model_name = model_name
+            if is_gemini:
+                self.text_base_url = settings.GEMINI_BASE_URL
+                if settings.effective_gemini_key:
+                    self.text_api_key = settings.effective_gemini_key
+            elif not self.text_base_url or "generativelanguage" in (self.text_base_url or ""):
+                self.text_base_url = settings.TEXT_LLM_BASE_URL
+
+            self._direct_chat_client = AsyncOpenAI(
+                api_key=self.text_api_key,
+                base_url=self.text_base_url or None,
+            )
             chat_kwargs: Dict[str, Any] = {
                 "model": self.text_model_name,
                 "api_key": self.text_api_key,
@@ -1280,6 +1505,17 @@ class ClinicalLLMService:
 
         if target_lower in ("vision", "both"):
             self.vision_model_name = model_name
+            if is_gemini:
+                self.vision_base_url = settings.GEMINI_BASE_URL
+                if settings.effective_gemini_key:
+                    self.vision_api_key = settings.effective_gemini_key
+            elif not self.vision_base_url or "generativelanguage" in (self.vision_base_url or ""):
+                self.vision_base_url = settings.VISION_LLM_BASE_URL
+
+            self._direct_vision_client = AsyncOpenAI(
+                api_key=self.vision_api_key,
+                base_url=self.vision_base_url or None,
+            )
             vision_kwargs: Dict[str, Any] = {
                 "model": self.vision_model_name,
                 "api_key": self.vision_api_key,
@@ -1294,9 +1530,11 @@ class ClinicalLLMService:
             )
 
         logger.info(
-            "Switched model: text='%s', vision='%s' (target=%s)",
+            "Switched model: text='%s' (base_url=%s), vision='%s' (base_url=%s) (target=%s)",
             self.text_model_name,
+            self.text_base_url,
             self.vision_model_name,
+            self.vision_base_url,
             target,
         )
         return (self.text_model_name, self.vision_model_name)

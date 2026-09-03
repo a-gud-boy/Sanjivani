@@ -268,6 +268,10 @@ class ExtractedMedication(BaseModel):
         default=None,
         description="The total length of time or course for which the medication is prescribed (e.g., '5 days', '7 days', '2 weeks', '1 month', 'Continuous / Ongoing')."
     )
+    prescription_date: Optional[str] = Field(
+        default=None,
+        description="The explicit prescription date written or printed on the prescription document for this medicine (e.g., 'YYYY-MM-DD' or '12-03-1990')."
+    )
 
 
 class ExtractedLabInvestigation(BaseModel):
@@ -290,6 +294,10 @@ class ExtractedLabInvestigation(BaseModel):
 
 
 class OCRStructuredResult(BaseModel):
+    document_date: Optional[str] = Field(
+        default=None,
+        description="The explicit prescription date or visit date written or printed on the medical document (e.g., '1990-03-12', '12-03-90', '23 JAN 99')."
+    )
     medications: List[ExtractedMedication] = Field(
         default_factory=list,
         description="List of all detected prescription medications and Ayurvedic remedies extracted from the document."

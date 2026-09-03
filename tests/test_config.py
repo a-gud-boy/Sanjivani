@@ -10,6 +10,8 @@ def test_config_requires_api_key(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("TEXT_LLM_API_KEY", raising=False)
     monkeypatch.delenv("VISION_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
@@ -52,3 +54,20 @@ def test_config_loads_separated_text_and_vision_keys(monkeypatch):
     assert s.effective_vision_api_key == "vision_key_xyz"
     assert s.effective_vision_model_name == "qwen/qwen3.6-27b"
     assert s.effective_vision_base_url == "https://api.vision.com/v1"
+
+
+def test_config_loads_gemini_key(monkeypatch):
+    """Verify that Settings initializes with Gemini configuration defaults."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("TEXT_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("VISION_LLM_API_KEY", raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "AIzaSyFakeKeyForTesting12345")
+
+    s = Settings(_env_file=None)
+    assert s.has_gemini is True
+    assert s.effective_text_api_key == "AIzaSyFakeKeyForTesting12345"
+    assert s.effective_vision_api_key == "AIzaSyFakeKeyForTesting12345"
+    assert s.effective_text_model_name == "gemma-4-26b-a4b-it"
+    assert s.effective_vision_model_name == "gemma-4-26b-a4b-it"
+    assert "googleapis.com" in s.effective_text_base_url
+    assert "googleapis.com" in s.effective_vision_base_url

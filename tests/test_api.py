@@ -229,3 +229,53 @@ def test_greeting_symptom_filtering():
     assert llm._is_greeting_or_non_symptom("Chest pain") is False
     assert llm._is_greeting_or_non_symptom("Fever and cough") is False
 
+
+def test_quick_reply_sanitization_and_contextual_answers():
+    """Verify that quick replies are always patient answers, never doctor questions."""
+    from app.services.llm_service import get_llm_service
+    import json
+    llm = get_llm_service()
+
+    # 1. Question detector
+    assert llm._is_question_like("When did it start?") is True
+    assert llm._is_question_like("How long have you had it?") is True
+    assert llm._is_question_like("When did the fever begin?") is True
+    assert llm._is_question_like("कब से है?") is True
+    assert llm._is_question_like("Since today morning") is False
+    assert llm._is_question_like("Started 2-3 days ago") is False
+    assert llm._is_question_like("Mild (1-3)") is False
+
+    # 2. Contextual answer generation for duration
+    timing_answers = llm._generate_contextual_patient_quick_replies(
+        "Can you tell me more about this fever and cold? When did it start?", language="en"
+    )
+    assert len(timing_answers) >= 3
+    assert any("today" in a.lower() or "days" in a.lower() for a in timing_answers)
+    for a in timing_answers:
+        assert not a.endswith("?")
+
+    # 3. Contextual answer generation for severity
+    severity_answers = llm._generate_contextual_patient_quick_replies(
+        "Could you rate your pain on a scale from 1 to 10?", language="en"
+    )
+    assert any("mild" in a.lower() for a in severity_answers)
+    for a in severity_answers:
+        assert not a.endswith("?")
+
+    # 4. Filter model output containing question chips
+    bad_model_json = json.dumps({
+        "next_question_to_ask_patient": "Can you tell me more about this fever and cold? When did it start?",
+        "suggested_quick_replies": [
+            "When did it start?",
+            "How long have you had it?",
+            "When did the fever begin?",
+            "When did the cold symptoms start?",
+        ],
+        "chief_complaint": {"symptom": "Fever and cold", "duration": None},
+    })
+    cleaned = llm._clean_and_parse_chat_json(bad_model_json, user_text="Fever/Cold", language="en")
+    assert len(cleaned.suggested_quick_replies) >= 2
+    for chip in cleaned.suggested_quick_replies:
+        assert not chip.endswith("?"), f"Found question in chips: {chip}"
+        assert not llm._is_question_like(chip), f"Found question-like chip: {chip}"
+

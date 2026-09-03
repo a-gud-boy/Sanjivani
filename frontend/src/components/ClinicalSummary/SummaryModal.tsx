@@ -280,7 +280,7 @@ export default function SummaryModal({
                   <div>
                     <p className="font-semibold text-slate-800 text-base">Generate AI Summary</p>
                     <p className="text-sm text-slate-400 max-w-xs mt-1">
-                      MedGemma will synthesize your chat history and all uploaded documents into a
+                      Sanjivani AI will synthesize your chat history and all uploaded documents into a
                       structured clinical summary for the physician.
                     </p>
                   </div>
@@ -303,7 +303,7 @@ export default function SummaryModal({
                     <Sparkles className="absolute inset-0 m-auto w-5 h-5 text-brand-cyan" />
                   </div>
                   <p className="text-slate-600 font-semibold text-sm">
-                    MedGemma is synthesizing your clinical summary…
+                    Sanjivani AI is synthesizing your clinical summary…
                   </p>
                   <p className="text-xs text-slate-400">Reviewing chat &amp; scanned documents</p>
                 </div>

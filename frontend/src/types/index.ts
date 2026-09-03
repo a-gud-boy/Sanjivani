@@ -87,6 +87,7 @@ export interface Medication {
   dosage: string | null
   frequency: string | null
   duration: string | null
+  prescription_date?: string | null
 }
 
 export interface LabInvestigation {
@@ -97,6 +98,7 @@ export interface LabInvestigation {
 }
 
 export interface OCRStructuredResult {
+  document_date?: string | null
   medications: Medication[]
   lab_investigations: LabInvestigation[]
   raw_text: string | null
@@ -190,4 +192,146 @@ export interface IntakeState {
   aiSummarySections: SummarySections | null
   /** Whether the summary is being generated */
   summaryLoading: boolean
+}
+
+// ---- User & Auth ------------------------------------------------
+
+export type UserType = 'patient' | 'doctor'
+
+export interface User {
+  id: string
+  abha_id: string
+  user_type: UserType
+  name: string
+  gender?: string | null
+  age_years?: number | null
+  phone?: string | null
+  email?: string | null
+  patient_details?: {
+    blood_group?: string
+    dob?: string
+    address_line?: string
+    city?: string
+    state?: string
+    pincode?: string
+    occupation?: string
+    marital_status?: string
+    preferred_language?: string
+    allergies?: string[]
+    chronic_conditions?: string[]
+    ayush_prakriti?: string
+    emergency_contact?: {
+      name?: string
+      relation?: string
+      phone?: string
+    }
+    address?: string
+    [key: string]: unknown
+  } | null
+  doctor_details?: {
+    specialization?: string
+    hospital?: string
+    department?: string
+    license_no?: string
+    qualifications?: string
+    duty_status?: string
+    opd_hours?: string
+    [key: string]: unknown
+  } | null
+}
+
+export interface SavedIntakeSession {
+  id: string
+  session_date: string
+  status: string
+  language: string
+  chief_complaint?: {
+    symptom?: string | null
+    duration?: string | null
+  } | null
+  clinical_record?: ClinicalHistoryRecord | null
+  chat_history?: Array<{
+    id?: string
+    role: string
+    content: string
+    timestamp?: string
+  }> | null
+  ai_summary_text?: string | null
+  ai_summary_sections?: SummarySections | null
+  red_flag_active: boolean
+  created_at: string
+}
+
+export interface SavedDocument {
+  id: string
+  session_id?: string | null
+  filename: string
+  file_type: string
+  preview_url?: string | null
+  structured_result?: OCRStructuredResult | null
+  created_at: string
+}
+
+export interface ActiveMedication {
+  drug_name: string
+  dosage?: string | null
+  frequency?: string | null
+  duration?: string | null
+  source_document: string
+  prescription_date?: string | null
+  end_date?: string | null
+  is_active?: boolean
+  days_remaining?: number | null
+}
+
+export interface PatientDashboardData {
+  patient: User
+  intake_sessions: SavedIntakeSession[]
+  documents: SavedDocument[]
+  active_medications: ActiveMedication[]
+  past_medications?: ActiveMedication[]
+}
+
+export type AppView = 'login' | 'patient_dashboard' | 'intake' | 'doctor_portal' | 'patient_profile'
+
+// ---- Doctor Portal Types -----------------------------------------
+
+export interface DoctorPatientSummary {
+  id: string
+  name: string
+  abha_id: string
+  gender?: string | null
+  age_years?: number | null
+  phone?: string | null
+  email?: string | null
+  patient_details?: User['patient_details']
+  latest_session?: {
+    id: string
+    session_date: string
+    status: string
+    chief_complaint?: {
+      symptom?: string | null
+      duration?: string | null
+    } | null
+    ai_summary_text?: string | null
+    red_flag_active: boolean
+  } | null
+  total_documents_count: number
+  total_sessions_count: number
+  has_red_flags: boolean
+  created_at: string
+}
+
+export interface DoctorPortalStats {
+  total_patients: number
+  red_flag_patients: number
+  total_prescriptions: number
+  total_consultations: number
+}
+
+export interface DoctorPatientsResponse {
+  status: string
+  total_patients: number
+  stats: DoctorPortalStats
+  patients: DoctorPatientSummary[]
 }

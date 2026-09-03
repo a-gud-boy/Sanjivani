@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { MessageSquare, ScanLine, LayoutDashboard } from 'lucide-react'
+import { MessageSquare, ScanLine, LayoutDashboard, CheckCircle2 } from 'lucide-react'
 import type {
   IntakeState,
   ChatMessage,
@@ -7,6 +7,9 @@ import type {
   ChatHistoryEntry,
   ActiveTab,
   ScannedDocument,
+  User,
+  AppView,
+  PatientDashboardData,
 } from './types'
 import {
   getInitialGreeting,
@@ -14,6 +17,10 @@ import {
   scanDocument,
   generateSummary,
   extractErrorMessage,
+  getPatientDashboard,
+  saveIntakeSession,
+  deletePatientDocument,
+  deleteIntakeSession,
 } from './services/api'
 
 import Header from './components/Header'
@@ -21,6 +28,10 @@ import RedFlagAlert from './components/RedFlagAlert'
 import ChatInterface from './components/Chat/ChatInterface'
 import ScannerPanel from './components/DocumentScanner/ScannerPanel'
 import SummaryModal from './components/ClinicalSummary/SummaryModal'
+import LoginPage from './components/Auth/LoginPage'
+import PatientDashboard from './components/Dashboard/PatientDashboard'
+import DoctorPortal from './components/Doctor/DoctorPortal'
+import PatientProfile from './components/Profile/PatientProfile'
 
 // ── Lightweight UUID util ────────────────────────────────────────────────────
 function newId(): string {
@@ -49,20 +60,126 @@ const INITIAL_STATE: IntakeState = {
 
 // ── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
+  // ── Authentication & View Management ───────────────────────────────────────
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem('sanjivani_auth_user')
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
+
+  const [currentView, setCurrentView] = useState<AppView>(() => {
+    try {
+      const saved = localStorage.getItem('sanjivani_auth_user')
+      if (saved) {
+        const u: User = JSON.parse(saved)
+        return u.user_type === 'doctor' ? 'doctor_portal' : 'patient_dashboard'
+      }
+    } catch {}
+    return 'login'
+  })
+
+  // ── Patient Dashboard Data ─────────────────────────────────────────────────
+  const [dashboardData, setDashboardData] = useState<PatientDashboardData | null>(null)
+  const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [isSubmittingDetails, setIsSubmittingDetails] = useState(false)
+  const [submitNotice, setSubmitNotice] = useState<string | null>(null)
+
+  // ── Intake State ───────────────────────────────────────────────────────────
   const [state, setState] = useState<IntakeState>(INITIAL_STATE)
   const [chatLoading, setChatLoading] = useState(false)
   const [chatError, setChatError] = useState<string | null>(null)
   const [scanLoading, setScanLoading] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
 
+  // ── Load Dashboard Data ────────────────────────────────────────────────────
+  const loadDashboard = useCallback(async (patientId: string) => {
+    setDashboardLoading(true)
+    try {
+      const data = await getPatientDashboard(patientId)
+      setDashboardData(data)
+    } catch (err) {
+      console.warn('Failed to load patient dashboard:', err)
+    } finally {
+      setDashboardLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (currentUser?.user_type === 'patient') {
+      loadDashboard(currentUser.id)
+      setState((s) => ({
+        ...s,
+        abhaLinked: true,
+        abhaId: currentUser.abha_id,
+      }))
+    }
+  }, [currentUser, loadDashboard])
+
+  // ── Login / Logout Handlers ────────────────────────────────────────────────
+  const handleLoginSuccess = (user: User) => {
+    try {
+      localStorage.setItem('sanjivani_auth_user', JSON.stringify(user))
+    } catch {}
+    setCurrentUser(user)
+    if (user.user_type === 'doctor') {
+      setCurrentView('doctor_portal')
+    } else {
+      setCurrentView('patient_dashboard')
+      loadDashboard(user.id)
+      setState((s) => ({
+        ...s,
+        abhaLinked: true,
+        abhaId: user.abha_id,
+      }))
+    }
+  }
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem('sanjivani_auth_user')
+    } catch {}
+    setCurrentUser(null)
+    setDashboardData(null)
+    setCurrentView('login')
+    setState(INITIAL_STATE)
+  }
+
+  const handleStartIntake = () => {
+    setCurrentView('intake')
+  }
+
+  const handleBackToDashboard = () => {
+    if (currentUser) {
+      loadDashboard(currentUser.id)
+    }
+    setCurrentView('patient_dashboard')
+  }
+
+  const handleOpenProfile = () => {
+    setCurrentView('patient_profile')
+  }
+
+  const handleSaveProfile = (updatedUser: User) => {
+    try {
+      localStorage.setItem('sanjivani_auth_user', JSON.stringify(updatedUser))
+    } catch {}
+    setCurrentUser(updatedUser)
+    loadDashboard(updatedUser.id)
+  }
+
   // ── Auto-initialize dynamic AI opening greeting ───────────────────────────
   useEffect(() => {
+    if (currentView !== 'intake') return
+
     const isOnlyInitialAssistant =
       state.messages.length === 1 && state.messages[0].role === 'assistant'
     if (state.messages.length === 0 || isOnlyInitialAssistant) {
       let isSubscribed = true
       setChatLoading(true)
-      getInitialGreeting(state.language)
+      getInitialGreeting(state.language, currentUser?.name)
         .then((res) => {
           if (!isSubscribed) return
           const assistantMsg: ChatMessage = {
@@ -85,8 +202,8 @@ export default function App() {
             role: 'assistant',
             content:
               state.language === 'hi'
-                ? 'नमस्ते! मैं संजीवनी, आपकी क्लिनिकल इनटेक सहायक हूँ। कृपया बताएं कि आज आपको क्या स्वास्थ्य समस्या या लक्षण महसूस हो रहे हैं?'
-                : 'Hello! I am Sanjivani, your AI clinical intake assistant. What health symptoms or discomfort can I help document for you today?',
+                ? `मैं संजीवनी एआई हूँ। कृपया बताएं कि आज आपको क्या स्वास्थ्य समस्या या लक्षण हैं।`
+                : `I am Sanjivani AI. Tell me what symptoms or health problems you are experiencing.`,
             timestamp: new Date(),
             quickReplies:
               state.language === 'hi'
@@ -106,7 +223,7 @@ export default function App() {
         isSubscribed = false
       }
     }
-  }, [state.language, state.messages.length === 0])
+  }, [state.language, currentView, currentUser?.name, state.messages.length === 0])
 
   // ── Language ────────────────────────────────────────────────────────────────
   const handleLanguageChange = useCallback((code: LanguageCode) => {
@@ -124,15 +241,17 @@ export default function App() {
       timestamp: new Date(),
     }
 
+    const updatedMessages = [...state.messages, userMsg]
     setState((s) => ({
       ...s,
-      messages: [...s.messages, userMsg],
+      messages: updatedMessages,
+      aiSummaryText: null,
+      aiSummarySections: null,
     }))
-
     setChatLoading(true)
 
     try {
-      const history: ChatHistoryEntry[] = state.messages.map((m) => ({
+      const historyPayload: ChatHistoryEntry[] = updatedMessages.map((m) => ({
         role: m.role,
         content: m.content,
       }))
@@ -140,12 +259,12 @@ export default function App() {
       const response = await sendChatMessage(
         text,
         state.language,
-        history,
+        historyPayload,
         state.clinicalRecord,
       )
 
       const record = response.data
-      const isRedFlag = record.red_flag_alert === true
+      const isRedFlag = Boolean(record.red_flag_alert)
 
       const assistantContent = record.next_question_to_ask_patient ??
         'Thank you for sharing. Could you tell me more?'
@@ -185,7 +304,6 @@ export default function App() {
   }, [])
 
   const handleRestartChat = useCallback(() => {
-    // Reset chat and clinical record only; keep scannedDocuments and language
     setState((s) => ({
       ...s,
       messages: [],
@@ -203,7 +321,6 @@ export default function App() {
     setScanError(null)
     setScanLoading(true)
 
-    // Generate a temporary preview URL
     const previewUrl = URL.createObjectURL(file)
     const docId = newId()
 
@@ -218,7 +335,6 @@ export default function App() {
       setState((s) => ({
         ...s,
         scannedDocuments: [...s.scannedDocuments, newDoc],
-        // Invalidate any prior AI summary since data changed
         aiSummaryText: null,
         aiSummarySections: null,
       }))
@@ -234,11 +350,78 @@ export default function App() {
     setState((s) => ({
       ...s,
       scannedDocuments: s.scannedDocuments.filter((d) => d.id !== id),
-      // Invalidate AI summary since documents changed
       aiSummaryText: null,
       aiSummarySections: null,
     }))
+    // Also delete from database if saved
+    deletePatientDocument(id).catch(() => {})
   }, [])
+
+  const handleDeletePatientDocument = async (docId: string) => {
+    try {
+      await deletePatientDocument(docId)
+      setState((s) => ({
+        ...s,
+        scannedDocuments: s.scannedDocuments.filter((d) => d.id !== docId),
+      }))
+      if (currentUser) {
+        await loadDashboard(currentUser.id)
+      }
+    } catch (err) {
+      alert('Failed to delete document: ' + extractErrorMessage(err))
+    }
+  }
+
+  const handleDeleteIntakeSession = async (sessionId: string) => {
+    try {
+      await deleteIntakeSession(sessionId)
+      if (currentUser) {
+        await loadDashboard(currentUser.id)
+      }
+    } catch (err) {
+      alert('Failed to delete consultation session: ' + extractErrorMessage(err))
+    }
+  }
+
+  // ── Submit Details to Health Record Database ──────────────────────────────
+  const handleSubmitDetails = async () => {
+    if (!currentUser) return
+    setIsSubmittingDetails(true)
+    try {
+      const payload = {
+        patient_id: currentUser.id,
+        language: state.language,
+        chat_history: state.messages.map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : String(m.timestamp),
+          quickReplies: m.quickReplies,
+        })),
+        clinical_record: state.clinicalRecord,
+        scanned_documents: state.scannedDocuments.map((d) => ({
+          id: d.id,
+          filename: d.filename,
+          file_type: 'prescription',
+          previewUrl: d.previewUrl,
+          result: d.result,
+        })),
+        ai_summary_text: state.aiSummaryText,
+        ai_summary_sections: state.aiSummarySections,
+        red_flag_active: state.redFlagActive,
+      }
+
+      await saveIntakeSession(payload)
+      setSubmitNotice('Clinical intake and prescriptions successfully saved to your health record!')
+      await loadDashboard(currentUser.id)
+      setCurrentView('patient_dashboard')
+      setTimeout(() => setSubmitNotice(null), 6000)
+    } catch (err) {
+      alert('Failed to save details: ' + extractErrorMessage(err))
+    } finally {
+      setIsSubmittingDetails(false)
+    }
+  }
 
   // ── Summary Modal ──────────────────────────────────────────────────────────
   const handleGenerateSummary = useCallback(async () => {
@@ -248,29 +431,25 @@ export default function App() {
         role: m.role,
         content: m.content,
       }))
-      const result = await generateSummary(
+
+      const res = await generateSummary(
         state.language,
         history,
         state.clinicalRecord,
         state.scannedDocuments,
       )
+
       setState((s) => ({
         ...s,
-        aiSummaryText: result.summary_text,
-        aiSummarySections: result.summary_sections,
+        aiSummaryText: res.summary_text,
+        aiSummarySections: res.summary_sections,
         summaryLoading: false,
       }))
     } catch (err) {
-      console.error('Summary generation failed:', err)
-      const errorMsg = extractErrorMessage(err)
-      setState((s) => ({
-        ...s,
-        aiSummaryText: errorMsg || 'Summary generation failed. Please try again.',
-        aiSummarySections: null,
-        summaryLoading: false,
-      }))
+      console.error('Summary generation error:', err)
+      setState((s) => ({ ...s, summaryLoading: false }))
     }
-  }, [state.messages, state.language, state.clinicalRecord, state.scannedDocuments])
+  }, [state.language, state.messages, state.clinicalRecord, state.scannedDocuments])
 
   const handleSummaryOpen = useCallback(() => {
     setState((s) => ({ ...s, summaryOpen: true }))
@@ -279,24 +458,62 @@ export default function App() {
     }
   }, [state.aiSummaryText, state.summaryLoading, handleGenerateSummary])
 
-  const handleSummaryClose = useCallback(() => setState((s) => ({ ...s, summaryOpen: false })), [])
-
-  // ── Red Flag Dismiss ───────────────────────────────────────────────────────
-  const handleRedFlagDismiss = useCallback(() => {
-    setState((s) => ({ ...s, redFlagActive: false }))
+  const handleSummaryClose = useCallback(() => {
+    setState((s) => ({ ...s, summaryOpen: false }))
   }, [])
 
-  // ── Tab Navigation (mobile) ────────────────────────────────────────────────
   const handleTabChange = useCallback((tab: ActiveTab) => {
     setState((s) => ({ ...s, activeTab: tab }))
   }, [])
 
-  // ── Derived ───────────────────────────────────────────────────────────────
-  const redFlagMessage = state.clinicalRecord?.next_question_to_ask_patient
+  // ── ROUTE 1: Login Page ────────────────────────────────────────────────────
+  if (currentView === 'login' || !currentUser) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />
+  }
 
+  // ── ROUTE 2: Doctor Portal Placeholder ─────────────────────────────────────
+  if (currentView === 'doctor_portal' && currentUser.user_type === 'doctor') {
+    return <DoctorPortal doctor={currentUser} onLogout={handleLogout} />
+  }
+
+  // ── ROUTE 3: Patient Dashboard ─────────────────────────────────────────────
+  if (currentView === 'patient_dashboard') {
+    return (
+      <div className="relative">
+        {submitNotice && (
+          <div className="fixed top-20 right-6 z-50 p-4 rounded-2xl bg-emerald-600 text-white shadow-xl flex items-center gap-3 animate-fade-in text-sm font-semibold">
+            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+            <span>{submitNotice}</span>
+          </div>
+        )}
+        <PatientDashboard
+          patient={currentUser}
+          dashboardData={dashboardData}
+          isLoading={dashboardLoading}
+          onStartIntake={handleStartIntake}
+          onOpenProfile={handleOpenProfile}
+          onLogout={handleLogout}
+          onDeleteDocument={handleDeletePatientDocument}
+          onDeleteIntakeSession={handleDeleteIntakeSession}
+        />
+      </div>
+    )
+  }
+
+  // ── ROUTE 4: Patient Profile (Personal details & demographics) ──────────────
+  if (currentView === 'patient_profile' && currentUser) {
+    return (
+      <PatientProfile
+        patient={currentUser}
+        onSave={handleSaveProfile}
+        onBackToDashboard={handleBackToDashboard}
+      />
+    )
+  }
+
+  // ── ROUTE 5: Current Intake Consultation Webpage ───────────────────────────
   return (
-    <div className="flex flex-col h-screen bg-surface-base overflow-hidden">
-
+    <div className="flex flex-col h-screen bg-surface-muted text-slate-800 font-sans overflow-hidden">
       {/* ── Header ── */}
       <Header
         language={state.language}
@@ -304,29 +521,33 @@ export default function App() {
         abhaLinked={state.abhaLinked}
         abhaId={state.abhaId}
         onSummaryOpen={handleSummaryOpen}
+        user={currentUser}
+        onBackToDashboard={handleBackToDashboard}
+        onOpenProfile={handleOpenProfile}
+        onSubmitDetails={handleSubmitDetails}
+        isSubmitting={isSubmittingDetails}
       />
 
-      {/* ── Red Flag Alert ── */}
+      {/* ── Red Flag Emergency Banner ── */}
       {state.redFlagActive && (
         <RedFlagAlert
-          message={typeof redFlagMessage === 'string' && redFlagMessage.toLowerCase().includes('emergency')
-            ? redFlagMessage
-            : undefined}
-          onDismiss={handleRedFlagDismiss}
+          onDismiss={() => setState((s) => ({ ...s, redFlagActive: false }))}
         />
       )}
 
       {/* ── Main Content Area ── */}
-      <main className="flex-1 overflow-hidden">
-
-        {/* ===== DESKTOP: Side-by-side dual-panel layout (md+) ===== */}
-        <div className="hidden md:flex h-full">
-
-          {/* Left Panel — Chat */}
-          <div className="w-[52%] xl:w-[55%] h-full flex flex-col border-r border-surface-border">
-            <div className="flex items-center gap-2 px-4 py-3 bg-white border-b border-surface-border">
-              <MessageSquare className="w-4 h-4 text-brand-cyan" />
-              <span className="text-sm font-semibold text-slate-700">Clinical Intake Chat</span>
+      <main className="flex-1 overflow-hidden relative">
+        {/* ===== DESKTOP: Dual-panel side-by-side layout (>=md) ===== */}
+        <div className="hidden md:flex h-full max-w-screen-2xl mx-auto px-4 sm:px-6 py-4 gap-4">
+          {/* Left: Chat Interface (Intake conversation) */}
+          <div className="flex-1 flex flex-col min-w-0 bg-white rounded-2xl border border-surface-border shadow-card overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-surface-border bg-surface-muted flex items-center justify-between">
+              <span className="text-sm font-semibold text-slate-700">Clinical Intake Consultation</span>
+              {state.chatStatus === 'ended' && (
+                <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                  Chat Completed
+                </span>
+              )}
             </div>
             <div className="flex-1 overflow-hidden">
               <ChatInterface
@@ -343,11 +564,15 @@ export default function App() {
             </div>
           </div>
 
-          {/* Right Panel — Document Scanner */}
-          <div className="flex-1 h-full flex flex-col overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 bg-white border-b border-surface-border">
-              <ScanLine className="w-4 h-4 text-brand-cyan" />
+          {/* Right: Document Scanner */}
+          <div className="w-[420px] xl:w-[480px] flex flex-col flex-shrink-0 bg-white rounded-2xl border border-surface-border shadow-card overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-surface-border bg-surface-muted flex items-center justify-between">
               <span className="text-sm font-semibold text-slate-700">Medical Document Scanner</span>
+              {state.scannedDocuments.length > 0 && (
+                <span className="text-xs font-semibold text-brand-cyan bg-brand-cyan/10 px-2 py-0.5 rounded-full">
+                  {state.scannedDocuments.length} uploaded
+                </span>
+              )}
             </div>
             <div className="flex-1 overflow-hidden">
               <ScannerPanel
@@ -363,7 +588,6 @@ export default function App() {
 
         {/* ===== MOBILE / TABLET: Tabbed single-panel layout (<md) ===== */}
         <div className="flex flex-col h-full md:hidden">
-
           {/* Tab Content */}
           <div className="flex-1 overflow-hidden">
             {state.activeTab === 'chat' ? (

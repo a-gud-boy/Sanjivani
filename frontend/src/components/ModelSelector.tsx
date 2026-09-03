@@ -74,7 +74,9 @@ export default function ModelSelector() {
 
   // Get display name for active model
   const activeModelObj = models.find((m) => m.id === activeTextModel || m.is_active)
-  const activeDisplayName = activeModelObj ? activeModelObj.name.split('(')[0].trim() : 'MedGemma 1.5 4B'
+  const activeDisplayName = activeModelObj
+    ? activeModelObj.name.split('(')[0].trim()
+    : (activeTextModel ? activeTextModel.replace('google/', '').replace('-it', '') : 'Gemini 2.5 Flash')
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -87,7 +89,7 @@ export default function ModelSelector() {
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label="Change AI model"
-        title={`Active model: ${activeTextModel}`}
+        title={`Active model: ${activeTextModel || 'Gemini 2.5 Flash'}`}
       >
         <div className="w-5 h-5 rounded-lg bg-brand-cyan/10 flex items-center justify-center text-brand-cyan flex-shrink-0">
           <Cpu className="w-3.5 h-3.5" />
@@ -97,7 +99,7 @@ export default function ModelSelector() {
             {activeDisplayName}
           </span>
           <span className="text-[10px] text-slate-400 font-normal leading-tight">
-            {models.length} {models.length === 1 ? 'model' : 'models'} downloaded
+            {models.length} {models.length === 1 ? 'model' : 'models'} available
           </span>
         </div>
         <ChevronDown
@@ -149,9 +151,8 @@ export default function ModelSelector() {
             {models.length === 0 ? (
               <div className="text-center py-6 px-4">
                 <HardDrive className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-medium text-slate-600">No multimodal models detected</p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Download Vision-Language models like <code className="bg-slate-100 px-1 py-0.5 rounded">google/medgemma-1.5-4b-it</code> or <code className="bg-slate-100 px-1 py-0.5 rounded">Qwen2.5-VL</code>.
+                  Configure a <code className="bg-slate-100 px-1 py-0.5 rounded">GEMINI_API_KEY</code> or download local models like <code className="bg-slate-100 px-1 py-0.5 rounded">Qwen2.5-VL</code>.
                 </p>
               </div>
             ) : (

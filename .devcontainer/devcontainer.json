@@ -1,7 +1,11 @@
 {
   "name": "Sanjivani Dev Container",
-  "image": "mcr.microsoft.com/devcontainers/python:1-3.11-bullseye",
-  "features": {},
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
+  },
   "customizations": {
     "vscode": {
       "settings": {
@@ -22,11 +26,27 @@
         "ms-python.python",
         "ms-python.vscode-pylance",
         "charliermarsh.ruff",
-        "tamasfe.even-better-toml"
+        "tamasfe.even-better-toml",
+        "dbaeumer.vscode-eslint",
+        "bradlc.vscode-tailwindcss"
       ]
     }
   },
-  "forwardPorts": [8000],
-  "postCreateCommand": "pip install --upgrade pip && pip install -r requirements.txt",
+  "forwardPorts": [5173, 8000, 8001],
+  "portsAttributes": {
+    "5173": {
+      "label": "Frontend (Vite UI)",
+      "onAutoForward": "openBrowser"
+    },
+    "8000": {
+      "label": "Backend (FastAPI)",
+      "onAutoForward": "notify"
+    },
+    "8001": {
+      "label": "vLLM Server",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": "pip install --upgrade pip && pip install -r requirements.txt && (cd frontend && npm install)",
   "remoteUser": "vscode"
 }

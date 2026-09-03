@@ -156,3 +156,153 @@ export function extractErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message
   return 'An unexpected error occurred.'
 }
+
+// ----------------------------------------------------------------
+// Auth & ABHA OTP Endpoints
+// ----------------------------------------------------------------
+
+export interface RequestOtpResult {
+  status: string
+  message: string
+  masked_phone?: string | null
+  simulated_otp: string
+  abha_id: string
+  user_name: string
+  user_type: string
+}
+
+export interface VerifyOtpResult {
+  status: string
+  token: string
+  user: import('../types').User
+}
+
+export async function requestOtp(
+  abhaId: string,
+  userType: 'patient' | 'doctor',
+): Promise<RequestOtpResult> {
+  const { data } = await apiClient.post<RequestOtpResult>('/auth/request-otp', {
+    abha_id: abhaId,
+    user_type: userType,
+  })
+  return data
+}
+
+export async function verifyOtp(
+  abhaId: string,
+  otp: string,
+  userType: 'patient' | 'doctor',
+): Promise<VerifyOtpResult> {
+  const { data } = await apiClient.post<VerifyOtpResult>('/auth/verify-otp', {
+    abha_id: abhaId,
+    otp,
+    user_type: userType,
+  })
+  return data
+}
+
+export async function registerUser(payload: {
+  user_type: string
+  name: string
+  abha_id: string
+  phone?: string
+  gender?: string
+  age_years?: number
+  specialization?: string
+  license_no?: string
+}): Promise<{ status: string; message: string }> {
+  const { data } = await apiClient.post('/auth/register', payload)
+  return data
+}
+
+export async function getMe(userId?: string): Promise<import('../types').User> {
+  const params = userId ? { user_id: userId } : {}
+  const { data } = await apiClient.get<import('../types').User>('/auth/me', { params })
+  return data
+}
+
+// ----------------------------------------------------------------
+// Patient Dashboard & Intake Session Persistence
+// ----------------------------------------------------------------
+
+export async function getPatientDashboard(
+  patientId: string,
+): Promise<import('../types').PatientDashboardData> {
+  const { data } = await apiClient.get<import('../types').PatientDashboardData>(
+    '/patient/dashboard',
+    {
+      params: { patient_id: patientId },
+    },
+  )
+  return data
+}
+
+export async function saveIntakeSession(payload: {
+  patient_id: string
+  session_id?: string | null
+  language?: string
+  chat_history?: Array<{
+    id?: string
+    role: string
+    content: string
+    timestamp?: string | Date
+    quickReplies?: string[]
+  }>
+  clinical_record?: import('../types').ClinicalHistoryRecord | null
+  scanned_documents?: import('../types').ScannedDocument[]
+  ai_summary_text?: string | null
+  ai_summary_sections?: import('../types').SummarySections | null
+  red_flag_active?: boolean
+}): Promise<{ status: string; session_id: string; message: string; saved_documents_count: number }> {
+  const { data } = await apiClient.post('/patient/intake-session', payload)
+  return data
+}
+
+export async function deletePatientDocument(
+  docId: string,
+): Promise<{ status: string; message: string; deleted_id: string }> {
+  const { data } = await apiClient.delete(`/patient/document/${docId}`)
+  return data
+}
+
+export async function deleteIntakeSession(
+  sessionId: string,
+): Promise<{ status: string; message: string; deleted_id: string }> {
+  const { data } = await apiClient.delete(`/patient/intake-session/${sessionId}`)
+  return data
+}
+
+export async function updatePatientProfile(payload: {
+  patient_id: string
+  name?: string
+  gender?: string
+  age_years?: number
+  phone?: string
+  email?: string
+  patient_details?: Record<string, unknown>
+}): Promise<{ status: string; message: string; patient: import('../types').User }> {
+  const { data } = await apiClient.put('/patient/profile', payload)
+  return data
+}
+
+export async function getDoctorPatients(
+  query?: string,
+  redFlagOnly?: boolean,
+): Promise<import('../types').DoctorPatientsResponse> {
+  const params: Record<string, string | boolean> = {}
+  if (query && query.trim()) {
+    params.query = query.trim()
+  }
+  if (redFlagOnly) {
+    params.red_flag_only = true
+  }
+  const { data } = await apiClient.get('/doctor/patients', { params })
+  return data
+}
+
+export async function getDoctorPatientDossier(
+  patientId: string,
+): Promise<import('../types').PatientDashboardData> {
+  const { data } = await apiClient.get(`/doctor/patient/${patientId}`)
+  return data
+}

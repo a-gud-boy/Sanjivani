@@ -4,9 +4,10 @@
 # Sanjivani - Unified Dev Server Startup Script
 # Starts:
 #   1. vLLM Local Model Server (Optional: google/medgemma-1.5-4b-it on :8001)
-#   2. FastAPI Clinical Backend (Port :8000)
-#   3. React Vite Frontend (Port :5173)
-#   4. Public Secure Tunnel (Cloudflare Quick Tunnel)
+#   2. Relational Database Sync & Pre-seeded ABHA Accounts
+#   3. FastAPI Clinical Backend (Port :8000)
+#   4. React Vite Frontend with ABHA Auth & Patient Dashboard (Port :5173)
+#   5. Public Secure Tunnel (Cloudflare Quick Tunnel)
 # ==============================================================================
 
 set -e
@@ -47,6 +48,12 @@ else
     echo -e "${YELLOW}⚠ No standard venv directory found. Using system python3.${NC}"
 fi
 
+# Verify critical database dependencies
+if ! "$PYTHON_BIN" -c "import sqlalchemy, aiosqlite, greenlet" 2>/dev/null; then
+    echo -e "${YELLOW}⚠ Installing missing database packages (sqlalchemy, aiosqlite, greenlet)...${NC}"
+    "$PYTHON_BIN" -m pip install -q "sqlalchemy>=2.0.0" "aiosqlite>=0.20.0" "greenlet>=3.0.0"
+fi
+
 # 2. Check for .env file
 if [ ! -f "$ROOT_DIR/.env" ]; then
     if [ -f "$ROOT_DIR/.env.example" ]; then
@@ -66,12 +73,17 @@ fi
 # 4. Parse Command Line Arguments
 START_VLLM=true
 START_TUNNEL=true
+RESET_DB=false
+
 for arg in "$@"; do
     if [ "$arg" == "--no-vllm" ] || [ "$arg" == "--skip-vllm" ]; then
         START_VLLM=false
     fi
     if [ "$arg" == "--no-tunnel" ] || [ "$arg" == "--skip-tunnel" ] || [ "$arg" == "--local-only" ]; then
         START_TUNNEL=false
+    fi
+    if [ "$arg" == "--reset-db" ] || [ "$arg" == "--clean-db" ]; then
+        RESET_DB=true
     fi
 done
 
@@ -90,6 +102,10 @@ if [ -f "$ROOT_DIR/.env" ]; then
     if [ -n "$ENV_VLLM_MODEL" ]; then
         VLLM_MODEL="$ENV_VLLM_MODEL"
     fi
+    ENV_DB_URL=$(grep -E "^DATABASE_URL=" "$ROOT_DIR/.env" | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | tr -d '\r')
+    if [ -n "$ENV_DB_URL" ]; then
+        DATABASE_URL="$ENV_DB_URL"
+    fi
 fi
 
 VLLM_MODEL="${VLLM_MODEL:-google/medgemma-1.5-4b-it}"
@@ -97,6 +113,32 @@ VLLM_PORT="${VLLM_PORT:-8001}"
 VLLM_GPU_UTIL="${VLLM_GPU_UTIL:-0.85}"
 VLLM_MAX_LEN="${VLLM_MAX_LEN:-4096}"
 VLLM_QUANT="${VLLM_QUANT:-bitsandbytes}"
+DATABASE_URL="${DATABASE_URL:-sqlite+aiosqlite:///./sanjivani.db}"
+
+# Automatically skip local vLLM if Google Gemini is configured
+if [ -f "$ROOT_DIR/.env" ]; then
+    if grep -sqE "^(GEMINI_API_KEY|GOOGLE_API_KEY)=" "$ROOT_DIR/.env" || [[ "$VLLM_MODEL" =~ (gemini|gemma) ]]; then
+        START_VLLM=false
+        echo -e "${GREEN}✓ Google Cloud AI configured (${VLLM_MODEL}). Skipping local vLLM server.${NC}"
+    fi
+fi
+
+# Optional DB reset if requested
+if [ "$RESET_DB" = true ]; then
+    echo -e "${YELLOW}⚠ Resetting local database (sanjivani.db)...${NC}"
+    rm -f "$ROOT_DIR/sanjivani.db"
+fi
+
+# Synchronize database schema and seed demo accounts
+echo -e "${GREEN}✓ Initializing Database & Pre-Seeding Demo Accounts...${NC}"
+"$PYTHON_BIN" -c "
+import asyncio
+from app.db.seed import init_db, seed_demo_data
+async def run():
+    await init_db()
+    await seed_demo_data()
+asyncio.run(run())
+"
 
 # Clean up any lingering processes from prior sessions to free GPU VRAM & ports
 pkill -9 -f "VLLM::EngineCore" 2>/dev/null || true
@@ -106,13 +148,20 @@ fuser -k 8000/tcp 8001/tcp 5173/tcp 2>/dev/null || true
 echo ""
 echo -e "${BOLD}Starting Services:${NC}"
 if [ "$START_VLLM" = true ]; then
-    echo -e "  ${GREEN}► vLLM Model Server:${NC} http://localhost:${VLLM_PORT}/v1 (Model: ${VLLM_MODEL}, 4-bit BnB)"
+    echo -e "  ${GREEN}► vLLM Model Server:${NC}  http://localhost:${VLLM_PORT}/v1 (Model: ${VLLM_MODEL}, 4-bit BnB)"
+else
+    echo -e "  ${GREEN}► Clinical AI Model:${NC}  Google Cloud Gemini (${TEXT_LLM_MODEL_NAME:-gemini-2.5-flash})"
 fi
+echo -e "  ${GREEN}► Database Engine:${NC}   ${DATABASE_URL}"
 echo -e "  ${GREEN}► FastAPI Backend:${NC}   http://localhost:8000 (Swagger: http://localhost:8000/docs)"
-echo -e "  ${GREEN}► Local Frontend:${NC}    http://localhost:5173"
+echo -e "  ${GREEN}► React Frontend:${NC}    http://localhost:5173"
 if [ "$START_TUNNEL" = true ]; then
     echo -e "  ${GREEN}► Public Tunnel:${NC}     (Initializing secure HTTPS URL...)"
 fi
+echo ""
+echo -e "${BOLD}Pre-Registered Demo Credentials:${NC}"
+echo -e "  👤 ${CYAN}Patient:${NC} Ramesh Sharma  | ABHA: ${BOLD}14-1234-5678-9012${NC} | OTP: ${BOLD}123456${NC}"
+echo -e "  🩺 ${CYAN}Doctor:${NC}  Dr. Priya Nair | ABHA: ${BOLD}14-9988-7766-5544${NC} | OTP: ${BOLD}123456${NC}"
 echo ""
 echo -e "${YELLOW}Press [Ctrl+C] to stop all services.${NC}"
 echo "------------------------------------------------------------"
@@ -135,9 +184,11 @@ cleanup() {
         kill "$VLLM_PID" 2>/dev/null || true
     fi
     if [ -n "$BACKEND_PID" ]; then
+        echo "Stopping FastAPI backend (PID: $BACKEND_PID)..."
         kill "$BACKEND_PID" 2>/dev/null || true
     fi
     if [ -n "$FRONTEND_PID" ]; then
+        echo "Stopping Vite frontend (PID: $FRONTEND_PID)..."
         kill "$FRONTEND_PID" 2>/dev/null || true
     fi
     pkill -P $$ 2>/dev/null || true

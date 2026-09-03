@@ -5,7 +5,9 @@ from typing import AsyncGenerator
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import auth, doctor, patient
 from app.core.config import settings
+from app.db.seed import init_db, seed_demo_data
 from app.models.schemas import (
     ChatInitResponse,
     ChatRequest,
@@ -35,6 +37,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Eagerly initialize LLM and OCR services
     get_llm_service()
     get_ocr_service()
+
+    # Initialize SQLite/SQLAlchemy database and pre-seed demo accounts
+    try:
+        await init_db()
+        await seed_demo_data()
+    except Exception as db_err:
+        logger.error("Database initialization failed: %s", str(db_err), exc_info=True)
+
     yield
     logger.info("Shutting down %s...", settings.PROJECT_NAME)
 
@@ -58,6 +68,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Relational API routers for ABHA Auth, Patient Records & Doctor Clinical Portal
+app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
+app.include_router(patient.router, prefix=settings.API_V1_PREFIX)
+app.include_router(doctor.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/", tags=["Health"])
@@ -108,7 +123,7 @@ async def chat_init_endpoint(
         logger.exception("Error generating dynamic initial greeting: %s", str(e))
         return ChatInitResponse(
             status="success",
-            greeting="Hello! I am Sanjivani, your AI clinical intake assistant. What health problem or symptoms can I help you document today?",
+            greeting="I am Sanjivani AI. Tell me what symptoms or health problems you are experiencing.",
             suggested_quick_replies=["Headache / Body Ache", "Fever, Cold or Cough", "Stomach or Digestion issue", "General Health Checkup"],
         )
 
