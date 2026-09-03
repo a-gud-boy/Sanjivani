@@ -74,18 +74,29 @@ cd ..
 
 ---
 
-### Step 5: Configure Environment Variables
+### Step 5: Configure Environment Variables & Free Gemini API Key
 
-If `.env` does not already exist, copy the template:
+1. If `.env` does not already exist, copy the template:
+   ```powershell
+   Copy-Item .env.example .env
+   ```
 
-```powershell
-Copy-Item .env.example .env
-```
+2. **Get a Free Google Gemini API Key** (Takes ~1 minute, no credit card needed):
+   - Visit [Google AI Studio](https://aistudio.google.com/app/apikey).
+   - Sign in with your Google / Gmail account.
+   - Click **"Create API key"** -> **"Create API key in new project"**.
+   - Copy the generated key (starts with `AIzaSy...`).
 
-Open `.env` in Notepad or VS Code and add your Google Gemini or cloud LLM key if available:
-```ini
-GEMINI_API_KEY=your_gemini_api_key_here
-```
+3. Open `.env` in Notepad or VS Code:
+   ```powershell
+   notepad .env
+   ```
+   Paste your key on the `GEMINI_API_KEY` line:
+   ```ini
+   GEMINI_API_KEY=AIzaSyYourCopiedKeyHere
+   GEMINI_MODEL_NAME=gemini-2.5-flash
+   ```
+   Save and close Notepad.
 
 ---
 

@@ -111,6 +111,33 @@ The database is pre-seeded with test profiles for instant evaluation:
 
 ---
 
+## 🔑 How to Get a Free Google Gemini API Key
+
+Sanjivani can run completely free with Google Gemini's generous free tier (no credit card or local GPU required):
+
+1. **Visit Google AI Studio**: Go to [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey).
+2. **Sign In**: Log in using any standard Google / Gmail account.
+3. **Create Key**: Click the blue **"Create API key"** (or **"Get API key"**) button.
+4. **Select Project**: Choose **"Create API key in new project"** (generates instantly in 1 click).
+5. **Copy Key**: Copy the generated key string (it starts with `AIzaSy...`).
+6. **Add to `.env`**:
+   Open or create your `.env` file in the project root and add:
+   ```ini
+   GEMINI_API_KEY=AIzaSyYourCopiedKeyHere
+   ```
+   *(Optional) You can customize the model in `.env`:*
+   ```ini
+   GEMINI_MODEL_NAME=gemini-2.5-flash
+   ```
+7. **Launch Sanjivani**:
+   ```bash
+   ./start.sh --no-vllm       # Linux / macOS / WSL 2
+   python run.py --no-vllm   # Windows PowerShell / CMD
+   ```
+   *Sanjivani will automatically detect the Gemini key on startup and route conversational intake and handwriting prescription OCR to Google's multimodal models with zero local GPU VRAM needed!*
+
+---
+
 ## 📁 Repository Structure
 
 ```
