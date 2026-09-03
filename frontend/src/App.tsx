@@ -586,7 +586,7 @@ export default function App() {
 
   // ── ROUTE 5: Current Intake Consultation Webpage ───────────────────────────
   return (
-    <div className="flex flex-col h-screen bg-surface-muted text-slate-800 font-sans overflow-hidden">
+    <div className="flex flex-col h-screen bg-surface-muted dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans overflow-hidden transition-colors">
       {/* ── Header ── */}
       <Header
         language={state.language}
@@ -613,11 +613,11 @@ export default function App() {
         {/* ===== DESKTOP: Dual-panel side-by-side layout (>=md) ===== */}
         <div className="hidden md:flex h-full max-w-screen-2xl mx-auto px-4 sm:px-6 py-4 gap-4">
           {/* Left: Chat Interface (Intake conversation) */}
-          <div className="flex-1 flex flex-col min-w-0 bg-white rounded-2xl border border-surface-border shadow-card overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-surface-border bg-surface-muted flex items-center justify-between">
-              <span className="text-sm font-semibold text-slate-700">Clinical Intake Consultation</span>
+          <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 rounded-2xl border border-surface-border dark:border-slate-800 shadow-card overflow-hidden transition-colors">
+            <div className="px-4 py-2.5 border-b border-surface-border dark:border-slate-800 bg-surface-muted dark:bg-slate-850 flex items-center justify-between">
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Clinical Intake Consultation</span>
               {state.chatStatus === 'ended' && (
-                <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full">
+                <span className="text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-2.5 py-0.5 rounded-full">
                   Chat Completed
                 </span>
               )}
@@ -638,11 +638,11 @@ export default function App() {
           </div>
 
           {/* Right: Document Scanner */}
-          <div className="w-[420px] xl:w-[480px] flex flex-col flex-shrink-0 bg-white rounded-2xl border border-surface-border shadow-card overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-surface-border bg-surface-muted flex items-center justify-between">
-              <span className="text-sm font-semibold text-slate-700">Medical Document Scanner</span>
+          <div className="w-[420px] xl:w-[480px] flex flex-col flex-shrink-0 bg-white dark:bg-slate-900 rounded-2xl border border-surface-border dark:border-slate-800 shadow-card overflow-hidden transition-colors">
+            <div className="px-4 py-2.5 border-b border-surface-border dark:border-slate-800 bg-surface-muted dark:bg-slate-850 flex items-center justify-between">
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Medical Document Scanner</span>
               {state.scannedDocuments.length > 0 && (
-                <span className="text-xs font-semibold text-brand-cyan bg-brand-cyan/10 px-2 py-0.5 rounded-full">
+                <span className="text-xs font-semibold text-brand-cyan bg-brand-cyan/10 dark:bg-brand-cyan/20 px-2 py-0.5 rounded-full">
                   {state.scannedDocuments.length} uploaded
                 </span>
               )}
@@ -687,7 +687,7 @@ export default function App() {
           </div>
 
           {/* Bottom Tab Bar */}
-          <nav className="flex border-t border-surface-border bg-white safe-area-bottom" aria-label="Main navigation">
+          <nav className="flex border-t border-surface-border dark:border-slate-800 bg-white dark:bg-slate-900 safe-area-bottom transition-colors" aria-label="Main navigation">
             {(
               [
                 { tab: 'chat' as ActiveTab, label: 'Intake Chat', Icon: MessageSquare },
@@ -700,8 +700,8 @@ export default function App() {
                 className={`flex-1 flex flex-col items-center justify-center gap-1 py-3
                             transition-colors min-h-[56px]
                             ${state.activeTab === tab
-                              ? 'text-brand-cyan border-t-2 border-brand-cyan -mt-px bg-brand-cyan-light/30'
-                              : 'text-slate-400 hover:text-slate-600'
+                              ? 'text-brand-cyan border-t-2 border-brand-cyan -mt-px bg-brand-cyan-light/30 dark:bg-brand-cyan/20'
+                              : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
                             }`}
                 aria-current={state.activeTab === tab ? 'page' : undefined}
               >
@@ -714,7 +714,7 @@ export default function App() {
             <button
               onClick={handleSummaryOpen}
               className="flex-1 flex flex-col items-center justify-center gap-1 py-3
-                         text-slate-400 hover:text-slate-600 transition-colors min-h-[56px]"
+                         text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors min-h-[56px]"
             >
               <LayoutDashboard className="w-5 h-5" />
               <span className="text-[11px] font-medium">Summary</span>

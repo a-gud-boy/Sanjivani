@@ -19,6 +19,7 @@ import {
 import type { User } from '../../types'
 import { updatePatientProfile, extractErrorMessage } from '../../services/api'
 import BrandLogo from '../BrandLogo'
+import ThemeToggle from '../ThemeToggle'
 
 interface PatientProfileProps {
   patient: User
@@ -132,14 +133,14 @@ export default function PatientProfile({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors">
       {/* ── Top Header ── */}
-      <header className="sticky top-0 z-30 bg-white border-b border-surface-border shadow-sm">
+      <header className="sticky top-0 z-30 bg-white dark:bg-slate-900 border-b border-surface-border dark:border-slate-800 shadow-sm transition-colors">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
               onClick={onBackToDashboard}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-surface-border bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-surface-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors"
               title="Return to Dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -147,32 +148,36 @@ export default function PatientProfile({
             </button>
             <BrandLogo size="sm" />
             <div>
-              <h1 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
+              <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight">
                 Patient Profile &amp; Demographics
               </h1>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Personal details &amp; Ayush health identity
               </p>
             </div>
           </div>
 
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="btn-primary text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm hover:shadow-md disabled:opacity-50 transition-all"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-3.5 h-3.5" />
-                <span>Save Changes</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2.5">
+            <ThemeToggle />
+
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="btn-primary text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm hover:shadow-md disabled:opacity-50 transition-all"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save Changes</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -180,15 +185,15 @@ export default function PatientProfile({
       <main className="flex-1 max-w-5xl mx-auto p-4 sm:p-6 w-full space-y-6 animate-fade-in">
         {/* Feedback alerts */}
         {saveSuccess && (
-          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2.5 animate-fade-in shadow-sm">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2.5 animate-fade-in shadow-sm">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
             <span>Profile details saved successfully to database!</span>
           </div>
         )}
 
         {errorMessage && (
-          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2.5 animate-fade-in shadow-sm">
-            <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+          <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs font-semibold flex items-center gap-2.5 animate-fade-in shadow-sm">
+            <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 flex-shrink-0" />
             <span>{errorMessage}</span>
           </div>
         )}
@@ -222,15 +227,15 @@ export default function PatientProfile({
         {/* ── Profile Edit Form ── */}
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Section 1: Basic Identity */}
-          <div className="bg-white rounded-3xl border border-surface-border shadow-card p-6 space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-surface-border">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-surface-border dark:border-slate-800 shadow-card p-6 space-y-4 transition-colors">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 pb-2 border-b border-surface-border dark:border-slate-800">
               <UserIcon className="w-4 h-4 text-brand-cyan" />
               <span>1. Basic Personal Identity</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Full Name
                 </label>
                 <input
@@ -238,12 +243,12 @@ export default function PatientProfile({
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Age (Years)
                 </label>
                 <input
@@ -253,18 +258,18 @@ export default function PatientProfile({
                   required
                   value={ageYears}
                   onChange={(e) => setAgeYears(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Gender
                 </label>
                 <select
                   value={gender}
                   onChange={(e) => setGender(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 >
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
@@ -273,25 +278,25 @@ export default function PatientProfile({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Date of Birth
                 </label>
                 <input
                   type="date"
                   value={dob}
                   onChange={(e) => setDob(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Marital Status
                 </label>
                 <select
                   value={maritalStatus}
                   onChange={(e) => setMaritalStatus(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 >
                   <option value="Married">Married</option>
                   <option value="Single">Single</option>
@@ -301,7 +306,7 @@ export default function PatientProfile({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Occupation
                 </label>
                 <input
@@ -309,22 +314,22 @@ export default function PatientProfile({
                   placeholder="e.g. School Teacher"
                   value={occupation}
                   onChange={(e) => setOccupation(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 />
               </div>
             </div>
           </div>
 
           {/* Section 2: Contact Details & Address */}
-          <div className="bg-white rounded-3xl border border-surface-border shadow-card p-6 space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-surface-border">
-              <MapPin className="w-4 h-4 text-emerald-600" />
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-surface-border dark:border-slate-800 shadow-card p-6 space-y-4 transition-colors">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 pb-2 border-b border-surface-border dark:border-slate-800">
+              <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>2. Contact Details &amp; Residential Address</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Primary Mobile Phone
                 </label>
                 <div className="relative">
@@ -333,14 +338,14 @@ export default function PatientProfile({
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-3 py-2 pl-9 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                    className="w-full px-3 py-2 pl-9 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                   />
                   <Phone className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Email Address
                 </label>
                 <div className="relative">
@@ -349,14 +354,14 @@ export default function PatientProfile({
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 pl-9 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                    className="w-full px-3 py-2 pl-9 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                   />
                   <Mail className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                 </div>
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Address Line / House No. / Street
                 </label>
                 <input
@@ -364,12 +369,12 @@ export default function PatientProfile({
                   placeholder="e.g. House 42, Green Valley Enclave, Sector 14"
                   value={addressLine}
                   onChange={(e) => setAddressLine(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   City / District
                 </label>
                 <input
@@ -377,13 +382,13 @@ export default function PatientProfile({
                   placeholder="e.g. Palakkad"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     State
                   </label>
                   <input
@@ -391,11 +396,11 @@ export default function PatientProfile({
                     placeholder="Kerala"
                     value={state}
                     onChange={(e) => setState(e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Pincode
                   </label>
                   <input
@@ -403,7 +408,7 @@ export default function PatientProfile({
                     placeholder="678001"
                     value={pincode}
                     onChange={(e) => setPincode(e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                   />
                 </div>
               </div>
@@ -411,27 +416,27 @@ export default function PatientProfile({
           </div>
 
           {/* Section 3: Emergency Contact */}
-          <div className="bg-white rounded-3xl border border-surface-border shadow-card p-6 space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-surface-border">
-              <Users className="w-4 h-4 text-amber-600" />
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-surface-border dark:border-slate-800 shadow-card p-6 space-y-4 transition-colors">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 pb-2 border-b border-surface-border dark:border-slate-800">
+              <Users className="w-4 h-4 text-amber-600 dark:text-amber-400" />
               <span>3. Emergency Contact Details</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Contact Person Name
                 </label>
                 <input
                   type="text"
                   value={emergencyName}
                   onChange={(e) => setEmergencyName(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Relationship
                 </label>
                 <input
@@ -439,41 +444,41 @@ export default function PatientProfile({
                   placeholder="e.g. Spouse, Parent, Sibling"
                   value={emergencyRelation}
                   onChange={(e) => setEmergencyRelation(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Emergency Phone Number
                 </label>
                 <input
                   type="tel"
                   value={emergencyPhone}
                   onChange={(e) => setEmergencyPhone(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 />
               </div>
             </div>
           </div>
 
           {/* Section 4: Clinical Baseline & AYUSH */}
-          <div className="bg-white rounded-3xl border border-surface-border shadow-card p-6 space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-surface-border">
-              <HeartPulse className="w-4 h-4 text-rose-600" />
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-surface-border dark:border-slate-800 shadow-card p-6 space-y-4 transition-colors">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 pb-2 border-b border-surface-border dark:border-slate-800">
+              <HeartPulse className="w-4 h-4 text-rose-600 dark:text-rose-400" />
               <span>4. Baseline Clinical &amp; AYUSH Identifiers</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
                   <Droplet className="w-3.5 h-3.5 text-rose-500" />
                   <span>Blood Group</span>
                 </label>
                 <select
                   value={bloodGroup}
                   onChange={(e) => setBloodGroup(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 >
                   <option value="A+">A+</option>
                   <option value="A-">A-</option>
@@ -487,14 +492,14 @@ export default function PatientProfile({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
                   <Flame className="w-3.5 h-3.5 text-amber-500" />
                   <span>AYUSH Prakriti Constitution</span>
                 </label>
                 <select
                   value={prakriti}
                   onChange={(e) => setPrakriti(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 >
                   <option value="">Not Assessed Yet</option>
                   <option value="Vata">Vata</option>
@@ -508,7 +513,7 @@ export default function PatientProfile({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Known Drug &amp; Environmental Allergies (comma-separated)
                 </label>
                 <input
@@ -516,12 +521,12 @@ export default function PatientProfile({
                   placeholder="e.g. Sulfa drugs, Pollen / Dust"
                   value={allergiesText}
                   onChange={(e) => setAllergiesText(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Known Chronic Medical Conditions (comma-separated)
                 </label>
                 <input
@@ -529,7 +534,7 @@ export default function PatientProfile({
                   placeholder="e.g. Type 2 Diabetes Mellitus, Hypertension"
                   value={chronicText}
                   onChange={(e) => setChronicText(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 />
               </div>
             </div>
@@ -540,7 +545,7 @@ export default function PatientProfile({
             <button
               type="button"
               onClick={onBackToDashboard}
-              className="px-5 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-surface-border rounded-xl hover:bg-slate-50 transition-colors"
+              className="px-5 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 border border-surface-border dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               Back to Dashboard
             </button>

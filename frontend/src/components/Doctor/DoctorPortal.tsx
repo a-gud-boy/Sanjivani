@@ -39,6 +39,7 @@ import type {
 } from '../../types'
 import { getDoctorPatients, getDoctorPatientDossier, extractErrorMessage } from '../../services/api'
 import BrandLogo from '../BrandLogo'
+import ThemeToggle from '../ThemeToggle'
 
 interface DoctorPortalProps {
   doctor: User
@@ -123,37 +124,39 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
   })
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      {/* ── Top Doctor Header ── */}
-      <header className="sticky top-0 z-30 bg-white border-b border-surface-border shadow-sm">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors">
+      {/* ── Top Navigation Bar ── */}
+      <header className="sticky top-0 z-30 bg-white dark:bg-slate-900 border-b border-surface-border dark:border-slate-800 shadow-sm transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <BrandLogo size="md" />
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
+                <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight">
                   {doctor.name}
                 </h1>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                   Doctor Verified
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 truncate max-w-xs sm:max-w-md">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-xs sm:max-w-md">
                 {String(details.specialization || 'Integrative AYUSH Clinician')} • ABHA: {doctor.abha_id}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl border border-surface-border">
-              <Building2 className="w-3.5 h-3.5 text-slate-400" />
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-surface-border dark:border-slate-700">
+              <Building2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
               <span>{String(details.hospital || 'CHC Nemmara Wellness Kiosk')}</span>
             </div>
 
+            <ThemeToggle />
+
             <button
               onClick={onLogout}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 rounded-xl transition-colors"
               title="Sign Out"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -204,63 +207,63 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
 
         {/* Live Metric Cards from Database */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-2xl border border-surface-border shadow-card">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-surface-border dark:border-slate-800 shadow-card transition-colors">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Registered Patients</span>
-              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Registered Patients</span>
+              <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                 <Users className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-slate-900 mt-2">{stats.total_patients}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Live database records</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-white mt-2">{stats.total_patients}</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Live database records</p>
           </div>
 
-          <div className="bg-white p-4 rounded-2xl border border-surface-border shadow-card">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-surface-border dark:border-slate-800 shadow-card transition-colors">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Triage Red Flags</span>
-              <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${stats.red_flag_patients > 0 ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Triage Red Flags</span>
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${stats.red_flag_patients > 0 ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400' : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'}`}>
                 <AlertTriangle className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-slate-900 mt-2">{stats.red_flag_patients}</p>
-            <p className={`text-[11px] mt-0.5 ${stats.red_flag_patients > 0 ? 'text-rose-600 font-semibold' : 'text-emerald-600'}`}>
+            <p className="text-2xl font-bold text-slate-900 dark:text-white mt-2">{stats.red_flag_patients}</p>
+            <p className={`text-[11px] mt-0.5 ${stats.red_flag_patients > 0 ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-emerald-600 dark:text-emerald-400'}`}>
               {stats.red_flag_patients > 0 ? 'Urgent attention needed' : 'All vitals stable'}
             </p>
           </div>
 
-          <div className="bg-white p-4 rounded-2xl border border-surface-border shadow-card">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-surface-border dark:border-slate-800 shadow-card transition-colors">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Digitized Prescriptions</span>
-              <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Digitized Prescriptions</span>
+              <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
                 <FileCheck2 className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-slate-900 mt-2">{stats.total_prescriptions}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Verified via AI Vision OCR</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-white mt-2">{stats.total_prescriptions}</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Verified via AI Vision OCR</p>
           </div>
 
-          <div className="bg-white p-4 rounded-2xl border border-surface-border shadow-card">
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-surface-border dark:border-slate-800 shadow-card transition-colors">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">Consultation Sessions</span>
-              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Consultation Sessions</span>
+              <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
                 <Activity className="w-4 h-4" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-slate-900 mt-2">{stats.total_consultations}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">AI intake consultations</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-white mt-2">{stats.total_consultations}</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">AI intake consultations</p>
           </div>
         </div>
 
         {/* ── Search, Filter & Refresh Toolbar ── */}
-        <div className="bg-white rounded-2xl border border-surface-border p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-surface-border dark:border-slate-800 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors">
           <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400 dark:text-slate-500" />
             <input
               type="text"
               placeholder="Search patients by name or ABHA ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+              className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
             />
           </div>
 
@@ -269,11 +272,11 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
               onClick={() => setFilterRedFlag((prev) => !prev)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors flex items-center gap-1.5 ${
                 filterRedFlag
-                  ? 'bg-rose-50 text-rose-700 border-rose-300'
-                  : 'bg-white text-slate-600 border-surface-border hover:bg-slate-50'
+                  ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-surface-border dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
-              <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
               <span>Red Flags Only</span>
             </button>
 
@@ -281,18 +284,18 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
               onClick={() => setFilterWithDocs((prev) => !prev)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors flex items-center gap-1.5 ${
                 filterWithDocs
-                  ? 'bg-purple-50 text-purple-700 border-purple-300'
-                  : 'bg-white text-slate-600 border-surface-border hover:bg-slate-50'
+                  ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-surface-border dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
               }`}
             >
-              <FileCheck2 className="w-3.5 h-3.5 text-purple-600" />
+              <FileCheck2 className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
               <span>With Documents</span>
             </button>
 
             <button
               onClick={fetchPatients}
               disabled={isLoading}
-              className="p-2 rounded-xl text-slate-600 hover:text-slate-900 bg-white border border-surface-border hover:bg-slate-50 transition-colors"
+              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 border border-surface-border dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               title="Refresh Patient Records"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -300,26 +303,18 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
           </div>
         </div>
 
-        {/* Feedback alert */}
-        {errorMessage && (
-          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2.5 shadow-sm">
-            <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-
-        {/* ── Patient Records Table / Queue ── */}
-        <div className="bg-white rounded-3xl border border-surface-border shadow-card overflow-hidden">
-          <div className="px-6 py-4 border-b border-surface-border flex items-center justify-between">
+           {/* ── Patient Records Table / Queue ── */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-surface-border dark:border-slate-800 shadow-card overflow-hidden transition-colors">
+          <div className="px-6 py-4 border-b border-surface-border dark:border-slate-800 flex items-center justify-between">
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-slate-900">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                 Registered Patients in Database ({displayedPatients.length})
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-400 dark:text-slate-500">
                 Click any patient to review their complete clinical dossier, consultations, and prescriptions
               </p>
             </div>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Live Connected
             </span>
@@ -331,7 +326,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
               <p className="text-xs">Loading patient registry from database...</p>
             </div>
           ) : displayedPatients.length > 0 ? (
-            <div className="divide-y divide-surface-border">
+            <div className="divide-y divide-surface-border dark:divide-slate-800">
               {displayedPatients.map((p) => {
                 const details = p.patient_details || {}
                 const allergies = (details.allergies as string[]) || []
@@ -341,65 +336,62 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                 return (
                   <div
                     key={p.id}
-                    className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/80 transition-colors"
+                    className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors"
                   >
                     {/* Patient Overview */}
                     <div className="flex items-start gap-4">
-                      <div className="w-11 h-11 rounded-2xl bg-brand-cyan/10 text-brand-cyan flex items-center justify-center font-bold text-base flex-shrink-0">
+                      <div className="w-11 h-11 rounded-2xl bg-brand-cyan/10 dark:bg-brand-cyan/20 text-brand-cyan dark:text-cyan-400 flex items-center justify-center font-bold text-base flex-shrink-0">
                         {p.name.charAt(0)}
                       </div>
 
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-slate-900 text-sm">{p.name}</span>
-                          <span className="text-xs text-slate-400">
+                          <span className="font-bold text-slate-900 dark:text-white text-sm">{p.name}</span>
+                          <span className="text-xs text-slate-400 dark:text-slate-500">
                             ({p.age_years || 38}y, {p.gender || 'Male'})
                           </span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-0.5">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 flex items-center gap-0.5">
                             <Droplet className="w-3 h-3" />
                             {String(details.blood_group || 'B+')}
                           </span>
                           {p.has_red_flags && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3 text-rose-600" />
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
                               Red Flag Alert
                             </span>
                           )}
                         </div>
 
                         {/* Complaint or Conditions */}
-                        <p className="text-xs text-slate-700 font-medium line-clamp-1">
+                        <p className="text-xs text-slate-700 dark:text-slate-300 font-medium line-clamp-1">
                           {chiefComplaint ? (
-                            <span><span className="font-semibold text-slate-900">Latest Complaint:</span> {chiefComplaint}</span>
+                            <span><span className="font-semibold text-slate-900 dark:text-white">Latest Complaint:</span> {chiefComplaint}</span>
                           ) : chronic.length > 0 ? (
-                            <span><span className="font-semibold text-slate-900">Chronic:</span> {chronic.join(', ')}</span>
+                            <span><span className="font-semibold text-slate-900 dark:text-white">Chronic:</span> {chronic.join(', ')}</span>
                           ) : (
-                            <span className="text-slate-400 italic">No acute intake recorded yet</span>
+                            <span className="text-slate-400 dark:text-slate-500 italic">No acute intake recorded yet</span>
                           )}
                         </p>
 
                         {/* Metadata Row */}
-                        <div className="flex items-center gap-3 text-[11px] text-slate-500 pt-0.5 flex-wrap">
-                          <span className="font-mono text-slate-700">ABHA: {p.abha_id}</span>
+                        <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 pt-0.5 flex-wrap">
+                          <span className="font-mono text-slate-700 dark:text-slate-300">ABHA: {p.abha_id}</span>
                           <span>•</span>
                           <span>{p.total_sessions_count} consultation{p.total_sessions_count === 1 ? '' : 's'}</span>
                           <span>•</span>
                           <span>{p.total_documents_count} attached doc{p.total_documents_count === 1 ? '' : 's'}</span>
-                          {details.city ? (
+                          {p.latest_session && (
                             <>
                               <span>•</span>
-                              <span className="flex items-center gap-0.5">
-                                <MapPin className="w-3 h-3 text-slate-400" />
-                                {String(details.city)}, {String(details.state || '')}
-                              </span>
+                              <span>Latest: {new Date(p.latest_session.session_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
                             </>
-                          ) : null}
+                          )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2.5 self-end md:self-center">
+                    {/* Action */}
+                    <div className="flex items-center gap-3 self-end md:self-center">
                       <button
                         onClick={() => handleOpenDossier(p.id)}
                         className="btn-primary text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm hover:shadow-md transition-all"
@@ -414,34 +406,33 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
             </div>
           ) : (
             <div className="p-12 text-center text-slate-400">
-              <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-              <p className="text-xs font-medium text-slate-600">No patients found matching your search.</p>
-              <p className="text-[11px] text-slate-400 mt-1">Try clearing your filters or search query.</p>
+              <p className="text-sm font-semibold">No patients found matching your search.</p>
+              <p className="text-xs mt-1">Try changing your filters or search keywords.</p>
             </div>
           )}
         </div>
       </main>
 
-      {/* ── PATIENT CLINICAL DOSSIER MODAL ────────────────────────────────────── */}
+      {/* ── Patient Dossier Detail Modal ── */}
       {selectedPatientId && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-fade-in overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-surface-border shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden my-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-surface-border dark:border-slate-800 shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden my-auto transition-colors">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-surface-border bg-slate-50 flex items-center justify-between gap-4">
+            <div className="px-6 py-4 border-b border-surface-border dark:border-slate-800 bg-slate-50 dark:bg-slate-850 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-brand-cyan text-white flex items-center justify-center font-bold text-lg">
                   {dossier?.patient.name.charAt(0) || 'P'}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-slate-900">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
                       {dossier?.patient.name || 'Patient Dossier'}
                     </h3>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                       ABHA Verified
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 font-mono">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
                     ABHA ID: {dossier?.patient.abha_id} • {dossier?.patient.age_years}y, {dossier?.patient.gender}
                   </p>
                 </div>
@@ -449,7 +440,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
 
               <button
                 onClick={handleCloseDossier}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
                 title="Close Dossier"
               >
                 <X className="w-5 h-5" />
@@ -460,7 +451,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
             {dossierLoading ? (
               <div className="p-16 text-center text-slate-400 flex flex-col items-center justify-center gap-2">
                 <Loader2 className="w-8 h-8 animate-spin text-brand-cyan" />
-                <p className="text-sm font-medium text-slate-600">Loading complete clinical records...</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Loading complete clinical records...</p>
               </div>
             ) : dossierError ? (
               <div className="p-8 text-center text-rose-600 space-y-2">
@@ -470,13 +461,13 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
             ) : dossier ? (
               <div className="flex-1 overflow-y-auto flex flex-col">
                 {/* Dossier Tabs */}
-                <div className="flex items-center gap-2 px-6 pt-4 border-b border-surface-border bg-white text-xs font-semibold">
+                <div className="flex items-center gap-2 px-6 pt-4 border-b border-surface-border dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold transition-colors">
                   <button
                     onClick={() => setActiveDossierTab('consultations')}
                     className={`pb-3 px-2 border-b-2 transition-colors flex items-center gap-1.5 ${
                       activeDossierTab === 'consultations'
                         ? 'border-brand-cyan text-brand-cyan font-bold'
-                        : 'border-transparent text-slate-500 hover:text-slate-800'
+                        : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
                     }`}
                   >
                     <Activity className="w-3.5 h-3.5" />
@@ -488,7 +479,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                     className={`pb-3 px-2 border-b-2 transition-colors flex items-center gap-1.5 ${
                       activeDossierTab === 'prescriptions'
                         ? 'border-brand-cyan text-brand-cyan font-bold'
-                        : 'border-transparent text-slate-500 hover:text-slate-800'
+                        : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
                     }`}
                   >
                     <FileText className="w-3.5 h-3.5" />
@@ -500,7 +491,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                     className={`pb-3 px-2 border-b-2 transition-colors flex items-center gap-1.5 ${
                       activeDossierTab === 'medications'
                         ? 'border-brand-cyan text-brand-cyan font-bold'
-                        : 'border-transparent text-slate-500 hover:text-slate-800'
+                        : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
                     }`}
                   >
                     <Pill className="w-3.5 h-3.5" />
@@ -512,7 +503,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                     className={`pb-3 px-2 border-b-2 transition-colors flex items-center gap-1.5 ${
                       activeDossierTab === 'baseline'
                         ? 'border-brand-cyan text-brand-cyan font-bold'
-                        : 'border-transparent text-slate-500 hover:text-slate-800'
+                        : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
                     }`}
                   >
                     <HeartPulse className="w-3.5 h-3.5" />
@@ -531,21 +522,21 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                           return (
                             <div
                               key={sess.id}
-                              className="bg-slate-50 rounded-2xl border border-surface-border p-5 space-y-4 shadow-sm"
+                              className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-surface-border dark:border-slate-700 p-5 space-y-4 shadow-sm transition-colors"
                             >
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-surface-border pb-3">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-surface-border dark:border-slate-700 pb-3">
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <span className="font-bold text-sm text-slate-900">
+                                    <span className="font-bold text-sm text-slate-900 dark:text-white">
                                       {sess.chief_complaint?.symptom || 'Clinical Intake Session'}
                                     </span>
                                     {sess.red_flag_active && (
-                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
                                         Red Flag
                                       </span>
                                     )}
                                   </div>
-                                  <p className="text-[11px] text-slate-400 mt-0.5">
+                                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
                                     Session Date: {new Date(sess.session_date).toLocaleString('en-IN')} • Status: {sess.status}
                                   </p>
                                 </div>
@@ -555,7 +546,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                                     onClick={() =>
                                       setExpandedSessionChatId(isChatExpanded ? null : sess.id)
                                     }
-                                    className="px-3 py-1 text-xs font-semibold text-brand-cyan bg-brand-cyan/10 hover:bg-brand-cyan/20 border border-brand-cyan/20 rounded-xl flex items-center gap-1 transition-colors self-start sm:self-center"
+                                    className="px-3 py-1 text-xs font-semibold text-brand-cyan dark:text-cyan-400 bg-brand-cyan/10 dark:bg-brand-cyan/20 hover:bg-brand-cyan/20 border border-brand-cyan/20 dark:border-brand-cyan/30 rounded-xl flex items-center gap-1 transition-colors self-start sm:self-center"
                                   >
                                     <MessageSquare className="w-3.5 h-3.5" />
                                     <span>{isChatExpanded ? 'Hide Chat Transcript' : 'View Full Transcript'}</span>
@@ -566,7 +557,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
 
                               {/* AI Clinical Summary */}
                               {sess.ai_summary_text && (
-                                <div className="p-4 bg-white rounded-xl border border-surface-border text-xs text-slate-800 space-y-1">
+                                <div className="p-4 bg-white dark:bg-slate-850 rounded-xl border border-surface-border dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 space-y-1">
                                   <span className="font-bold text-brand-cyan block">AI Clinical Narrative Summary:</span>
                                   <p className="whitespace-pre-line leading-relaxed">{sess.ai_summary_text}</p>
                                 </div>
@@ -574,8 +565,8 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
 
                               {/* Expanded Chat History */}
                               {isChatExpanded && sess.chat_history && (
-                                <div className="p-4 bg-white rounded-xl border border-surface-border space-y-2 animate-fade-in">
-                                  <span className="text-xs font-bold text-slate-700 block mb-2">
+                                <div className="p-4 bg-white dark:bg-slate-850 rounded-xl border border-surface-border dark:border-slate-700 space-y-2 animate-fade-in">
+                                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
                                     Full Kiosk Dialogue Transcript ({sess.chat_history.length} turns):
                                   </span>
                                   <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
@@ -584,11 +575,11 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                                         key={idx}
                                         className={`p-2.5 rounded-xl text-xs ${
                                           m.role === 'user'
-                                            ? 'bg-cyan-50 border border-cyan-100 text-slate-800 ml-6'
-                                            : 'bg-slate-100 text-slate-800 mr-6'
+                                            ? 'bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-100 dark:border-cyan-900 text-slate-800 dark:text-slate-100 ml-6'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 mr-6'
                                         }`}
                                       >
-                                        <span className="font-bold block text-[10px] text-slate-500 mb-0.5">
+                                        <span className="font-bold block text-[10px] text-slate-500 dark:text-slate-400 mb-0.5">
                                           {m.role === 'user' ? 'Patient' : 'Sanjivani Kiosk AI'}
                                         </span>
                                         <p>{m.content}</p>
@@ -618,14 +609,14 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                           return (
                             <div
                               key={doc.id}
-                              className="bg-slate-50 rounded-2xl border border-surface-border p-5 space-y-3"
+                              className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-surface-border dark:border-slate-700 p-5 space-y-3 transition-colors"
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                   <FileText className="w-4 h-4 text-brand-cyan" />
-                                  <span className="font-bold text-xs sm:text-sm text-slate-900">{doc.filename}</span>
+                                  <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">{doc.filename}</span>
                                 </div>
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700 uppercase">
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 uppercase">
                                   {doc.file_type}
                                 </span>
                               </div>
@@ -633,12 +624,12 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                               {/* Meds extracted */}
                               {meds.length > 0 && (
                                 <div>
-                                  <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">
+                                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">
                                     Prescribed Medications ({meds.length}):
                                   </span>
                                   <div className="flex flex-wrap gap-1.5">
                                     {meds.map((m, i) => (
-                                      <span key={i} className="px-2.5 py-1 rounded-lg bg-white border border-surface-border text-xs text-slate-800 font-medium">
+                                      <span key={i} className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-surface-border dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 font-medium">
                                         <span className="font-bold text-brand-cyan">{m.drug_name}</span> {m.dosage ? `(${m.dosage})` : ''} - {m.frequency}
                                       </span>
                                     ))}
@@ -649,7 +640,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                               {/* Labs extracted */}
                               {labs.length > 0 && (
                                 <div>
-                                  <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">
+                                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">
                                     Diagnostic Lab Parameters ({labs.length}):
                                   </span>
                                   <div className="flex flex-wrap gap-1.5">
@@ -658,8 +649,8 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                                         key={i}
                                         className={`px-2.5 py-1 rounded-lg border text-xs font-medium ${
                                           l.is_abnormal
-                                            ? 'bg-rose-50 text-rose-800 border-rose-200 font-bold'
-                                            : 'bg-white text-slate-800 border-surface-border'
+                                            ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-900 font-bold'
+                                            : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-surface-border dark:border-slate-700'
                                         }`}
                                       >
                                         {l.parameter_name}: {l.observed_value} {l.unit}
@@ -672,7 +663,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
 
                               {/* OCR raw text preview */}
                               {res.raw_text && (
-                                <div className="p-3 bg-white rounded-xl border border-surface-border text-[11px] text-slate-600 font-mono whitespace-pre-line leading-relaxed">
+                                <div className="p-3 bg-white dark:bg-slate-850 rounded-xl border border-surface-border dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-400 font-mono whitespace-pre-line leading-relaxed">
                                   {res.raw_text}
                                 </div>
                               )}
@@ -690,13 +681,13 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                     <div className="space-y-4">
                       {/* Sub-filter controls */}
                       <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-1 bg-surface-muted p-1 rounded-xl border border-surface-border">
+                        <div className="flex items-center gap-1 bg-surface-muted dark:bg-slate-800 p-1 rounded-xl border border-surface-border dark:border-slate-700">
                           <button
                             onClick={() => setDoctorMedFilter('all')}
                             className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
                               doctorMedFilter === 'all'
-                                ? 'bg-white text-slate-800 shadow-sm'
-                                : 'text-slate-500 hover:text-slate-800'
+                                ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm'
+                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
                             }`}
                           >
                             All ({dossier.active_medications.length + (dossier.past_medications || []).length})
@@ -705,8 +696,8 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                             onClick={() => setDoctorMedFilter('active')}
                             className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
                               doctorMedFilter === 'active'
-                                ? 'bg-white text-emerald-700 shadow-sm border border-emerald-100'
-                                : 'text-slate-500 hover:text-slate-800'
+                                ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-300 shadow-sm border border-emerald-100 dark:border-emerald-800'
+                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
                             }`}
                           >
                             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
@@ -716,8 +707,8 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                             onClick={() => setDoctorMedFilter('past')}
                             className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
                               doctorMedFilter === 'past'
-                                ? 'bg-white text-slate-700 shadow-sm border border-slate-200'
-                                : 'text-slate-500 hover:text-slate-800'
+                                ? 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 shadow-sm border border-slate-200 dark:border-slate-600'
+                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
                             }`}
                           >
                             <span className="w-2 h-2 rounded-full bg-slate-400 inline-block" />
@@ -725,7 +716,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                           </button>
                         </div>
 
-                        <span className="text-[11px] text-slate-400">
+                        <span className="text-[11px] text-slate-400 dark:text-slate-500">
                           Classified by prescription dates &amp; course durations
                         </span>
                       </div>
@@ -742,16 +733,16 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
 
                         if (displayedMeds.length === 0) {
                           return (
-                            <p className="text-xs text-slate-400 italic p-6 text-center bg-slate-50 rounded-2xl border border-dashed border-surface-border">
+                            <p className="text-xs text-slate-400 dark:text-slate-500 italic p-6 text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-surface-border dark:border-slate-700">
                               No medications found for the selected filter.
                             </p>
                           )
                         }
 
                         return (
-                          <div className="overflow-x-auto rounded-2xl border border-surface-border">
+                          <div className="overflow-x-auto rounded-2xl border border-surface-border dark:border-slate-700">
                             <table className="w-full text-xs text-left">
-                              <thead className="bg-slate-100 text-slate-700 font-bold uppercase border-b border-surface-border">
+                              <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold uppercase border-b border-surface-border dark:border-slate-700">
                                 <tr>
                                   <th className="p-3">Status</th>
                                   <th className="p-3">Drug Name</th>
@@ -762,26 +753,26 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                                   <th className="p-3">Source Document</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-surface-border bg-white">
+                              <tbody className="divide-y divide-surface-border dark:divide-slate-800 bg-white dark:bg-slate-900">
                                 {displayedMeds.map((m, idx) => (
-                                  <tr key={idx} className="hover:bg-slate-50">
+                                  <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
                                     <td className="p-3">
                                       {m.is_active ? (
-                                        <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px]">
+                                        <span className="inline-flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full text-[10px]">
                                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                           Active
                                         </span>
                                       ) : (
-                                        <span className="inline-flex items-center gap-1 font-medium text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full text-[10px]">
+                                        <span className="inline-flex items-center gap-1 font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-full text-[10px]">
                                           Completed
                                         </span>
                                       )}
                                     </td>
-                                    <td className="p-3 font-bold text-slate-900">{m.drug_name}</td>
-                                    <td className="p-3 text-slate-600">{m.dosage || '—'}</td>
-                                    <td className="p-3 text-slate-600">{m.frequency || '—'}</td>
-                                    <td className="p-3 text-slate-600">{m.duration || '—'}</td>
-                                    <td className="p-3 text-slate-500 text-[11px]">
+                                    <td className="p-3 font-bold text-slate-900 dark:text-white">{m.drug_name}</td>
+                                    <td className="p-3 text-slate-600 dark:text-slate-300">{m.dosage || '—'}</td>
+                                    <td className="p-3 text-slate-600 dark:text-slate-300">{m.frequency || '—'}</td>
+                                    <td className="p-3 text-slate-600 dark:text-slate-300">{m.duration || '—'}</td>
+                                    <td className="p-3 text-slate-500 dark:text-slate-400 text-[11px]">
                                       {m.prescription_date ? (
                                         <span>
                                           {m.prescription_date} {m.end_date ? `→ ${m.end_date}` : ''}
@@ -790,7 +781,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                                         '—'
                                       )}
                                     </td>
-                                    <td className="p-3 text-slate-400 font-mono text-[11px]">{m.source_document}</td>
+                                    <td className="p-3 text-slate-400 dark:text-slate-500 font-mono text-[11px]">{m.source_document}</td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -812,59 +803,59 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
 
                         return (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                            <div className="p-4 bg-slate-50 rounded-2xl border border-surface-border space-y-2">
-                              <span className="font-bold text-slate-900 block">Personal Demographics</span>
-                              <p><span className="text-slate-500">Full Name:</span> {dossier.patient.name}</p>
-                              <p><span className="text-slate-500">Date of Birth:</span> {String(d.dob || '—')}</p>
-                              <p><span className="text-slate-500">Gender &amp; Age:</span> {dossier.patient.gender}, {dossier.patient.age_years} years</p>
-                              <p><span className="text-slate-500">Occupation:</span> {String(d.occupation || '—')}</p>
-                              <p><span className="text-slate-500">Marital Status:</span> {String(d.marital_status || '—')}</p>
-                              <p><span className="text-slate-500">Contact Phone:</span> {dossier.patient.phone || '—'}</p>
-                              <p><span className="text-slate-500">Email:</span> {dossier.patient.email || '—'}</p>
-                              <p><span className="text-slate-500">Address:</span> {String(d.address_line || d.address || '—')}, {String(d.city || '')}, {String(d.state || '')} {String(d.pincode || '')}</p>
+                            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-surface-border dark:border-slate-700 space-y-2 transition-colors">
+                              <span className="font-bold text-slate-900 dark:text-white block">Personal Demographics</span>
+                              <p><span className="text-slate-500 dark:text-slate-400">Full Name:</span> <span className="text-slate-800 dark:text-slate-200">{dossier.patient.name}</span></p>
+                              <p><span className="text-slate-500 dark:text-slate-400">Date of Birth:</span> <span className="text-slate-800 dark:text-slate-200">{String(d.dob || '—')}</span></p>
+                              <p><span className="text-slate-500 dark:text-slate-400">Gender &amp; Age:</span> <span className="text-slate-800 dark:text-slate-200">{dossier.patient.gender}, {dossier.patient.age_years} years</span></p>
+                              <p><span className="text-slate-500 dark:text-slate-400">Occupation:</span> <span className="text-slate-800 dark:text-slate-200">{String(d.occupation || '—')}</span></p>
+                              <p><span className="text-slate-500 dark:text-slate-400">Marital Status:</span> <span className="text-slate-800 dark:text-slate-200">{String(d.marital_status || '—')}</span></p>
+                              <p><span className="text-slate-500 dark:text-slate-400">Contact Phone:</span> <span className="text-slate-800 dark:text-slate-200">{dossier.patient.phone || '—'}</span></p>
+                              <p><span className="text-slate-500 dark:text-slate-400">Email:</span> <span className="text-slate-800 dark:text-slate-200">{dossier.patient.email || '—'}</span></p>
+                              <p><span className="text-slate-500 dark:text-slate-400">Address:</span> <span className="text-slate-800 dark:text-slate-200">{String(d.address_line || d.address || '—')}, {String(d.city || '')}, {String(d.state || '')} {String(d.pincode || '')}</span></p>
                             </div>
 
-                            <div className="p-4 bg-slate-50 rounded-2xl border border-surface-border space-y-2">
-                              <span className="font-bold text-slate-900 block">Clinical &amp; AYUSH Baseline</span>
+                            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-surface-border dark:border-slate-700 space-y-2 transition-colors">
+                              <span className="font-bold text-slate-900 dark:text-white block">Clinical &amp; AYUSH Baseline</span>
                               <p className="flex items-center gap-1">
-                                <span className="text-slate-500">Blood Group:</span>
-                                <span className="font-bold text-rose-600">{String(d.blood_group || '—')}</span>
+                                <span className="text-slate-500 dark:text-slate-400">Blood Group:</span>
+                                <span className="font-bold text-rose-600 dark:text-rose-400">{String(d.blood_group || '—')}</span>
                               </p>
                               <p className="flex items-center gap-1">
-                                <span className="text-slate-500">AYUSH Prakriti:</span>
-                                <span className="font-bold text-amber-700">{String(d.ayush_prakriti || '—')}</span>
+                                <span className="text-slate-500 dark:text-slate-400">AYUSH Prakriti:</span>
+                                <span className="font-bold text-amber-700 dark:text-amber-400">{String(d.ayush_prakriti || '—')}</span>
                               </p>
                               <div>
-                                <span className="text-slate-500 block mb-1">Known Allergies:</span>
+                                <span className="text-slate-500 dark:text-slate-400 block mb-1">Known Allergies:</span>
                                 <div className="flex flex-wrap gap-1">
                                   {allergies.length > 0 ? (
                                     allergies.map((a, i) => (
-                                      <span key={i} className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-semibold text-[10px]">
+                                      <span key={i} className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 font-semibold text-[10px]">
                                         {a}
                                       </span>
                                     ))
                                   ) : (
-                                    <span className="text-slate-400 italic">No known allergies</span>
+                                    <span className="text-slate-400 dark:text-slate-500 italic">No known allergies</span>
                                   )}
                                 </div>
                               </div>
                               <div>
-                                <span className="text-slate-500 block mb-1">Chronic Illnesses:</span>
+                                <span className="text-slate-500 dark:text-slate-400 block mb-1">Chronic Illnesses:</span>
                                 <div className="flex flex-wrap gap-1">
                                   {chronic.length > 0 ? (
                                     chronic.map((c, i) => (
-                                      <span key={i} className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold text-[10px]">
+                                      <span key={i} className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 font-semibold text-[10px]">
                                         {c}
                                       </span>
                                     ))
                                   ) : (
-                                    <span className="text-slate-400 italic">No chronic illnesses reported</span>
+                                    <span className="text-slate-400 dark:text-slate-500 italic">No chronic illnesses reported</span>
                                   )}
                                 </div>
                               </div>
-                              <div className="pt-2 border-t border-surface-border">
-                                <span className="text-slate-500 block">Emergency Contact:</span>
-                                <span className="font-semibold text-slate-800">
+                              <div className="pt-2 border-t border-surface-border dark:border-slate-700">
+                                <span className="text-slate-500 dark:text-slate-400 block">Emergency Contact:</span>
+                                <span className="font-semibold text-slate-800 dark:text-slate-200">
                                   {emergency.name ? `${emergency.name} (${emergency.relation}) - ${emergency.phone}` : '—'}
                                 </span>
                               </div>
@@ -879,13 +870,13 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
             ) : null}
 
             {/* Modal Footer */}
-            <div className="px-6 py-3 border-t border-surface-border bg-slate-50 flex items-center justify-between">
-              <span className="text-[11px] text-slate-400">
+            <div className="px-6 py-3 border-t border-surface-border dark:border-slate-800 bg-slate-50 dark:bg-slate-850 flex items-center justify-between transition-colors">
+              <span className="text-[11px] text-slate-400 dark:text-slate-500">
                 Sanjivani Kiosk Health Records Engine • Ministry of Ayush
               </span>
               <button
                 onClick={handleCloseDossier}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-surface-border hover:bg-slate-100 transition-colors"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-surface-border dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
               >
                 Close Dossier
               </button>

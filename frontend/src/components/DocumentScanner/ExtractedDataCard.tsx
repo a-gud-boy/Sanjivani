@@ -31,14 +31,14 @@ function MedicationRow({ med }: { med: Medication }) {
     <div className="card p-4 flex flex-col gap-2 hover:shadow-card-hover transition-shadow">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-brand-cyan/10 flex items-center justify-center">
+          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-brand-cyan/10 dark:bg-brand-cyan/20 flex items-center justify-center">
             <Pill className="w-4 h-4 text-brand-cyan" />
           </div>
-          <p className="font-semibold text-slate-900 text-sm leading-tight">{med.drug_name}</p>
+          <p className="font-semibold text-slate-900 dark:text-white text-sm leading-tight">{med.drug_name}</p>
         </div>
         {med.dosage && (
-          <span className="flex-shrink-0 text-xs font-mono font-bold text-slate-700
-                           bg-slate-100 px-2 py-1 rounded-lg whitespace-nowrap">
+          <span className="flex-shrink-0 text-xs font-mono font-bold text-slate-700 dark:text-slate-200
+                           bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg whitespace-nowrap">
             {med.dosage}
           </span>
         )}
@@ -52,8 +52,8 @@ function MedicationRow({ med }: { med: Medication }) {
           </span>
         )}
         {med.duration && (
-          <span className="inline-flex items-center gap-1 text-xs text-slate-500 px-2 py-1
-                           rounded-full bg-slate-50 border border-slate-200">
+          <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 px-2 py-1
+                           rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
             <Clock className="w-3 h-3" />
             {med.duration}
           </span>
@@ -68,24 +68,24 @@ function LabRow({ lab }: { lab: LabInvestigation }) {
   const isNormal = lab.is_abnormal === false
 
   return (
-    <div className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl border
+    <div className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl border transition-colors
       ${isAbnormal
-        ? 'bg-red-50 border-red-200'
+        ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/50'
         : isNormal
-        ? 'bg-emerald-50 border-emerald-200'
-        : 'bg-white border-surface-border'
+        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/50'
+        : 'bg-white dark:bg-slate-800 border-surface-border dark:border-slate-700'
       }`}
     >
       <div className="flex items-center gap-2 min-w-0">
         <FlaskConical className={`w-4 h-4 flex-shrink-0 ${isAbnormal ? 'text-red-500' : 'text-brand-cyan'}`} />
-        <p className="text-sm font-medium text-slate-800 truncate">{lab.parameter_name}</p>
+        <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{lab.parameter_name}</p>
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
         {lab.observed_value && (
-          <span className={`font-bold text-sm ${isAbnormal ? 'text-red-600' : 'text-slate-900'}`}>
+          <span className={`font-bold text-sm ${isAbnormal ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
             {lab.observed_value}
-            {lab.unit && <span className="font-normal text-slate-400 text-xs ml-1">{lab.unit}</span>}
+            {lab.unit && <span className="font-normal text-slate-400 dark:text-slate-500 text-xs ml-1">{lab.unit}</span>}
           </span>
         )}
         {isAbnormal && <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />}

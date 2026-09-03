@@ -2,6 +2,7 @@ import { ArrowLeft, CheckCircle2, Loader2, Save, User as UserIcon } from 'lucide
 import type { LanguageCode, User } from '../types'
 import BrandLogo from './BrandLogo'
 import LanguageSelector from './LanguageSelector'
+import ThemeToggle from './ThemeToggle'
 import { useTranslation } from '../i18n/translations'
 
 interface HeaderProps {
@@ -32,7 +33,7 @@ export default function Header({
   const t = useTranslation(language)
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-surface-border shadow-sm">
+    <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-surface-border dark:border-slate-800 shadow-sm transition-colors">
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
 
         {/* ── Brand & Back to Dashboard ── */}
@@ -40,7 +41,7 @@ export default function Header({
           {onBackToDashboard && (
             <button
               onClick={onBackToDashboard}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-surface-border bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-surface-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors"
               title="Return to Dashboard"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -50,7 +51,7 @@ export default function Header({
 
           <BrandLogo size="md" />
           <div className="min-w-0">
-            <h1 className="text-[15px] font-bold text-slate-900 leading-tight truncate">
+            <h1 className="text-[15px] font-bold text-slate-900 dark:text-white leading-tight truncate">
               {user ? (
                 <>
                   {user.name} <span className="text-xs font-normal text-slate-400">({user.user_type === 'patient' ? t.auth.patient : t.auth.doctor})</span>
@@ -61,25 +62,25 @@ export default function Header({
                 </>
               )}
             </h1>
-            <p className="text-[11px] text-slate-500 leading-tight truncate">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight truncate">
               {user ? `ABHA: ${user.abha_id}` : 'AYUSH & Clinical Intake Assistant'}
             </p>
           </div>
         </div>
 
         {/* ── Right Controls ── */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-2.5">
 
           {/* ABHA Status Chip */}
           {abhaLinked ? (
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full
-                            bg-brand-mint-light text-emerald-700 text-xs font-semibold">
+                            bg-brand-mint-light dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-transparent dark:border-emerald-800/50 text-xs font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
               <span>{t.header.abhaLinked}: {abhaId ?? 'Linked'}</span>
             </div>
           ) : (
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full
-                            bg-slate-100 text-slate-500 text-xs font-medium">
+                            bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-medium">
               <UserIcon className="w-3.5 h-3.5 flex-shrink-0" />
               <span>{t.header.walkInPatient}</span>
             </div>
@@ -89,8 +90,8 @@ export default function Header({
           {onOpenProfile && (
             <button
               onClick={onOpenProfile}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-surface-border
-                         bg-white hover:bg-surface-muted text-slate-700 text-xs font-semibold
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-surface-border dark:border-slate-700
+                         bg-white dark:bg-slate-800 hover:bg-surface-muted dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold
                          transition-colors duration-150 min-h-[40px]"
               title="View & Edit Patient Profile"
             >
@@ -98,6 +99,9 @@ export default function Header({
               <span className="hidden sm:inline">{t.header.profile}</span>
             </button>
           )}
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
           {/* Language Switcher */}
           <LanguageSelector

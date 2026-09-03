@@ -40,9 +40,9 @@ function Section({ title, icon: Icon, children }: {
 function SummaryLine({ label, value }: { label: string; value?: string | null }) {
   if (!value || value.trim().toLowerCase() === 'not collected') return null
   return (
-    <div className="py-2.5 border-b border-surface-border last:border-0">
-      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">{label}</p>
-      <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line font-sans">{value}</div>
+    <div className="py-2.5 border-b border-surface-border dark:border-slate-800 last:border-0">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">{label}</p>
+      <div className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-line font-sans">{value}</div>
     </div>
   )
 }
@@ -53,16 +53,16 @@ function DocSection({ doc, defaultExpanded = false }: { doc: ScannedDocument; de
   const hasLabs = doc.result.lab_investigations.length > 0
 
   return (
-    <div className="rounded-xl border border-surface-border overflow-hidden">
+    <div className="rounded-xl border border-surface-border dark:border-slate-800 overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-surface-muted hover:bg-slate-100 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 bg-surface-muted dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
       >
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-brand-cyan" />
-          <span className="text-sm font-semibold text-slate-800">{doc.filename}</span>
+          <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{doc.filename}</span>
           {(hasMeds || hasLabs) && (
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-slate-400 dark:text-slate-500">
               · {hasMeds ? `${doc.result.medications.length} meds` : ''}{hasMeds && hasLabs ? ', ' : ''}{hasLabs ? `${doc.result.lab_investigations.length} labs` : ''}
             </span>
           )}
@@ -212,18 +212,18 @@ export default function SummaryModal({
 
       {/* Modal Panel */}
       <div className="relative w-full sm:max-w-2xl max-h-[92dvh] sm:max-h-[85vh]
-                      bg-white sm:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col
-                      overflow-hidden animate-slide-up z-10">
+                      bg-white dark:bg-slate-900 sm:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col
+                      overflow-hidden animate-slide-up z-10 transition-colors">
 
         {/* ── Modal Header ── */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-border bg-surface-muted">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-border dark:border-slate-800 bg-surface-muted dark:bg-slate-850">
           <div className="flex items-center gap-3">
             <BrandLogo size="md" />
             <div>
-              <h2 id="summary-title" className="font-bold text-slate-900 text-base leading-tight">
+              <h2 id="summary-title" className="font-bold text-slate-900 dark:text-white text-base leading-tight">
                 Clinical Session Summary
               </h2>
-              <p className="text-xs text-slate-400 leading-tight">Ready for physician review</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 leading-tight">Ready for physician review</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -236,16 +236,16 @@ export default function SummaryModal({
             </button>
             <button
               onClick={onClose}
-              className="w-9 h-9 rounded-xl hover:bg-slate-200 flex items-center justify-center transition-colors"
+              className="w-9 h-9 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 flex items-center justify-center transition-colors"
               aria-label="Close"
             >
-              <X className="w-5 h-5 text-slate-500" />
+              <X className="w-5 h-5 text-slate-500 dark:text-slate-400" />
             </button>
           </div>
         </div>
 
         {/* ── Tabs ── */}
-        <div className="flex border-b border-surface-border bg-white px-5 gap-4">
+        <div className="flex border-b border-surface-border dark:border-slate-800 bg-white dark:bg-slate-900 px-5 gap-4 transition-colors">
           {([
             { id: 'ai' as TabId, label: 'AI Summary', icon: Sparkles },
             { id: 'details' as TabId, label: 'Details', icon: FileText },
@@ -256,7 +256,7 @@ export default function SummaryModal({
               className={`flex items-center gap-1.5 py-3 text-sm font-semibold border-b-2 -mb-px transition-colors
                 ${activeTab === id
                   ? 'border-brand-cyan text-brand-cyan'
-                  : 'border-transparent text-slate-400 hover:text-slate-600'
+                  : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
                 }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -278,8 +278,8 @@ export default function SummaryModal({
                     <Sparkles className="w-7 h-7 text-brand-cyan" />
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-800 text-base">Generate AI Summary</p>
-                    <p className="text-sm text-slate-400 max-w-xs mt-1">
+                    <p className="font-semibold text-slate-800 dark:text-white text-base">Generate AI Summary</p>
+                    <p className="text-sm text-slate-400 dark:text-slate-500 max-w-xs mt-1">
                       Sanjivani AI will synthesize your chat history and all uploaded documents into a
                       structured clinical summary for the physician.
                     </p>
@@ -298,14 +298,14 @@ export default function SummaryModal({
               {summaryLoading && (
                 <div className="flex flex-col items-center gap-4 py-12 animate-fade-in">
                   <div className="relative w-14 h-14">
-                    <div className="absolute inset-0 rounded-full border-4 border-brand-cyan-light" />
+                    <div className="absolute inset-0 rounded-full border-4 border-brand-cyan-light dark:border-brand-cyan/20" />
                     <div className="absolute inset-0 rounded-full border-4 border-brand-cyan border-t-transparent animate-spin" />
                     <Sparkles className="absolute inset-0 m-auto w-5 h-5 text-brand-cyan" />
                   </div>
-                  <p className="text-slate-600 font-semibold text-sm">
+                  <p className="text-slate-600 dark:text-slate-300 font-semibold text-sm">
                     Sanjivani AI is synthesizing your clinical summary…
                   </p>
-                  <p className="text-xs text-slate-400">Reviewing chat &amp; scanned documents</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500">Reviewing chat &amp; scanned documents</p>
                 </div>
               )}
 
@@ -321,7 +321,7 @@ export default function SummaryModal({
                     aiSummarySections.ayush_assessment ||
                     aiSummarySections.red_flags ||
                     aiSummarySections.recommendations) ? (
-                    <div className="card p-4 divide-y divide-surface-border">
+                    <div className="card p-4 divide-y divide-surface-border dark:divide-slate-800">
                       <SummaryLine label="Patient Info" value={aiSummarySections.patient_info} />
                       <SummaryLine label="Chief Complaint" value={aiSummarySections.chief_complaint} />
                       <SummaryLine label="History of Presenting Illness" value={aiSummarySections.history} />
@@ -333,7 +333,7 @@ export default function SummaryModal({
                     </div>
                   ) : (
                     <div className="card p-4">
-                      <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line font-sans">
+                      <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-line font-sans">
                         {aiSummaryText || 'No clinical data collected yet. Start a consultation or upload documents.'}
                       </p>
                     </div>
@@ -341,12 +341,12 @@ export default function SummaryModal({
 
                   {/* Action Bar */}
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-slate-400 dark:text-slate-500">
                       Summary generated for doctor review
                     </span>
                     <button
                       onClick={onGenerateSummary}
-                      className="btn-ghost text-xs gap-1.5 min-h-[36px] px-3 border border-surface-border rounded-xl hover:bg-slate-50"
+                      className="btn-ghost text-xs gap-1.5 min-h-[36px] px-3 border border-surface-border dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-brand-cyan" />
                       Regenerate
@@ -369,9 +369,9 @@ export default function SummaryModal({
                       { label: 'Gender', value: clinicalRecord.patient_demographics.gender },
                       { label: 'Language', value: clinicalRecord.patient_demographics.language_preference?.toUpperCase() },
                     ].filter((r) => r.value).map(({ label, value }) => (
-                      <div key={label} className="bg-surface-muted rounded-xl p-3">
-                        <p className="text-xs text-slate-400 mb-0.5">{label}</p>
-                        <p className="font-semibold text-slate-800 text-sm">{String(value)}</p>
+                      <div key={label} className="bg-surface-muted dark:bg-slate-800 rounded-xl p-3">
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">{label}</p>
+                        <p className="font-semibold text-slate-800 dark:text-slate-100 text-sm">{String(value)}</p>
                       </div>
                     ))}
                   </div>
@@ -382,11 +382,11 @@ export default function SummaryModal({
               {hasClinicalData && (
                 <Section title="Chief Complaint" icon={AlertTriangle}>
                   <div className="card p-4">
-                    <p className="font-semibold text-slate-800 text-sm">
+                    <p className="font-semibold text-slate-800 dark:text-white text-sm">
                       {clinicalRecord!.chief_complaint?.symptom}
                     </p>
                     {clinicalRecord!.chief_complaint?.duration && (
-                      <p className="text-xs text-slate-400 mt-1">
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                         Duration: {clinicalRecord!.chief_complaint.duration}
                       </p>
                     )}
@@ -409,14 +409,14 @@ export default function SummaryModal({
               {hasConversation && (
                 <Section title={`Conversation Log (${messages.filter(m => m.role === 'user').length} patient turns)`} icon={MessageSquare}>
                   <div className="flex flex-col gap-2 max-h-60 overflow-y-auto scrollbar-thin
-                                  bg-surface-muted rounded-xl p-3 border border-surface-border">
+                                  bg-surface-muted dark:bg-slate-800 rounded-xl p-3 border border-surface-border dark:border-slate-700">
                     {messages.map((msg) => (
                       <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                         <span className={`flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded mt-0.5
-                          ${msg.role === 'user' ? 'bg-brand-cyan text-white' : 'bg-slate-200 text-slate-600'}`}>
+                          ${msg.role === 'user' ? 'bg-brand-cyan text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
                           {msg.role === 'user' ? 'P' : 'AI'}
                         </span>
-                        <p className="text-xs text-slate-600 leading-relaxed flex-1">{msg.content}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed flex-1">{msg.content}</p>
                       </div>
                     ))}
                   </div>
@@ -426,9 +426,9 @@ export default function SummaryModal({
               {/* Empty State */}
               {!hasClinicalData && !hasDocuments && !hasConversation && (
                 <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-                  <MessageSquare className="w-10 h-10 text-slate-200" />
-                  <p className="text-slate-400 text-sm">No session data collected yet.</p>
-                  <p className="text-xs text-slate-300">Start chatting or scan a document to see details here.</p>
+                  <MessageSquare className="w-10 h-10 text-slate-200 dark:text-slate-700" />
+                  <p className="text-slate-400 dark:text-slate-500 text-sm">No session data collected yet.</p>
+                  <p className="text-xs text-slate-300 dark:text-slate-600">Start chatting or scan a document to see details here.</p>
                 </div>
               )}
             </>
@@ -436,8 +436,8 @@ export default function SummaryModal({
         </div>
 
         {/* ── Footer ── */}
-        <div className="px-5 py-4 border-t border-surface-border bg-surface-muted flex items-center justify-between">
-          <p className="text-[11px] text-slate-400">
+        <div className="px-5 py-4 border-t border-surface-border dark:border-slate-800 bg-surface-muted dark:bg-slate-850 flex items-center justify-between">
+          <p className="text-[11px] text-slate-400 dark:text-slate-500">
             Generated by Sanjivani AI — Ministry of Ayush · SIH 2026
           </p>
           <button onClick={onClose} className="btn-primary text-xs min-h-[40px] px-5">

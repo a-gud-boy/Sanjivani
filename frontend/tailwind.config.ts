@@ -1,10 +1,15 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
+        slate: {
+          750: '#253246',
+          850: '#141e2e',
+        },
         // Clinical design tokens
         brand: {
           cyan: '#0891b2',       // Primary action / teal
@@ -18,10 +23,10 @@ const config: Config = {
           slate: '#1e293b',      // Primary text / deep nav
         },
         surface: {
-          base: '#f8fafc',       // Page background
-          card: '#ffffff',
-          muted: '#f1f5f9',
-          border: '#e2e8f0',
+          base: 'var(--surface-base, #f8fafc)',
+          card: 'var(--surface-card, #ffffff)',
+          muted: 'var(--surface-muted, #f1f5f9)',
+          border: 'var(--surface-border, #e2e8f0)',
         },
       },
       fontFamily: {

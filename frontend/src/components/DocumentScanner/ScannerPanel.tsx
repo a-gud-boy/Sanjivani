@@ -84,13 +84,13 @@ export default function ScannerPanel({
     <div className="flex flex-col h-full">
 
       {/* ── Panel Header ── */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-surface-border">
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-surface-border dark:border-slate-800">
         <div className="flex items-center gap-2">
           <ScanLine className="w-5 h-5 text-brand-cyan" />
-          <h2 className="font-semibold text-slate-800 text-base">Document Scanner</h2>
+          <h2 className="font-semibold text-slate-800 dark:text-white text-base">Document Scanner</h2>
         </div>
         {documents.length > 0 && (
-          <span className="text-xs font-semibold text-brand-cyan bg-brand-cyan/10 px-2 py-0.5 rounded-full">
+          <span className="text-xs font-semibold text-brand-cyan bg-brand-cyan/10 dark:bg-brand-cyan/20 px-2 py-0.5 rounded-full">
             {documents.length} doc{documents.length !== 1 ? 's' : ''}
           </span>
         )}
@@ -108,7 +108,7 @@ export default function ScannerPanel({
               return (
                 <div
                   key={doc.id}
-                  className="rounded-2xl border border-surface-border bg-white shadow-card overflow-hidden"
+                  className="rounded-2xl border border-surface-border dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card overflow-hidden transition-colors"
                 >
                   {/* Document row header */}
                   <div className="flex items-center gap-3 px-3 py-2.5">
@@ -117,18 +117,18 @@ export default function ScannerPanel({
                       <img
                         src={doc.previewUrl}
                         alt={doc.filename}
-                        className="w-10 h-10 rounded-lg object-cover border border-surface-border flex-shrink-0"
+                        className="w-10 h-10 rounded-lg object-cover border border-surface-border dark:border-slate-700 flex-shrink-0"
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-5 h-5 text-slate-400" />
+                      <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                        <FileText className="w-5 h-5 text-slate-400 dark:text-slate-500" />
                       </div>
                     )}
 
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{doc.filename}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">
+                    {/* Metadata */}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{doc.filename}</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                         {medCount > 0 && `${medCount} medication${medCount !== 1 ? 's' : ''}`}
                         {medCount > 0 && labCount > 0 && ' · '}
                         {labCount > 0 && `${labCount} lab result${labCount !== 1 ? 's' : ''}`}
@@ -142,7 +142,7 @@ export default function ScannerPanel({
                       <button
                         onClick={() => setExpandedDocId(isExpanded ? null : doc.id)}
                         className="text-xs text-brand-cyan hover:text-brand-cyan-dark px-2 py-1
-                                   rounded-lg hover:bg-brand-cyan/10 transition-colors"
+                                   rounded-lg hover:bg-brand-cyan/10 dark:hover:bg-brand-cyan/20 transition-colors"
                       >
                         {isExpanded ? 'Hide' : 'View'}
                       </button>
@@ -150,10 +150,10 @@ export default function ScannerPanel({
                       {doc.previewUrl && (
                         <button
                           onClick={() => window.open(doc.previewUrl!, '_blank')}
-                          className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                           aria-label="View full image"
                         >
-                          <ZoomIn className="w-3.5 h-3.5 text-slate-400" />
+                          <ZoomIn className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                         </button>
                       )}
                       {/* Remove */}
@@ -163,17 +163,17 @@ export default function ScannerPanel({
                           if (expandedDocId === doc.id) setExpandedDocId(null)
                           onRemoveDocument(doc.id)
                         }}
-                        className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
                         aria-label={`Remove ${doc.filename}`}
                       >
-                        <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-red-500" />
+                        <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-red-500 dark:hover:text-red-400" />
                       </button>
                     </div>
                   </div>
 
                   {/* Expanded data */}
                   {isExpanded && (
-                    <div className="border-t border-surface-border px-3 py-3 bg-surface-muted">
+                    <div className="border-t border-surface-border dark:border-slate-800 px-3 py-3 bg-surface-muted dark:bg-slate-850">
                       <ExtractedDataCard result={doc.result} />
                     </div>
                   )}
@@ -199,21 +199,21 @@ export default function ScannerPanel({
                           rounded-2xl border-2 border-dashed cursor-pointer
                           min-h-[160px] px-6 text-center transition-all duration-200
                           ${isDragOver
-                            ? 'border-brand-cyan bg-brand-cyan-light scale-[1.01]'
-                            : 'border-slate-300 bg-slate-50 hover:border-brand-cyan hover:bg-slate-100'
+                            ? 'border-brand-cyan bg-brand-cyan-light dark:bg-brand-cyan/20 scale-[1.01]'
+                            : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 hover:border-brand-cyan hover:bg-slate-100 dark:hover:bg-slate-850'
                           }`}
             >
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors
-                              ${isDragOver ? 'bg-brand-cyan text-white' : 'bg-white text-brand-cyan shadow-card'}`}>
+                              ${isDragOver ? 'bg-brand-cyan text-white' : 'bg-white dark:bg-slate-800 text-brand-cyan shadow-card'}`}>
                 <Upload className="w-5 h-5" />
               </div>
               <div>
-                <p className="font-semibold text-slate-700 text-sm">
+                <p className="font-semibold text-slate-700 dark:text-slate-200 text-sm">
                   {documents.length > 0
                     ? (isDragOver ? 'Drop to add' : 'Add another document')
                     : (isDragOver ? 'Drop image here' : 'Drop prescription or report image')}
                 </p>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                   or click to browse — JPEG, PNG, WebP, TIFF accepted
                 </p>
               </div>

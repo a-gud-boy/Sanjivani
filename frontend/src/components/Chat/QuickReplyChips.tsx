@@ -18,13 +18,13 @@ export default function QuickReplyChips({ chips, onSelect, disabled }: QuickRepl
           key={`${chip}-${i}`}
           onClick={() => onSelect(chip)}
           disabled={disabled}
-          className="px-4 py-2 rounded-full border border-brand-cyan text-brand-cyan bg-white
+          className="px-4 py-2 rounded-full border border-brand-cyan/60 dark:border-brand-cyan/40 text-brand-cyan dark:text-cyan-400 bg-white dark:bg-slate-850 dark:bg-slate-900
                      text-sm font-medium
-                     hover:bg-brand-cyan hover:text-white
+                     hover:bg-brand-cyan dark:hover:bg-brand-cyan hover:text-white dark:hover:text-white
                      active:scale-95
                      disabled:opacity-40 disabled:cursor-not-allowed
                      transition-all duration-150
-                     min-h-[40px] select-none"
+                     min-h-[40px] select-none shadow-sm"
         >
           {chip}
         </button>

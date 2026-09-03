@@ -50,23 +50,23 @@ export default function RegisterModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-surface-border overflow-hidden">
+      <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-surface-border dark:border-slate-800 overflow-hidden transition-colors">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-surface-border bg-slate-50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-surface-border dark:border-slate-800 bg-slate-50 dark:bg-slate-850">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-brand-cyan/10 flex items-center justify-center text-brand-cyan">
+            <div className="w-8 h-8 rounded-xl bg-brand-cyan/10 dark:bg-brand-cyan/20 flex items-center justify-center text-brand-cyan">
               <ShieldCheck className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-800">
+              <h2 className="text-base font-bold text-slate-800 dark:text-white">
                 Register New {role === 'patient' ? 'Patient' : 'Doctor'}
               </h2>
-              <p className="text-[11px] text-slate-500">ABHA National Health Identity Enrollment</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">ABHA National Health Identity Enrollment</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -74,11 +74,11 @@ export default function RegisterModal({
 
         {submitted ? (
           <div className="p-8 text-center space-y-4">
-            <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+            <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-8 h-8" />
             </div>
-            <h3 className="text-lg font-bold text-slate-900">Registration Recorded</h3>
-            <p className="text-sm text-slate-600 leading-relaxed max-w-sm mx-auto">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Registration Recorded</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-w-sm mx-auto">
               {message}
             </p>
             <div className="pt-2">
@@ -96,14 +96,14 @@ export default function RegisterModal({
         ) : (
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
             {/* Role switch */}
-            <div className="flex rounded-xl bg-slate-100 p-1">
+            <div className="flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1">
               <button
                 type="button"
                 onClick={() => setRole('patient')}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all ${
                   role === 'patient'
-                    ? 'bg-white text-brand-cyan shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
+                    ? 'bg-white dark:bg-slate-700 text-brand-cyan shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                 }`}
               >
                 <User className="w-3.5 h-3.5" />
@@ -114,8 +114,8 @@ export default function RegisterModal({
                 onClick={() => setRole('doctor')}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all ${
                   role === 'doctor'
-                    ? 'bg-white text-emerald-600 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
+                    ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                 }`}
               >
                 <Stethoscope className="w-3.5 h-3.5" />
@@ -126,7 +126,7 @@ export default function RegisterModal({
             {/* Inputs */}
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Full Name {role === 'doctor' ? '(with Dr. prefix)' : ''}
                 </label>
                 <input
@@ -135,12 +135,12 @@ export default function RegisterModal({
                   placeholder={role === 'patient' ? 'e.g. Suresh Kumar' : 'e.g. Dr. Rajesh Verma'}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Desired ABHA ID (14 Digits)
                 </label>
                 <input
@@ -149,13 +149,13 @@ export default function RegisterModal({
                   placeholder="14-XXXX-XXXX-XXXX"
                   value={abhaId}
                   onChange={(e) => setAbhaId(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Mobile Phone
                   </label>
                   <input
@@ -163,12 +163,12 @@ export default function RegisterModal({
                     placeholder="9876543210"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                   />
                 </div>
                 {role === 'patient' ? (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Age &amp; Gender
                     </label>
                     <div className="flex gap-2">
@@ -177,12 +177,12 @@ export default function RegisterModal({
                         placeholder="Age"
                         value={ageYears}
                         onChange={(e) => setAgeYears(e.target.value)}
-                        className="w-16 px-2 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted text-center"
+                        className="w-16 px-2 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white text-center"
                       />
                       <select
                         value={gender}
                         onChange={(e) => setGender(e.target.value)}
-                        className="flex-1 px-2 py-2 text-xs rounded-xl border border-surface-border bg-surface-muted"
+                        className="flex-1 px-2 py-2 text-xs rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white"
                       >
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
@@ -192,7 +192,7 @@ export default function RegisterModal({
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Medical License No.
                     </label>
                     <input
@@ -200,7 +200,7 @@ export default function RegisterModal({
                       placeholder="AYUSH-REG-2024"
                       value={licenseNo}
                       onChange={(e) => setLicenseNo(e.target.value)}
-                      className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted"
+                      className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white"
                     />
                   </div>
                 )}
@@ -208,7 +208,7 @@ export default function RegisterModal({
 
               {role === 'doctor' && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Clinical Specialization
                   </label>
                   <input
@@ -216,13 +216,13 @@ export default function RegisterModal({
                     placeholder="e.g. Panchakarma &amp; Internal Medicine (BAMS, MD)"
                     value={specialization}
                     onChange={(e) => setSpecialization(e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border bg-surface-muted"
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white"
                   />
                 </div>
               )}
             </div>
 
-            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200/60 text-xs text-amber-800 leading-relaxed">
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200/60 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
               <span className="font-semibold">Note:</span> Live national ABHA registration requires active NHA sandbox certificates. For testing, please use the pre-seeded demo accounts on the login screen.
             </div>
 
@@ -230,7 +230,7 @@ export default function RegisterModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl"
+                className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
               >
                 Cancel
               </button>
