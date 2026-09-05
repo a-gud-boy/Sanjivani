@@ -322,8 +322,20 @@ export default function LoginPage({
               </form>
             )}
 
+            {/* ── Direct Registration Action ── */}
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => setIsRegisterOpen(true)}
+                className="text-xs font-semibold text-brand-cyan hover:underline inline-flex items-center gap-1.5 py-1 px-2 rounded-lg hover:bg-brand-cyan/5 transition-colors"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>New patient or doctor? Register &amp; generate ABHA ID</span>
+              </button>
+            </div>
+
             {/* ── 1-Click Demo Sandbox Fast Logins ── */}
-            <div className="pt-4 border-t border-surface-border dark:border-slate-800 space-y-2.5">
+            <div className="pt-3 border-t border-surface-border dark:border-slate-800 space-y-2.5">
               <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                 <Sparkles className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                 <span>{t.auth.oneClickTestAccounts}</span>
@@ -377,6 +389,17 @@ export default function LoginPage({
         isOpen={isRegisterOpen}
         onClose={() => setIsRegisterOpen(false)}
         initialRole={role}
+        onSuccessLogin={(user) => {
+          onLoginSuccess(user)
+        }}
+        onPrefillLogin={(prefillAbha, prefillRole) => {
+          setRole(prefillRole)
+          setAbhaId(prefillAbha)
+          setError(null)
+          setOtpSent(false)
+          setOtp('')
+          setSimulatedOtp(null)
+        }}
       />
     </div>
   )

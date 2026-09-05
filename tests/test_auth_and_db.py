@@ -65,7 +65,7 @@ def test_auth_verify_otp_invalid_code():
     assert resp.status_code == 400
 
 
-def test_auth_register_placeholder():
+def test_auth_register_patient_success():
     resp = client.post(
         "/api/v1/auth/register",
         json={
@@ -73,12 +73,60 @@ def test_auth_register_placeholder():
             "name": "Suresh Kumar",
             "abha_id": "14-5555-4444-3333",
             "phone": "9123456780",
+            "gender": "Male",
+            "age_years": 32,
+            "blood_group": "A+",
+            "city": "Bengaluru",
+            "state": "Karnataka",
+            "pincode": "560001",
         },
     )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["status"] == "success"
-    assert "Suresh Kumar" in data["message"]
+    # If already registered in a previous test run, 409 is expected, else 201
+    assert resp.status_code in (201, 409)
+    if resp.status_code == 201:
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["user"]["name"] == "Suresh Kumar"
+        assert data["user"]["abha_id"] == "14-5555-4444-3333"
+        assert data["user"]["patient_details"]["blood_group"] == "A+"
+        assert "token" in data
+
+
+def test_auth_register_duplicate_abha_fails():
+    # Attempting to register demo patient Ramesh Sharma whose ABHA already exists
+    resp = client.post(
+        "/api/v1/auth/register",
+        json={
+            "user_type": "patient",
+            "name": "Duplicate Ramesh",
+            "abha_id": "14-1234-5678-9012",
+            "phone": "9876543210",
+        },
+    )
+    assert resp.status_code == 409
+    assert "already exists" in resp.json()["detail"]
+
+
+def test_auth_register_doctor_success():
+    resp = client.post(
+        "/api/v1/auth/register",
+        json={
+            "user_type": "doctor",
+            "name": "Dr. Amit Verma",
+            "abha_id": "14-8888-7777-6666",
+            "phone": "9876543299",
+            "specialization": "Panchakarma",
+            "license_no": "AYUSH-KA-2024-9988",
+            "hospital": "National Ayurveda Hospital",
+        },
+    )
+    assert resp.status_code in (201, 409)
+    if resp.status_code == 201:
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["user"]["name"] == "Dr. Amit Verma"
+        assert data["user"]["doctor_details"]["license_no"] == "AYUSH-KA-2024-9988"
+        assert data["user"]["doctor_details"]["specialization"] == "Panchakarma"
 
 
 def test_patient_dashboard_data():

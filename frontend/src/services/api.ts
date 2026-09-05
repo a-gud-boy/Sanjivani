@@ -214,17 +214,41 @@ export async function verifyOtp(
   return data
 }
 
-export async function registerUser(payload: {
-  user_type: string
+export interface RegisterPayload {
+  user_type: 'patient' | 'doctor'
   name: string
   abha_id: string
   phone?: string
+  email?: string
   gender?: string
   age_years?: number
+  dob?: string
+  blood_group?: string
+  address_line?: string
+  city?: string
+  state?: string
+  pincode?: string
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+  emergency_contact_relation?: string
   specialization?: string
   license_no?: string
-}): Promise<{ status: string; message: string }> {
-  const { data } = await apiClient.post('/auth/register', payload)
+  hospital?: string
+  department?: string
+  qualifications?: string
+}
+
+export interface RegisterResult {
+  status: string
+  message: string
+  user_type: string
+  abha_id: string
+  token?: string
+  user?: import('../types').User
+}
+
+export async function registerUser(payload: RegisterPayload): Promise<RegisterResult> {
+  const { data } = await apiClient.post<RegisterResult>('/auth/register', payload)
   return data
 }
 
