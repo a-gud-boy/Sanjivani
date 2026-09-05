@@ -159,9 +159,9 @@ if [ "$START_TUNNEL" = true ]; then
     echo -e "  ${GREEN}► Public Tunnel:${NC}     (Initializing secure HTTPS URL...)"
 fi
 echo ""
-echo -e "${BOLD}Pre-Registered Demo Credentials:${NC}"
-echo -e "  👤 ${CYAN}Patient:${NC} Ramesh Sharma  | ABHA: ${BOLD}14-1234-5678-9012${NC} | OTP: ${BOLD}123456${NC}"
-echo -e "  🩺 ${CYAN}Doctor:${NC}  Dr. Priya Nair | ABHA: ${BOLD}14-9988-7766-5544${NC} | OTP: ${BOLD}123456${NC}"
+echo -e "${BOLD}ABHA Authentication:${NC}"
+echo -e "  ► Open the frontend and click ${BOLD}Register${NC} to create your Patient or Doctor profile."
+echo -e "  ► Simulated OTP is ${BOLD}123456${NC} for all enrolled accounts."
 echo ""
 echo -e "${YELLOW}Press [Ctrl+C] to stop all services.${NC}"
 echo "------------------------------------------------------------"

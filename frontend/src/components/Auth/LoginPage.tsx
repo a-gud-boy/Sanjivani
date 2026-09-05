@@ -4,7 +4,6 @@ import {
   Stethoscope,
   ShieldCheck,
   ArrowRight,
-  Sparkles,
   KeyRound,
   AlertCircle,
   CheckCircle2,
@@ -31,7 +30,7 @@ export default function LoginPage({
   onLanguageChange,
 }: LoginPageProps) {
   const [role, setRole] = useState<UserType>('patient')
-  const [abhaId, setAbhaId] = useState('14-1234-5678-9012')
+  const [abhaId, setAbhaId] = useState('')
   const [otp, setOtp] = useState('')
   const [otpSent, setOtpSent] = useState(false)
   const [simulatedOtp, setSimulatedOtp] = useState<string | null>(null)
@@ -49,33 +48,7 @@ export default function LoginPage({
     setError(null)
     setOtpSent(false)
     setOtp('')
-    if (newRole === 'patient') {
-      setAbhaId('14-1234-5678-9012')
-    } else {
-      setAbhaId('14-9988-7766-5544')
-    }
-  }
-
-  // ── Quick Fill Demo Accounts ───────────────────────────────────
-  const handleAutofillDemo = async (demoRole: UserType) => {
-    setRole(demoRole)
-    setError(null)
-    const targetAbha = demoRole === 'patient' ? '14-1234-5678-9012' : '14-9988-7766-5544'
-    setAbhaId(targetAbha)
-    setLoading(true)
-
-    try {
-      const res = await requestOtp(targetAbha, demoRole)
-      setOtpSent(true)
-      setSimulatedOtp(res.simulated_otp)
-      setMaskedPhone(res.masked_phone || '+91 ******3210')
-      setUserName(res.user_name)
-      setOtp(res.simulated_otp) // auto-fill OTP for test convenience
-    } catch (err) {
-      setError(extractErrorMessage(err))
-    } finally {
-      setLoading(false)
-    }
+    setAbhaId('')
   }
 
   // ── Step 1: Request OTP ────────────────────────────────────────
@@ -222,7 +195,7 @@ export default function LoginPage({
                     <input
                       type="text"
                       required
-                      placeholder="e.g. 14-1234-5678-9012"
+                      placeholder="14-XXXX-XXXX-XXXX"
                       value={abhaId}
                       onChange={(e) => setAbhaId(e.target.value)}
                       className="w-full px-3.5 py-3 text-sm font-medium rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800/90 text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/30 tracking-wide"
@@ -322,56 +295,24 @@ export default function LoginPage({
               </form>
             )}
 
-            {/* ── Direct Registration Action ── */}
-            <div className="pt-2 text-center">
-              <button
-                type="button"
-                onClick={() => setIsRegisterOpen(true)}
-                className="text-xs font-semibold text-brand-cyan hover:underline inline-flex items-center gap-1.5 py-1 px-2 rounded-lg hover:bg-brand-cyan/5 transition-colors"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>New patient or doctor? Register &amp; generate ABHA ID</span>
-              </button>
-            </div>
-
-            {/* ── 1-Click Demo Sandbox Fast Logins ── */}
-            <div className="pt-3 border-t border-surface-border dark:border-slate-800 space-y-2.5">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-                <span>{t.auth.oneClickTestAccounts}</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5">
+            {/* ── Direct Registration Card ── */}
+            <div className="pt-3 border-t border-surface-border dark:border-slate-800">
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-brand-cyan/5 via-cyan-500/5 to-teal-500/10 border border-brand-cyan/20 dark:border-cyan-800/40 text-center space-y-2.5">
+                <div>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    Don't have an ABHA ID yet?
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Self-enroll in seconds to generate your national health ID card and access the portal.
+                  </p>
+                </div>
                 <button
                   type="button"
-                  onClick={() => handleAutofillDemo('patient')}
-                  className="p-3 text-left rounded-xl border border-surface-border dark:border-slate-700/80 hover:border-brand-cyan/50 dark:hover:border-cyan-500/60 bg-slate-50/80 dark:bg-slate-800/80 hover:bg-cyan-50/50 dark:hover:bg-slate-800 transition-all group shadow-sm hover:shadow"
+                  onClick={() => setIsRegisterOpen(true)}
+                  className="w-full py-2.5 px-3 text-xs font-bold text-brand-cyan dark:text-cyan-300 bg-white dark:bg-slate-800 hover:bg-brand-cyan/10 dark:hover:bg-cyan-900/40 border border-brand-cyan/30 dark:border-cyan-700/60 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5"
                 >
-                  <div className="flex items-center gap-1.5">
-                    <UserIcon className="w-3.5 h-3.5 text-brand-cyan dark:text-cyan-400" />
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-brand-cyan dark:group-hover:text-cyan-300">
-                      {t.auth.demoPatient}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                    Ramesh Sharma (38y)
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleAutofillDemo('doctor')}
-                  className="p-3 text-left rounded-xl border border-surface-border dark:border-slate-700/80 hover:border-emerald-500/50 dark:hover:border-emerald-400/60 bg-slate-50/80 dark:bg-slate-800/80 hover:bg-emerald-50/50 dark:hover:bg-slate-800 transition-all group shadow-sm hover:shadow"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <Stethoscope className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-300">
-                      {t.auth.demoDoctor}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                    Dr. Priya Nair (MD)
-                  </p>
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Register &amp; Create ABHA ID</span>
                 </button>
               </div>
             </div>

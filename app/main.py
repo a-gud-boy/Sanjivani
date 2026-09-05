@@ -9,7 +9,7 @@ from sqlalchemy import text
 
 from app.api import auth, doctor, patient
 from app.core.config import settings
-from app.db.seed import init_db, seed_demo_data
+from app.db.seed import clear_demo_data, init_db
 from app.models.schemas import (
     ChatInitResponse,
     ChatRequest,
@@ -40,10 +40,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     get_llm_service()
     get_ocr_service()
 
-    # Initialize SQLite/SQLAlchemy database and pre-seed demo accounts
+    # Initialize database tables and purge any legacy demo accounts
     try:
         await init_db()
-        await seed_demo_data()
+        await clear_demo_data()
     except Exception as db_err:
         logger.error("Database initialization failed: %s", str(db_err), exc_info=True)
 

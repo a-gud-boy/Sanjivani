@@ -177,16 +177,15 @@ If you use Docker Desktop:
 
 ---
 
-## 🔑 Demo Login Accounts
+## 🔑 ABHA Registration & Login
 
 Once the application is running at [http://localhost:5173](http://localhost:5173):
 
-| Role | Name | ABHA ID | Sandbox OTP | Features |
-| :--- | :--- | :--- | :--- | :--- |
-| **Patient** | Ramesh Sharma | `14-1234-5678-9012` | `123456` | Dashboard, medications, intake consultations |
-| **Doctor** | Dr. Priya Nair | `14-9988-7766-5544` | `654321` | Clinical review portal, patient triage |
-
-You can also click the **"Demo Patient"** or **"Demo Doctor"** one-click buttons on the login card to auto-fill these credentials.
+1. Click **"Register"** or **"Register & Create ABHA ID"** on the login screen.
+2. Choose **Patient** or **Doctor** enrollment.
+3. Click **"Auto-Generate"** to create a valid 14-digit ABHA ID (`14-XXXX-XXXX-XXXX`).
+4. Complete enrollment to receive your digital ABHA ID card.
+5. Sign in immediately or use the sandbox OTP (`123456`).
 
 ---
 

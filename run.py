@@ -154,9 +154,9 @@ def main():
     print("  ► FastAPI Backend:   http://localhost:8000 (Swagger: http://localhost:8000/docs)")
     print("  ► React Frontend:    http://localhost:5173")
 
-    print("\nPre-Registered Demo Credentials:")
-    print("  👤 Patient: Ramesh Sharma  | ABHA: 14-1234-5678-9012 | OTP: 123456")
-    print("  🩺 Doctor:  Dr. Priya Nair | ABHA: 14-9988-7766-5544 | OTP: 123456")
+    print("\nAuthentication:")
+    print("  ► Open the frontend and click 'Register' to self-enroll and generate your ABHA ID.")
+    print("  ► Simulated OTP is 123456 for all enrolled accounts.")
     print("\nPress [Ctrl+C] to stop all services.\n" + "-" * 60)
 
     procs = []

@@ -18,7 +18,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 # ── Pydantic Request & Response Schemas ────────────────────────────────────────
 
 class RequestOtpRequest(BaseModel):
-    abha_id: str = Field(..., description="14-digit ABHA ID (e.g. 14-1234-5678-9012)")
+    abha_id: str = Field(..., description="14-digit ABHA ID (e.g. 14-XXXX-XXXX-XXXX)")
     user_type: str = Field(default="patient", description="'patient' or 'doctor'")
 
 
@@ -125,7 +125,7 @@ async def request_otp(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No {clean_role} account found with ABHA ID '{clean_abha}'. Please check the ID or use the demo credentials.",
+            detail=f"No {clean_role} account found with ABHA ID '{clean_abha}'. Please check the ID or register a new account.",
         )
 
     # Return a deterministic test OTP so the user can test without external SMS delays

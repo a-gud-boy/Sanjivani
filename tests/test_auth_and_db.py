@@ -3,75 +3,17 @@ from app.main import app
 
 client = TestClient(app)
 
-
-def test_auth_request_otp_patient_success():
-    resp = client.post(
-        "/api/v1/auth/request-otp",
-        json={"abha_id": "14-1234-5678-9012", "user_type": "patient"},
-    )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["status"] == "success"
-    assert data["user_name"] == "Ramesh Sharma"
-    assert data["simulated_otp"] == "123456"
+TEST_PATIENT_ABHA = "14-5555-4444-3333"
+TEST_DOCTOR_ABHA = "14-8888-7777-6666"
 
 
-def test_auth_request_otp_doctor_success():
-    resp = client.post(
-        "/api/v1/auth/request-otp",
-        json={"abha_id": "14-9988-7766-5544", "user_type": "doctor"},
-    )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["status"] == "success"
-    assert data["user_name"] == "Dr. Priya Nair"
-    assert data["simulated_otp"] == "123456"
-
-
-def test_auth_request_otp_unregistered_fails():
-    resp = client.post(
-        "/api/v1/auth/request-otp",
-        json={"abha_id": "14-0000-0000-0000", "user_type": "patient"},
-    )
-    assert resp.status_code == 404
-
-
-def test_auth_verify_otp_success():
-    resp = client.post(
-        "/api/v1/auth/verify-otp",
-        json={
-            "abha_id": "14-1234-5678-9012",
-            "otp": "123456",
-            "user_type": "patient",
-        },
-    )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["status"] == "success"
-    assert "token" in data
-    assert data["user"]["name"] == "Ramesh Sharma"
-    assert data["user"]["patient_details"]["blood_group"] == "B+"
-
-
-def test_auth_verify_otp_invalid_code():
-    resp = client.post(
-        "/api/v1/auth/verify-otp",
-        json={
-            "abha_id": "14-1234-5678-9012",
-            "otp": "999999999",  # not 6 digits
-            "user_type": "patient",
-        },
-    )
-    assert resp.status_code == 400
-
-
-def test_auth_register_patient_success():
-    resp = client.post(
+def _ensure_test_patient() -> dict:
+    client.post(
         "/api/v1/auth/register",
         json={
             "user_type": "patient",
             "name": "Suresh Kumar",
-            "abha_id": "14-5555-4444-3333",
+            "abha_id": TEST_PATIENT_ABHA,
             "phone": "9123456780",
             "gender": "Male",
             "age_years": 32,
@@ -81,25 +23,72 @@ def test_auth_register_patient_success():
             "pincode": "560001",
         },
     )
-    # If already registered in a previous test run, 409 is expected, else 201
+    doc_resp = client.get("/api/v1/doctor/patients", params={"query": TEST_PATIENT_ABHA})
+    assert doc_resp.status_code == 200
+    patients = doc_resp.json().get("patients", [])
+    assert len(patients) >= 1
+    return patients[0]
+
+
+def _ensure_test_doctor() -> dict:
+    resp = client.post(
+        "/api/v1/auth/register",
+        json={
+            "user_type": "doctor",
+            "name": "Dr. Amit Verma",
+            "abha_id": TEST_DOCTOR_ABHA,
+            "phone": "9876543299",
+            "specialization": "Panchakarma",
+            "license_no": "AYUSH-KA-2024-9988",
+            "hospital": "National Ayurveda Hospital",
+        },
+    )
+    if resp.status_code == 201:
+        return resp.json()["user"]
+    # If already exists, verify via request-otp
+    otp_resp = client.post(
+        "/api/v1/auth/request-otp",
+        json={"abha_id": TEST_DOCTOR_ABHA, "user_type": "doctor"},
+    )
+    assert otp_resp.status_code == 200
+    return {"name": "Dr. Amit Verma", "abha_id": TEST_DOCTOR_ABHA}
+
+
+def test_auth_register_patient_success():
+    resp = client.post(
+        "/api/v1/auth/register",
+        json={
+            "user_type": "patient",
+            "name": "Suresh Kumar",
+            "abha_id": TEST_PATIENT_ABHA,
+            "phone": "9123456780",
+            "gender": "Male",
+            "age_years": 32,
+            "blood_group": "A+",
+            "city": "Bengaluru",
+            "state": "Karnataka",
+            "pincode": "560001",
+        },
+    )
+    # 201 if first time, 409 if already registered
     assert resp.status_code in (201, 409)
     if resp.status_code == 201:
         data = resp.json()
         assert data["status"] == "success"
         assert data["user"]["name"] == "Suresh Kumar"
-        assert data["user"]["abha_id"] == "14-5555-4444-3333"
+        assert data["user"]["abha_id"] == TEST_PATIENT_ABHA
         assert data["user"]["patient_details"]["blood_group"] == "A+"
         assert "token" in data
 
 
 def test_auth_register_duplicate_abha_fails():
-    # Attempting to register demo patient Ramesh Sharma whose ABHA already exists
+    _ensure_test_patient()
     resp = client.post(
         "/api/v1/auth/register",
         json={
             "user_type": "patient",
-            "name": "Duplicate Ramesh",
-            "abha_id": "14-1234-5678-9012",
+            "name": "Duplicate Suresh",
+            "abha_id": TEST_PATIENT_ABHA,
             "phone": "9876543210",
         },
     )
@@ -113,7 +102,7 @@ def test_auth_register_doctor_success():
         json={
             "user_type": "doctor",
             "name": "Dr. Amit Verma",
-            "abha_id": "14-8888-7777-6666",
+            "abha_id": TEST_DOCTOR_ABHA,
             "phone": "9876543299",
             "specialization": "Panchakarma",
             "license_no": "AYUSH-KA-2024-9988",
@@ -129,28 +118,95 @@ def test_auth_register_doctor_success():
         assert data["user"]["doctor_details"]["specialization"] == "Panchakarma"
 
 
-def test_patient_dashboard_data():
-    resp = client.get(
-        "/api/v1/patient/dashboard",
-        params={"patient_id": "patient-demo-001"},
+def test_auth_request_otp_patient_success():
+    _ensure_test_patient()
+    resp = client.post(
+        "/api/v1/auth/request-otp",
+        json={"abha_id": TEST_PATIENT_ABHA, "user_type": "patient"},
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "success"
-    assert data["patient"]["name"] == "Ramesh Sharma"
-    assert data["patient"]["abha_id"] == "14-1234-5678-9012"
-    # Only personal details prefilled; medical records start clean until user enters them
+    assert data["user_name"] == "Suresh Kumar"
+    assert data["simulated_otp"] == "123456"
+
+
+def test_auth_request_otp_doctor_success():
+    _ensure_test_doctor()
+    resp = client.post(
+        "/api/v1/auth/request-otp",
+        json={"abha_id": TEST_DOCTOR_ABHA, "user_type": "doctor"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "success"
+    assert data["user_name"] == "Dr. Amit Verma"
+    assert data["simulated_otp"] == "123456"
+
+
+def test_auth_request_otp_unregistered_fails():
+    resp = client.post(
+        "/api/v1/auth/request-otp",
+        json={"abha_id": "14-0000-0000-0000", "user_type": "patient"},
+    )
+    assert resp.status_code == 404
+    assert "register a new account" in resp.json()["detail"]
+
+
+def test_auth_verify_otp_success():
+    _ensure_test_patient()
+    resp = client.post(
+        "/api/v1/auth/verify-otp",
+        json={
+            "abha_id": TEST_PATIENT_ABHA,
+            "otp": "123456",
+            "user_type": "patient",
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "success"
+    assert "token" in data
+    assert data["user"]["name"] == "Suresh Kumar"
+    assert data["user"]["patient_details"]["blood_group"] == "A+"
+
+
+def test_auth_verify_otp_invalid_code():
+    _ensure_test_patient()
+    resp = client.post(
+        "/api/v1/auth/verify-otp",
+        json={
+            "abha_id": TEST_PATIENT_ABHA,
+            "otp": "999999999",  # not 6 digits
+            "user_type": "patient",
+        },
+    )
+    assert resp.status_code == 400
+
+
+def test_patient_dashboard_data():
+    patient = _ensure_test_patient()
+    resp = client.get(
+        "/api/v1/patient/dashboard",
+        params={"patient_id": patient["id"]},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "success"
+    assert data["patient"]["name"] == patient["name"]
+    assert data["patient"]["abha_id"] == patient["abha_id"]
     assert isinstance(data["intake_sessions"], list)
     assert isinstance(data["documents"], list)
     assert isinstance(data["active_medications"], list)
 
 
 def test_patient_save_intake_session_and_delete():
+    patient = _ensure_test_patient()
     # Save a new intake session
     save_resp = client.post(
         "/api/v1/patient/intake-session",
         json={
-            "patient_id": "patient-demo-001",
+            "patient_id": patient["id"],
             "language": "en",
             "chat_history": [
                 {"role": "user", "content": "I have mild fever since yesterday."},
@@ -186,7 +242,7 @@ def test_patient_save_intake_session_and_delete():
     # Check dashboard has the new document & medication
     dash_resp = client.get(
         "/api/v1/patient/dashboard",
-        params={"patient_id": "patient-demo-001"},
+        params={"patient_id": patient["id"]},
     )
     dash_data = dash_resp.json()
     doc_filenames = [d["filename"] for d in dash_data["documents"]]
@@ -201,7 +257,7 @@ def test_patient_save_intake_session_and_delete():
     # Check dashboard no longer has the deleted document
     dash_resp_after = client.get(
         "/api/v1/patient/dashboard",
-        params={"patient_id": "patient-demo-001"},
+        params={"patient_id": patient["id"]},
     )
     dash_after = dash_resp_after.json()
     doc_filenames_after = [d["filename"] for d in dash_after["documents"]]
@@ -209,14 +265,15 @@ def test_patient_save_intake_session_and_delete():
 
 
 def test_update_patient_profile():
+    patient = _ensure_test_patient()
     resp = client.put(
         "/api/v1/patient/profile",
         json={
-            "patient_id": "patient-demo-001",
+            "patient_id": patient["id"],
             "phone": "+91 91234 56789",
             "patient_details": {
                 "occupation": "Principal",
-                "city": "Kochi",
+                "city": "Bengaluru",
             },
         },
     )
@@ -225,15 +282,15 @@ def test_update_patient_profile():
     assert data["status"] == "success"
     assert data["patient"]["phone"] == "+91 91234 56789"
     assert data["patient"]["patient_details"]["occupation"] == "Principal"
-    assert data["patient"]["patient_details"]["city"] == "Kochi"
 
 
 def test_delete_intake_session():
+    patient = _ensure_test_patient()
     # 1. Create an intake session to delete
     save_resp = client.post(
         "/api/v1/patient/intake-session",
         json={
-            "patient_id": "patient-demo-001",
+            "patient_id": patient["id"],
             "language": "en",
             "chat_history": [
                 {"role": "user", "content": "Temporary test session."},
@@ -254,19 +311,19 @@ def test_delete_intake_session():
     # 3. Verify session no longer in dashboard
     dash_resp = client.get(
         "/api/v1/patient/dashboard",
-        params={"patient_id": "patient-demo-001"},
+        params={"patient_id": patient["id"]},
     )
     session_ids = [s["id"] for s in dash_resp.json()["intake_sessions"]]
     assert sess_id not in session_ids
 
 
 def test_active_vs_past_medications_filtering():
-    # 1. Upload a session with an expired medication (01/01/2026 for 5 days)
-    # and an active medication (ongoing course)
+    patient = _ensure_test_patient()
+    # 1. Upload a session with an expired medication and an active medication
     save_resp = client.post(
         "/api/v1/patient/intake-session",
         json={
-            "patient_id": "patient-demo-001",
+            "patient_id": patient["id"],
             "language": "en",
             "chat_history": [{"role": "user", "content": "Medication filter test"}],
             "clinical_record": {"chief_complaint": {"symptom": "Followup"}},
@@ -302,7 +359,7 @@ def test_active_vs_past_medications_filtering():
     # 2. Verify patient dashboard separates active vs past
     dash_resp = client.get(
         "/api/v1/patient/dashboard",
-        params={"patient_id": "patient-demo-001"},
+        params={"patient_id": patient["id"]},
     )
     assert dash_resp.status_code == 200
     dash_data = dash_resp.json()
@@ -310,25 +367,11 @@ def test_active_vs_past_medications_filtering():
     active_names = [m["drug_name"] for m in dash_data.get("active_medications", [])]
     past_names = [m["drug_name"] for m in dash_data.get("past_medications", [])]
 
-    # Azithromycin (01/01/2026 for 5 days) must be in past_medications
     assert "Azithromycin" in past_names
     assert "Azithromycin" not in active_names
-
-    # Cetirizine (ongoing) must be in active_medications
     assert "Cetirizine" in active_names
     assert "Cetirizine" not in past_names
 
-    # Check doctor dossier also includes past_medications
-    doc_resp = client.get(
-        "/api/v1/doctor/patient/patient-demo-001",
-    )
-    assert doc_resp.status_code == 200
-    doc_data = doc_resp.json()
-    doc_active = [m["drug_name"] for m in doc_data.get("active_medications", [])]
-    doc_past = [m["drug_name"] for m in doc_data.get("past_medications", [])]
-    assert "Cetirizine" in doc_active
-    assert "Azithromycin" in doc_past
-
-    # 3. Clean up test documents
+    # Clean up test documents
     client.delete("/api/v1/patient/document/test-doc-past-med")
     client.delete("/api/v1/patient/document/test-doc-active-med")

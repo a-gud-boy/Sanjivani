@@ -34,7 +34,7 @@ It bridges modern allopathic medicine with traditional Indian healthcare systems
 - **Persistent Preferences**: Language selections are saved in local storage and persist seamlessly across logins and page reloads.
 
 ### 3. ABHA Identity & Role-Based Access Control
-- **ABDM Compliance**: Fast authentication via 14-digit ABHA ID (e.g. `14-1234-5678-9012`) with simulated SMS OTP verification.
+- **ABDM Compliance**: Fast authentication via 14-digit ABHA ID with simulated SMS OTP verification.
 - **Patient Dashboard**: View verified health records, active/past medications, diagnostic lab reports, and past intake sessions.
 - **Doctor Portal**: Specialized clinical review interface allowing doctors to inspect AI intake summaries, review uploaded lab records, and update prescriptions.
 - **Self-Registration**: Built-in modal for new patients and healthcare practitioners to register ABHA profiles.
@@ -98,16 +98,14 @@ python run.py --reset-db
 
 ---
 
-## 🔑 One-Click Demo Test Accounts
+## 🔑 ABHA Identity & Registration
 
-The database is pre-seeded with test profiles for instant evaluation:
+Sanjivani features built-in self-registration for citizens and clinicians:
 
-| Role | Name | ABHA ID | OTP (Sandbox) | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| **Patient** | Ramesh Sharma (38y, M) | `14-1234-5678-9012` | `123456` | Has hypertension, active prescriptions & intake records |
-| **Doctor** | Dr. Priya Nair (MD, Ayush) | `14-9988-7766-5544` | `654321` | Clinical practitioner with patient review access |
-
-*Quick test accounts can also be auto-filled directly from the login page via the "One-Click Test Accounts" buttons.*
+1. Click **"Register"** or **"Register & Create ABHA ID"** on the login screen.
+2. Toggle between **Patient** or **Doctor** enrollment.
+3. Use the **"Auto-Generate"** helper to create an authentic 14-digit ABHA ID (`14-XXXX-XXXX-XXXX`).
+4. Upon registration, a digital ABHA Health Card is issued with one-click immediate sign-in or simulated OTP (`123456`) verification.
 
 ---
 
