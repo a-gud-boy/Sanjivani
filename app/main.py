@@ -2,8 +2,10 @@ from contextlib import asynccontextmanager
 import logging
 from typing import AsyncGenerator
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from app.api import auth, doctor, patient
 from app.core.config import settings
@@ -75,6 +77,15 @@ app.include_router(patient.router, prefix=settings.API_V1_PREFIX)
 app.include_router(doctor.router, prefix=settings.API_V1_PREFIX)
 
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error("Unhandled exception at %s: %s", request.url.path, exc, exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"status": "error", "detail": f"Internal server error: {str(exc)}"},
+    )
+
+
 @app.get("/", tags=["Health"])
 async def root():
     return {
@@ -86,10 +97,25 @@ async def root():
 
 
 @app.get("/health", tags=["Health"])
+@app.get(f"{settings.API_V1_PREFIX}/health", tags=["Health"])
 async def health_check():
+    db_status = "healthy"
+    db_error = None
+    try:
+        from app.db.database import engine
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception as e:
+        db_status = "error"
+        db_error = str(e)
+
     return {
-        "status": "healthy",
+        "status": "healthy" if db_status == "healthy" else "degraded",
         "service": settings.PROJECT_NAME,
+        "database": {
+            "status": db_status,
+            "error": db_error,
+        },
     }
 
 
