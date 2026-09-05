@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { MessageSquare, ScanLine, LayoutDashboard, CheckCircle2 } from 'lucide-react'
 import type {
   IntakeState,
@@ -68,41 +68,9 @@ const INITIAL_STATE: IntakeState = {
   aiSummarySections: null,
   summaryLoading: false,
 }
-
-// ── Instant Localized Greetings Mapping ──────────────────────────────────────
-const INSTANT_GREETINGS: Record<LanguageCode, { greeting: string; chips: string[] }> = {
-  en: {
-    greeting: 'I am Sanjivani AI. Tell me what symptoms or health problems you are experiencing.',
-    chips: ['Headache / Body Ache', 'Fever, Cold or Cough', 'Stomach or Digestion issue', 'General Health Checkup'],
-  },
-  hi: {
-    greeting: 'मैं संजीवनी एआई हूँ। कृपया बताएं कि आज आपको क्या स्वास्थ्य समस्या या लक्षण हैं।',
-    chips: ['सिरदर्द / बदन दर्द', 'बुखार, सर्दी या खांसी', 'पेट या पाचन की समस्या', 'सामान्य स्वास्थ्य जांच'],
-  },
-  bn: {
-    greeting: 'আমি সঞ্জীবনী এআই। অনুগ্রহ করে বলুন আজ আপনার কী ধরনের স্বাস্থ্য সমস্যা বা শারীরিক অস্বস্তি হচ্ছে।',
-    chips: ['মাথাব্যথা / গায়ে ব্যথা', 'জ্বর, সর্দি বা কাশি', 'পেটের বা হজমের সমস্যা', 'সাধারণ স্বাস্থ্য পরীক্ষা'],
-  },
-  ta: {
-    greeting: 'நான் சஞ்சீவனி ஏஐ. இன்று உங்களுக்கு என்ன உடல்நலக் கோளாறு அல்லது அறிகுறிகள் உள்ளன என்று கூறுங்கள்.',
-    chips: ['தலைவலி / உடல் வலி', 'காய்ச்சல், சளி அல்லது இருமல்', 'வயிற்று அல்லது செரிமான பிரச்சனை', 'பொது சுகாதார பரிசோதனை'],
-  },
-  te: {
-    greeting: 'నేను సంజీవని AI. ఈరోజు మీకు ఉన్న ఆరోగ్య సమస్య లేదా లక్షణాల గురించి చెప్పండి.',
-    chips: ['తలనొప్పి / ఒంటి నొప్పులు', 'జ్వరం, జలుబు లేదా దగ్గు', 'కడుపు లేదా జీర్ణ సమస్య', 'సాధారణ ఆరోగ్య తనిఖీ'],
-  },
-  mr: {
-    greeting: 'मी संजीवनी एआय आहे. कृपया सांगा आज तुम्हाला कोणती आरोग्य समस्या किंवा लक्षणे जाणवत आहेत.',
-    chips: ['डोकेदुखी / अंगदुखी', 'ताप, सर्दी किंवा खोकला', 'पोटाची किंवा पचनाची समस्या', 'सामान्य आरोग्य तपासणी'],
-  },
-  gu: {
-    greeting: 'હું સંજીવની એઆઈ છું. કૃપા કરીને જણાવો કે આજે તમને શું સ્વાસ્થ્ય સમસ્યા અથવા લક્ષણો જણાય છે.',
-    chips: ['માથાનો દુખાવો / શરીરનો દુખાવો', 'તાવ, શરદી અથવા ઉધરસ', 'પેટ અથવા પાચનની તકલીફ', 'સામાન્ય સ્વાસ્થ્ય તપાસ'],
-  },
-}
-
 // ── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
+  const lastFetchedLangRef = useRef<string | null>(null)
   // ── Authentication & View Management ───────────────────────────────────────
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
@@ -181,6 +149,7 @@ export default function App() {
   }
 
   const handleLogout = () => {
+    lastFetchedLangRef.current = null
     try {
       localStorage.removeItem('sanjivani_auth_user')
     } catch {}
@@ -220,14 +189,24 @@ export default function App() {
   useEffect(() => {
     if (currentView !== 'intake') return
 
+    const hasUserMessage = state.messages.some((m) => m.role === 'user')
+    if (hasUserMessage) return
+
     const isOnlyInitialAssistant =
       state.messages.length === 1 && state.messages[0].role === 'assistant'
-    if (state.messages.length === 0 || isOnlyInitialAssistant) {
+
+    if (
+      state.messages.length === 0 ||
+      (isOnlyInitialAssistant && lastFetchedLangRef.current !== state.language)
+    ) {
       let isSubscribed = true
       setChatLoading(true)
+      setChatError(null)
+
       getInitialGreeting(state.language, currentUser?.name)
         .then((res) => {
           if (!isSubscribed) return
+          lastFetchedLangRef.current = state.language
           const assistantMsg: ChatMessage = {
             id: newId(),
             role: 'assistant',
@@ -242,18 +221,12 @@ export default function App() {
         })
         .catch((err) => {
           if (!isSubscribed) return
-          console.warn('Initial greeting fetch failed, using fallback:', err)
-          const fallback = INSTANT_GREETINGS[state.language] || INSTANT_GREETINGS.en
-          const fallbackMsg: ChatMessage = {
-            id: newId(),
-            role: 'assistant',
-            content: fallback.greeting,
-            timestamp: new Date(),
-            quickReplies: fallback.chips,
-          }
+          console.error('Initial greeting fetch failed:', err)
+          lastFetchedLangRef.current = null
+          setChatError(extractErrorMessage(err))
           setState((s) => ({
             ...s,
-            messages: [fallbackMsg],
+            messages: [],
           }))
         })
         .finally(() => {
@@ -271,28 +244,7 @@ export default function App() {
     try {
       localStorage.setItem('sanjivani_language', code)
     } catch {}
-    setState((s) => {
-      // Rapid switching support: if displaying only initial greeting, instantly switch it in 0ms!
-      const isOnlyInitialAssistant =
-        s.messages.length === 1 && s.messages[0].role === 'assistant'
-      if (s.messages.length === 0 || isOnlyInitialAssistant) {
-        const instant = INSTANT_GREETINGS[code] || INSTANT_GREETINGS.en
-        return {
-          ...s,
-          language: code,
-          messages: [
-            {
-              id: newId(),
-              role: 'assistant',
-              content: instant.greeting,
-              timestamp: new Date(),
-              quickReplies: instant.chips,
-            },
-          ],
-        }
-      }
-      return { ...s, language: code }
-    })
+    setState((s) => ({ ...s, language: code }))
   }, [])
 
   // ── Chat ────────────────────────────────────────────────────────────────────
@@ -369,6 +321,7 @@ export default function App() {
   }, [])
 
   const handleRestartChat = useCallback(() => {
+    lastFetchedLangRef.current = null
     setState((s) => ({
       ...s,
       messages: [],

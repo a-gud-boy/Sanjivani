@@ -10,17 +10,29 @@ class Base(DeclarativeBase):
     pass
 
 
-# SQLite-specific connection arguments
+from sqlalchemy.pool import NullPool
+
+# Database-specific connection arguments
 connect_args = {}
+engine_kwargs = {
+    "echo": settings.DEBUG,
+    "future": True,
+}
+
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+elif "asyncpg" in settings.DATABASE_URL:
+    # Disable prepared statement cache for Supabase PgBouncer pooler compatibility
+    connect_args["statement_cache_size"] = 0
+    # Disable client-side pooling so connections are not attached to defunct event loops
+    engine_kwargs["poolclass"] = NullPool
+
+engine_kwargs["connect_args"] = connect_args
 
 # Async database engine
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    connect_args=connect_args,
-    future=True,
+    **engine_kwargs,
 )
 
 # Async session factory

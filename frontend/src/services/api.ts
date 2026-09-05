@@ -16,8 +16,13 @@ import type {
 // Axios client
 // ----------------------------------------------------------------
 
+const apiEnvBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) || '').trim()
+const baseURL = apiEnvBase
+  ? (apiEnvBase.endsWith('/api/v1') ? apiEnvBase : `${apiEnvBase.replace(/\/+$/, '')}/api/v1`)
+  : '/api/v1'
+
 const apiClient = axios.create({
-  baseURL: '/api/v1',
+  baseURL,
   timeout: 60_000, // 60 s — VLM calls can take a moment
   headers: {
     'Content-Type': 'application/json',
@@ -148,7 +153,15 @@ export function extractErrorMessage(error: unknown): string {
     const detail = error.response?.data?.detail
     if (typeof detail === 'string') return detail
     if (Array.isArray(detail)) return detail.map((d) => d.msg ?? String(d)).join('; ')
-    if (error.response?.status === 0 || error.code === 'ERR_NETWORK') {
+    if (
+      error.response?.status === 0 ||
+      error.code === 'ERR_NETWORK' ||
+      error.code === 'ECONNREFUSED' ||
+      error.response?.status === 502 ||
+      error.response?.status === 503 ||
+      error.response?.status === 504 ||
+      (error.response?.status === 500 && !error.response?.data?.detail)
+    ) {
       return 'Cannot reach the Sanjivani server. Please check your connection.'
     }
     return error.message

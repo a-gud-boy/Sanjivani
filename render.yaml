@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: sanjivani-api
+    runtime: python
+    region: singapore
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DEBUG
+        value: "false"
+      - key: START_VLLM
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL_NAME
+        value: gemma-4-26b-a4b-it

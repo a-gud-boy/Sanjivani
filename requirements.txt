@@ -14,4 +14,5 @@ python-multipart>=0.0.9
 Pillow>=10.0.0
 sqlalchemy>=2.0.0
 aiosqlite>=0.20.0
+asyncpg>=0.29.0
 greenlet>=3.0.0
