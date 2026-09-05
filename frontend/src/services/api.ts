@@ -76,7 +76,7 @@ export async function scanDocument(
   const form = new FormData()
   form.append('file', file instanceof File ? file : new File([file], filename, { type: file.type || 'image/png' }))
 
-  const { data } = await axios.post<ScanApiResponse>('/api/v1/scan-document', form, {
+  const { data } = await apiClient.post<ScanApiResponse>('/scan-document', form, {
     timeout: 90_000, // Vision model can be slower
     headers: {
       'Content-Type': 'multipart/form-data',
