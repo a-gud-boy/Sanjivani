@@ -34,6 +34,12 @@ function generateRandomAbha(): string {
   return `14-${p1}-${p2}-${p3}`
 }
 
+function generateRandomHpId(): string {
+  const state = ['MH', 'DL', 'KA', 'TN', 'UP', 'GJ', 'RJ', 'WB'][Math.floor(Math.random() * 8)]
+  const num = Math.floor(10000 + Math.random() * 90000)
+  return `HP-${state}-${num}`
+}
+
 export default function RegisterModal({
   isOpen,
   onClose,
@@ -44,6 +50,7 @@ export default function RegisterModal({
   const [role, setRole] = useState<UserType>(initialRole)
   const [name, setName] = useState('')
   const [abhaId, setAbhaId] = useState(() => generateRandomAbha())
+  const [hpId, setHpId] = useState(() => generateRandomHpId())
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [gender, setGender] = useState('Male')
@@ -80,6 +87,11 @@ export default function RegisterModal({
     setError(null)
   }
 
+  const handleGenerateHpId = () => {
+    setHpId(generateRandomHpId())
+    setError(null)
+  }
+
   const handleReset = () => {
     setRegisteredUser(null)
     setSessionToken(null)
@@ -92,6 +104,7 @@ export default function RegisterModal({
     onClose()
   }
 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -101,7 +114,12 @@ export default function RegisterModal({
       return
     }
 
-    if (!abhaId.trim()) {
+    if (role === 'doctor' && !hpId.trim()) {
+      setError('Please provide or generate an HP ID (Health Professional ID).')
+      return
+    }
+
+    if (role === 'patient' && !abhaId.trim()) {
       setError('Please provide or generate a 14-digit ABHA ID.')
       return
     }
@@ -109,10 +127,13 @@ export default function RegisterModal({
     setLoading(true)
 
     try {
+      const cleanHpId = hpId.trim()
+      const cleanAbhaId = abhaId.trim()
       const res = await registerUser({
         user_type: role,
         name: name.trim(),
-        abha_id: abhaId.trim(),
+        // Send the correct ID field based on role
+        ...(role === 'doctor' ? { hp_id: cleanHpId } : { abha_id: cleanAbhaId }),
         phone: phone.trim() || undefined,
         email: email.trim() || undefined,
         gender,
@@ -127,7 +148,7 @@ export default function RegisterModal({
         emergency_contact_phone: role === 'patient' ? emergencyPhone.trim() || undefined : undefined,
         emergency_contact_relation: role === 'patient' ? emergencyRelation.trim() || undefined : undefined,
         specialization: role === 'doctor' ? specialization.trim() || undefined : undefined,
-        license_no: role === 'doctor' ? (licenseNo.trim() || `AYUSH-REG-${abhaId.replace(/-/g, '').slice(-6)}`) : undefined,
+        license_no: role === 'doctor' ? (licenseNo.trim() || `HP-REG-${cleanHpId.replace(/[-/]/g, '').slice(-6).toUpperCase()}`) : undefined,
         hospital: role === 'doctor' ? hospital.trim() || undefined : undefined,
         department: role === 'doctor' ? department.trim() || undefined : undefined,
         qualifications: role === 'doctor' ? qualifications.trim() || undefined : undefined,
@@ -146,6 +167,7 @@ export default function RegisterModal({
     }
   }
 
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in overflow-y-auto">
       <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-surface-border dark:border-slate-800 overflow-hidden my-auto transition-all">
@@ -157,7 +179,9 @@ export default function RegisterModal({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                {registeredUser ? 'ABHA Health Card Issued' : `Register New ${role === 'patient' ? 'Patient' : 'Ayush Clinician'}`}
+                {registeredUser
+                  ? (registeredUser.user_type === 'doctor' ? 'HP ID Card Issued' : 'ABHA Health Card Issued')
+                  : `Register New ${role === 'patient' ? 'Patient' : 'Ayush Clinician'}`}
               </h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Ayushman Bharat Digital Mission (ABDM) • Ayush Grid
@@ -174,7 +198,7 @@ export default function RegisterModal({
 
         {/* Modal Body */}
         {registeredUser ? (
-          /* SUCCESS VIEW: Digital ABHA Card */
+          /* SUCCESS VIEW: Digital Health Card */
           <div className="p-6 sm:p-8 space-y-6">
             <div className="text-center space-y-1">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-400 text-xs font-bold mb-1">
@@ -185,11 +209,13 @@ export default function RegisterModal({
                 Welcome to Sanjivani, {registeredUser.name}!
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                Your digital ABHA record is now live and linked with India's Ayush Grid. You can log in immediately or sign in using simulated OTP.
+                {registeredUser.user_type === 'doctor'
+                  ? "Your HP ID (Health Professional ID) is now live in India's Ayush Grid. You can log in immediately or sign in using simulated OTP."
+                  : "Your digital ABHA record is now live and linked with India's Ayush Grid. You can log in immediately or sign in using simulated OTP."}
               </p>
             </div>
 
-            {/* ABHA Digital Card */}
+            {/* Digital Health Card */}
             <div className="relative overflow-hidden rounded-2xl border-2 border-brand-cyan/40 bg-gradient-to-br from-teal-600 via-cyan-700 to-slate-900 p-5 sm:p-6 text-white shadow-xl">
               {/* Top Banner */}
               <div className="flex items-center justify-between border-b border-white/20 pb-3 mb-4">
@@ -202,7 +228,7 @@ export default function RegisterModal({
                       National Health Authority • Ayush Grid
                     </p>
                     <p className="text-xs font-black tracking-tight text-white">
-                      Digital ABHA Health ID Card
+                      {registeredUser.user_type === 'doctor' ? 'HP ID Card (Health Professional)' : 'Digital ABHA Health ID Card'}
                     </p>
                   </div>
                 </div>
@@ -238,10 +264,12 @@ export default function RegisterModal({
 
                   <div className="pt-1">
                     <p className="text-[10px] uppercase text-cyan-200/80 font-bold tracking-wider">
-                      ABHA Number
+                      {registeredUser.user_type === 'doctor' ? 'HP ID Number' : 'ABHA Number'}
                     </p>
                     <p className="text-lg font-mono font-black tracking-widest text-amber-300 drop-shadow-sm">
-                      {registeredUser.abha_id}
+                      {registeredUser.user_type === 'doctor'
+                        ? (registeredUser.hp_id || registeredUser.abha_id)
+                        : registeredUser.abha_id}
                     </p>
                   </div>
 
@@ -286,7 +314,10 @@ export default function RegisterModal({
                 <button
                   type="button"
                   onClick={() => {
-                    onPrefillLogin(registeredUser.abha_id, role)
+                    const loginId = registeredUser.user_type === 'doctor'
+                      ? (registeredUser.hp_id || registeredUser.abha_id)
+                      : registeredUser.abha_id
+                    onPrefillLogin(loginId, role)
                     handleClose()
                   }}
                   className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold text-sm rounded-xl transition-colors"
@@ -295,6 +326,7 @@ export default function RegisterModal({
                   <ArrowRight className="w-4 h-4" />
                 </button>
               )}
+
             </div>
           </div>
         ) : (
@@ -344,25 +376,26 @@ export default function RegisterModal({
                     <div className="mt-1.5 flex gap-2">
                       <button
                         type="button"
-                        onClick={handleGenerateAbha}
+                        onClick={role === 'doctor' ? handleGenerateHpId : handleGenerateAbha}
                         className="text-[11px] underline font-bold text-rose-700 dark:text-rose-300 hover:opacity-80"
                       >
-                        Generate Different ABHA
+                        {role === 'doctor' ? 'Generate Different HP ID' : 'Generate Different ABHA'}
                       </button>
                       {onPrefillLogin && (
                         <button
                           type="button"
                           onClick={() => {
-                            onPrefillLogin(abhaId, role)
+                            onPrefillLogin(role === 'doctor' ? hpId : abhaId, role)
                             handleClose()
                           }}
                           className="text-[11px] underline font-bold text-brand-cyan hover:opacity-80 ml-2"
                         >
-                          Sign In with this ABHA
+                          {role === 'doctor' ? 'Sign In with this HP ID' : 'Sign In with this ABHA'}
                         </button>
                       )}
                     </div>
                   )}
+
                 </div>
               </div>
             )}
@@ -390,15 +423,15 @@ export default function RegisterModal({
                   />
                 </div>
 
-                {/* ABHA ID with Auto-generator */}
+                {/* ABHA ID (patients) / HP ID (doctors) with Auto-generator */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      14-digit ABHA ID *
+                      {role === 'doctor' ? 'HP ID (Health Professional ID) *' : '14-digit ABHA ID *'}
                     </label>
                     <button
                       type="button"
-                      onClick={handleGenerateAbha}
+                      onClick={role === 'doctor' ? handleGenerateHpId : handleGenerateAbha}
                       className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-cyan hover:text-cyan-700 dark:hover:text-cyan-300"
                     >
                       <Sparkles className="w-3 h-3" />
@@ -408,11 +441,16 @@ export default function RegisterModal({
                   <input
                     type="text"
                     required
-                    placeholder="14-XXXX-XXXX-XXXX"
-                    value={abhaId}
-                    onChange={(e) => setAbhaId(e.target.value)}
+                    placeholder={role === 'doctor' ? 'e.g. HP-MH-84729' : '14-XXXX-XXXX-XXXX'}
+                    value={role === 'doctor' ? hpId : abhaId}
+                    onChange={(e) => role === 'doctor' ? setHpId(e.target.value) : setAbhaId(e.target.value)}
                     className="w-full px-3 py-2 font-mono text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 font-bold"
                   />
+                  {role === 'doctor' && (
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                      Format: HP-[State]-[Number] (e.g. HP-MH-84729)
+                    </p>
+                  )}
                 </div>
               </div>
 

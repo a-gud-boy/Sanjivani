@@ -92,8 +92,9 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       patientRoleTag: 'Patient (मरीज़)',
       doctorRoleTag: 'Doctor (चिकित्सक)',
       patientAbhaLabel: 'Patient ABHA ID / Health Card Number',
-      doctorAbhaLabel: 'Doctor ABHA ID / Practitioner Number',
+      doctorAbhaLabel: 'HP ID (Health Professional ID)',
       abhaFormat: 'Standard 14-digit national identity format',
+
       requestOtp: 'Request ABHA OTP',
       sendingOtp: 'Sending OTP...',
       welcome: 'Welcome',
@@ -174,7 +175,8 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       patientRoleTag: 'मरीज़ (Patient)',
       doctorRoleTag: 'चिकित्सक (Doctor)',
       patientAbhaLabel: 'मरीज़ आभा आईडी / स्वास्थ्य कार्ड नंबर',
-      doctorAbhaLabel: 'चिकित्सक आभा आईडी / पंजीकरण नंबर',
+      doctorAbhaLabel: 'HP ID (स्वास्थ्य पेशेवर आईडी)',
+
       abhaFormat: 'मानक 14-अंकीय राष्ट्रीय पहचान प्रारूप',
       requestOtp: 'आभा ओटीपी भेजें',
       sendingOtp: 'ओटीपी भेजा जा रहा है...',
@@ -256,7 +258,8 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       patientRoleTag: 'রোগী (Patient)',
       doctorRoleTag: 'চিকিৎসক (Doctor)',
       patientAbhaLabel: 'রোগীর ABHA আইডি / স্বাস্থ্য কার্ড নম্বর',
-      doctorAbhaLabel: 'চিকিৎসকের ABHA আইডি নম্বর',
+      doctorAbhaLabel: 'HP ID (স্বাস্থ্য পেশাদার আইডি)',
+
       abhaFormat: 'সাধারণ ১৪-সংখ্যার জাতীয় পরিচয়পত্র ফরম্যাট',
       requestOtp: 'ABHA ওটিপি পাঠান',
       sendingOtp: 'ওটিপি পাঠানো হচ্ছে...',
@@ -338,7 +341,8 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       patientRoleTag: 'நோயாளி (Patient)',
       doctorRoleTag: 'மருத்துவர் (Doctor)',
       patientAbhaLabel: 'நோயாளி ABHA எண் / சுகாதார அட்டை எண்',
-      doctorAbhaLabel: 'மருத்துவர் ABHA எண் / பதிவு எண்',
+      doctorAbhaLabel: 'HP ID (சுகாதார வல்லுநர் அடையாள எண்)',
+
       abhaFormat: 'நிலையான 14-இலக்க தேசிய அடையாள வடிவம்',
       requestOtp: 'ABHA OTP கோருக',
       sendingOtp: 'OTP அனுப்பப்படுகிறது...',
@@ -420,7 +424,8 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       patientRoleTag: 'రోగి (Patient)',
       doctorRoleTag: 'వైద్యుడు (Doctor)',
       patientAbhaLabel: 'రోగి ABHA ID / హెల్త్ కార్డ్ నంబర్',
-      doctorAbhaLabel: 'వైద్యుని ABHA ID నంబర్',
+      doctorAbhaLabel: 'HP ID (ఆరోగ్య నిపుణుల గుర్తింపు)',
+
       abhaFormat: 'ప్రామాణిక 14 అంకెల జాతీయ గుర్తింపు ఫార్మాట్',
       requestOtp: 'ABHA OTP పంపండి',
       sendingOtp: 'OTP పంపుతోంది...',
@@ -502,7 +507,8 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       patientRoleTag: 'रुग्ण (Patient)',
       doctorRoleTag: 'डॉक्टर (Doctor)',
       patientAbhaLabel: 'रुग्ण ABHA आयडी / आरोग्य कार्ड क्रमांक',
-      doctorAbhaLabel: 'डॉक्टर ABHA आयडी क्रमांक',
+      doctorAbhaLabel: 'HP ID (आरोग्य व्यावसायिक आयडी)',
+
       abhaFormat: 'मानक १४-अंकी राष्ट्रीय ओळख स्वरूप',
       requestOtp: 'ABHA OTP मागवा',
       sendingOtp: 'OTP पाठवला जात आहे...',
@@ -584,7 +590,8 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       patientRoleTag: 'દર્દી (Patient)',
       doctorRoleTag: 'ડોક્ટર (Doctor)',
       patientAbhaLabel: 'દર્દી ABHA ID / હેલ્થ કાર્ડ નંબર',
-      doctorAbhaLabel: 'ડોક્ટર ABHA ID / રજીસ્ટ્રેશન નંબર',
+      doctorAbhaLabel: 'HP ID (આરોગ્ય વ્યાવસાયિક ID)',
+
       abhaFormat: 'પ્રમાણભૂત 14-અંકનું રાષ્ટ્રીય ઓળખ ફોર્મેટ',
       requestOtp: 'ABHA OTP મોકલો',
       sendingOtp: 'OTP મોકલાઈ રહ્યો છે...',

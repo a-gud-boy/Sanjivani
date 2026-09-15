@@ -18,7 +18,8 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 # ── Pydantic Request & Response Schemas ────────────────────────────────────────
 
 class RequestOtpRequest(BaseModel):
-    abha_id: str = Field(..., description="14-digit ABHA ID (e.g. 14-XXXX-XXXX-XXXX)")
+    abha_id: Optional[str] = Field(default=None, description="14-digit ABHA ID for patients (e.g. 14-XXXX-XXXX-XXXX)")
+    hp_id: Optional[str] = Field(default=None, description="HP ID (Health Professional ID) for doctors")
     user_type: str = Field(default="patient", description="'patient' or 'doctor'")
 
 
@@ -28,19 +29,25 @@ class RequestOtpResponse(BaseModel):
     masked_phone: Optional[str] = None
     simulated_otp: str
     abha_id: str
+    hp_id: Optional[str] = None  # Health Professional ID — set for doctor accounts
     user_name: str
     user_type: str
 
 
+
+
 class VerifyOtpRequest(BaseModel):
-    abha_id: str = Field(..., description="14-digit ABHA ID")
+    abha_id: Optional[str] = Field(default=None, description="14-digit ABHA ID for patients")
+    hp_id: Optional[str] = Field(default=None, description="HP ID (Health Professional ID) for doctors")
     otp: str = Field(..., description="6-digit verification code")
     user_type: str = Field(default="patient", description="'patient' or 'doctor'")
+
 
 
 class UserProfileResponse(BaseModel):
     id: str
     abha_id: str
+    hp_id: Optional[str] = None  # Health Professional ID — populated for doctor accounts
     user_type: str
     name: str
     gender: Optional[str] = None
@@ -49,6 +56,7 @@ class UserProfileResponse(BaseModel):
     email: Optional[str] = None
     patient_details: Optional[Dict[str, Any]] = None
     doctor_details: Optional[Dict[str, Any]] = None
+
 
 
 class VerifyOtpResponse(BaseModel):
@@ -60,7 +68,8 @@ class VerifyOtpResponse(BaseModel):
 class RegisterRequest(BaseModel):
     user_type: str = Field(default="patient", description="'patient' or 'doctor'")
     name: str = Field(..., min_length=2, description="Full legal name of the user")
-    abha_id: str = Field(..., min_length=8, description="14-digit ABHA Health ID")
+    abha_id: Optional[str] = Field(default=None, min_length=8, description="14-digit ABHA Health ID (patients)")
+    hp_id: Optional[str] = Field(default=None, min_length=4, description="Health Professional ID — HP ID (doctors)")
     phone: Optional[str] = None
     email: Optional[str] = None
     gender: Optional[str] = Field(default="Male", description="'Male', 'Female', or 'Other'")
@@ -85,13 +94,17 @@ class RegisterRequest(BaseModel):
     qualifications: Optional[str] = None
 
 
+
+
 class RegisterResponse(BaseModel):
     status: str
     message: str
     user_type: str
     abha_id: str
+    hp_id: Optional[str] = None  # Health Professional ID — set for doctor registrations
     token: Optional[str] = None
     user: Optional[UserProfileResponse] = None
+
 
 
 # ── Helper util ────────────────────────────────────────────────────────────────
@@ -110,13 +123,28 @@ async def request_otp(
     db: AsyncSession = Depends(get_db),
 ) -> RequestOtpResponse:
     """
-    Simulate ABHA OTP generation for registered patients or doctors.
+    Simulate OTP generation for registered patients (ABHA ID) or doctors (HP ID).
     """
-    clean_abha = payload.abha_id.strip()
     clean_role = payload.user_type.strip().lower()
 
+    # Resolve the correct identifier field depending on role
+    if clean_role == "doctor":
+        raw_id = payload.hp_id or payload.abha_id
+        id_label = "HP ID"
+    else:
+        raw_id = payload.abha_id or payload.hp_id
+        id_label = "ABHA ID"
+
+    if not raw_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Please provide {'an HP ID' if clean_role == 'doctor' else 'an ABHA ID'} to request OTP.",
+        )
+
+    clean_id = raw_id.strip()
+
     stmt = select(User).where(
-        User.abha_id == clean_abha,
+        User.abha_id == clean_id,
         User.user_type == clean_role,
     )
     result = await db.execute(stmt)
@@ -125,7 +153,7 @@ async def request_otp(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No {clean_role} account found with ABHA ID '{clean_abha}'. Please check the ID or register a new account.",
+            detail=f"No {clean_role} account found with {id_label} '{clean_id}'. Please check the ID or register a new account.",
         )
 
     # Return a deterministic test OTP so the user can test without external SMS delays
@@ -133,13 +161,15 @@ async def request_otp(
 
     return RequestOtpResponse(
         status="success",
-        message=f"OTP dispatched to mobile linked with ABHA {clean_abha}.",
+        message=f"OTP dispatched to mobile linked with {id_label} {clean_id}.",
         masked_phone=mask_phone(user.phone),
         simulated_otp=simulated_otp,
         abha_id=user.abha_id,
+        hp_id=user.abha_id if user.user_type == "doctor" else None,
         user_name=user.name,
         user_type=user.user_type,
     )
+
 
 
 @router.post("/verify-otp", response_model=VerifyOtpResponse)
@@ -148,14 +178,30 @@ async def verify_otp(
     db: AsyncSession = Depends(get_db),
 ) -> VerifyOtpResponse:
     """
-    Verify ABHA OTP code and issue authenticated user profile session.
+    Verify OTP code and issue authenticated user profile session.
+    Patients authenticate with ABHA ID; doctors authenticate with HP ID.
     """
-    clean_abha = payload.abha_id.strip()
     clean_role = payload.user_type.strip().lower()
     clean_otp = payload.otp.strip()
 
+    # Resolve the correct identifier
+    if clean_role == "doctor":
+        raw_id = payload.hp_id or payload.abha_id
+        id_label = "HP ID"
+    else:
+        raw_id = payload.abha_id or payload.hp_id
+        id_label = "ABHA ID"
+
+    if not raw_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Please provide {'an HP ID' if clean_role == 'doctor' else 'an ABHA ID'} to verify OTP.",
+        )
+
+    clean_id = raw_id.strip()
+
     stmt = select(User).where(
-        User.abha_id == clean_abha,
+        User.abha_id == clean_id,
         User.user_type == clean_role,
     )
     result = await db.execute(stmt)
@@ -164,7 +210,7 @@ async def verify_otp(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Account with ABHA ID '{clean_abha}' not found.",
+            detail=f"Account with {id_label} '{clean_id}' not found.",
         )
 
     # Validate OTP (allow 123456 or any 6-digit number in kiosk demo mode)
@@ -179,6 +225,7 @@ async def verify_otp(
     user_profile = UserProfileResponse(
         id=user.id,
         abha_id=user.abha_id,
+        hp_id=user.abha_id if user.user_type == "doctor" else None,
         user_type=user.user_type,
         name=user.name,
         gender=user.gender,
@@ -196,11 +243,12 @@ async def verify_otp(
     )
 
 
+
 @router.post(
     "/register",
     response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Register a new Patient or Doctor with persistent ABHA profile",
+    summary="Register a new Patient (ABHA) or Doctor (HP ID) profile",
 )
 async def register_user(
     payload: RegisterRequest,
@@ -208,9 +256,9 @@ async def register_user(
 ) -> RegisterResponse:
     """
     Self-register a new Patient or Doctor profile in the national health database.
-    Prevents duplicate ABHA registrations and automatically initializes clinical records.
+    Patients use ABHA ID; doctors use HP ID (Health Professional ID).
+    Prevents duplicate ID registrations and automatically initializes clinical records.
     """
-    clean_abha = payload.abha_id.strip()
     clean_role = payload.user_type.strip().lower()
     clean_name = payload.name.strip()
 
@@ -220,13 +268,29 @@ async def register_user(
             detail="Invalid user_type. Must be 'patient' or 'doctor'.",
         )
 
-    # 1. Prevent duplicate registrations with the same ABHA ID
-    existing_stmt = select(User).where(User.abha_id == clean_abha)
+    # Resolve the correct identifier field based on role
+    if clean_role == "doctor":
+        raw_id = payload.hp_id or payload.abha_id
+        id_label = "HP ID"
+    else:
+        raw_id = payload.abha_id or payload.hp_id
+        id_label = "ABHA ID"
+
+    if not raw_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Please provide {'an HP ID' if clean_role == 'doctor' else 'an ABHA ID'} to register.",
+        )
+
+    clean_id = raw_id.strip()
+
+    # 1. Prevent duplicate registrations with the same ID
+    existing_stmt = select(User).where(User.abha_id == clean_id)
     existing_res = await db.execute(existing_stmt)
     if existing_res.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"An account with ABHA ID '{clean_abha}' already exists. Please sign in.",
+            detail=f"An account with {id_label} '{clean_id}' already exists. Please sign in.",
         )
 
     # 2. Build structured details based on role
@@ -258,8 +322,8 @@ async def register_user(
             "ayush_prakriti": None,
         }
     else:
-        # Doctor role
-        clean_license = payload.license_no or f"AYUSH-NHA-{clean_abha.replace('-', '')[-6:]}"
+        # Doctor role — license derived from HP ID suffix
+        clean_license = payload.license_no or f"HP-REG-{clean_id.replace('-', '').replace('/', '')[-6:].upper()}"
         doctor_details = {
             "specialization": payload.specialization or "Ayurvedic Medicine & Clinical Intake",
             "hospital": payload.hospital or "All India Institute of Ayurveda (AIIA)",
@@ -270,17 +334,18 @@ async def register_user(
             "opd_hours": "09:00 AM - 04:00 PM",
         }
 
-    # 3. Create persistent User in database
+    # 3. Create persistent User in database (abha_id column stores both ABHA ID and HP ID)
     user_id = f"{clean_role}-{str(uuid.uuid4())[:8]}"
+    suffix = clean_id.replace('-', '').replace('/', '')[-6:]
     new_user = User(
         id=user_id,
-        abha_id=clean_abha,
+        abha_id=clean_id,
         user_type=clean_role,
         name=clean_name,
         gender=payload.gender or "Male",
         age_years=payload.age_years or 30,
         phone=payload.phone or "9876543210",
-        email=payload.email or f"{clean_abha.replace('-', '')[-6:]}@abha.gov.in",
+        email=payload.email or f"{suffix}@{'hp.gov.in' if clean_role == 'doctor' else 'abha.gov.in'}",
         patient_details=patient_details,
         doctor_details=doctor_details,
     )
@@ -295,6 +360,7 @@ async def register_user(
     user_profile = UserProfileResponse(
         id=new_user.id,
         abha_id=new_user.abha_id,
+        hp_id=new_user.abha_id if new_user.user_type == "doctor" else None,
         user_type=new_user.user_type,
         name=new_user.name,
         gender=new_user.gender,
@@ -305,16 +371,19 @@ async def register_user(
         doctor_details=new_user.doctor_details,
     )
 
-    logger.info("Successfully registered new %s: %s (%s)", clean_role, clean_name, clean_abha)
+    is_doctor = clean_role == "doctor"
+    logger.info("Successfully registered new %s: %s (%s: %s)", clean_role, clean_name, id_label, clean_id)
 
     return RegisterResponse(
         status="success",
-        message=f"ABHA profile for {new_user.name} successfully registered in National Health Database.",
+        message=f"{'HP ID profile' if is_doctor else 'ABHA profile'} for {new_user.name} successfully registered in National Health Database.",
         user_type=new_user.user_type,
         abha_id=new_user.abha_id,
+        hp_id=new_user.abha_id if is_doctor else None,
         token=session_token,
         user=user_profile,
     )
+
 
 
 @router.get("/me", response_model=UserProfileResponse)
@@ -344,6 +413,7 @@ async def get_me(
     return UserProfileResponse(
         id=user.id,
         abha_id=user.abha_id,
+        hp_id=user.abha_id if user.user_type == "doctor" else None,
         user_type=user.user_type,
         name=user.name,
         gender=user.gender,

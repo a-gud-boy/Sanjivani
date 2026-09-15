@@ -141,7 +141,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-xs sm:max-w-md">
-                {String(details.specialization || 'Integrative AYUSH Clinician')} • ABHA: {doctor.abha_id}
+                {String(details.specialization || 'Integrative AYUSH Clinician')} • HP ID: {doctor.hp_id || doctor.abha_id}
               </p>
             </div>
           </div>

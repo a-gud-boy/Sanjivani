@@ -55,9 +55,12 @@ export default function LoginPage({
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!abhaId.trim()) {
-      setError('Please enter a valid 14-digit ABHA ID.')
+      setError(role === 'doctor'
+        ? 'Please enter your HP ID (Health Professional ID).'
+        : 'Please enter a valid 14-digit ABHA ID.')
       return
     }
+
     setLoading(true)
     setError(null)
 
@@ -195,7 +198,8 @@ export default function LoginPage({
                     <input
                       type="text"
                       required
-                      placeholder="14-XXXX-XXXX-XXXX"
+                    placeholder={role === 'doctor' ? 'e.g. HP-MH-84729' : '14-XXXX-XXXX-XXXX'}
+
                       value={abhaId}
                       onChange={(e) => setAbhaId(e.target.value)}
                       className="w-full px-3.5 py-3 text-sm font-medium rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800/90 text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/30 tracking-wide"
@@ -203,8 +207,9 @@ export default function LoginPage({
                     <KeyRound className="w-4 h-4 absolute right-3.5 top-3.5 text-slate-400 dark:text-slate-400" />
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    {t.auth.abhaFormat}
+                    {role === 'doctor' ? 'Format: HP-[State]-[Number] (e.g. HP-MH-84729)' : t.auth.abhaFormat}
                   </p>
+
                 </div>
 
                 <button

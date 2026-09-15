@@ -201,6 +201,7 @@ export type UserType = 'patient' | 'doctor'
 export interface User {
   id: string
   abha_id: string
+  hp_id?: string | null  // Health Professional ID — populated for doctor accounts
   user_type: UserType
   name: string
   gender?: string | null
@@ -239,6 +240,7 @@ export interface User {
     [key: string]: unknown
   } | null
 }
+
 
 export interface SavedIntakeSession {
   id: string

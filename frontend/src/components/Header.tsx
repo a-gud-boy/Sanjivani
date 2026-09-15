@@ -63,7 +63,11 @@ export default function Header({
               )}
             </h1>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight truncate">
-              {user ? `ABHA: ${user.abha_id}` : 'AYUSH & Clinical Intake Assistant'}
+              {user
+                ? (user.user_type === 'doctor'
+                    ? `HP ID: ${user.hp_id || user.abha_id}`
+                    : `ABHA: ${user.abha_id}`)
+                : 'AYUSH & Clinical Intake Assistant'}
             </p>
           </div>
         </div>

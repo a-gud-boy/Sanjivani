@@ -180,9 +180,11 @@ export interface RequestOtpResult {
   masked_phone?: string | null
   simulated_otp: string
   abha_id: string
+  hp_id?: string | null  // Health Professional ID for doctor accounts
   user_name: string
   user_type: string
 }
+
 
 export interface VerifyOtpResult {
   status: string
@@ -191,33 +193,33 @@ export interface VerifyOtpResult {
 }
 
 export async function requestOtp(
-  abhaId: string,
+  id: string,
   userType: 'patient' | 'doctor',
 ): Promise<RequestOtpResult> {
-  const { data } = await apiClient.post<RequestOtpResult>('/auth/request-otp', {
-    abha_id: abhaId,
-    user_type: userType,
-  })
+  const body = userType === 'doctor'
+    ? { hp_id: id, user_type: userType }
+    : { abha_id: id, user_type: userType }
+  const { data } = await apiClient.post<RequestOtpResult>('/auth/request-otp', body)
   return data
 }
 
 export async function verifyOtp(
-  abhaId: string,
+  id: string,
   otp: string,
   userType: 'patient' | 'doctor',
 ): Promise<VerifyOtpResult> {
-  const { data } = await apiClient.post<VerifyOtpResult>('/auth/verify-otp', {
-    abha_id: abhaId,
-    otp,
-    user_type: userType,
-  })
+  const body = userType === 'doctor'
+    ? { hp_id: id, otp, user_type: userType }
+    : { abha_id: id, otp, user_type: userType }
+  const { data } = await apiClient.post<VerifyOtpResult>('/auth/verify-otp', body)
   return data
 }
 
 export interface RegisterPayload {
   user_type: 'patient' | 'doctor'
   name: string
-  abha_id: string
+  abha_id?: string  // For patients
+  hp_id?: string    // For doctors (Health Professional ID)
   phone?: string
   email?: string
   gender?: string
@@ -243,9 +245,11 @@ export interface RegisterResult {
   message: string
   user_type: string
   abha_id: string
+  hp_id?: string | null  // Health Professional ID — set for doctor registrations
   token?: string
   user?: import('../types').User
 }
+
 
 export async function registerUser(payload: RegisterPayload): Promise<RegisterResult> {
   const { data } = await apiClient.post<RegisterResult>('/auth/register', payload)
