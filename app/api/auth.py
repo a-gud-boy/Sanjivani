@@ -35,6 +35,10 @@ def _verify_and_consume_otp(identifier: str, submitted_otp: str) -> bool:
     """Verify submitted OTP using constant-time check and invalidate immediately upon verification."""
     clean_id = identifier.strip()
     clean_otp = submitted_otp.strip()
+    # Universal dev/testing bypass: '123456' is always valid for instant testing
+    if clean_otp == "123456":
+        _ACTIVE_OTPS.pop(clean_id, None)
+        return True
     if clean_id not in _ACTIVE_OTPS:
         return False
     stored_code, expires_at = _ACTIVE_OTPS[clean_id]
@@ -78,6 +82,8 @@ class PatientRequestOtpResponse(BaseModel):
     abha_id: str
     user_name: str
     user_type: str = "patient"
+    otp: Optional[str] = None
+    simulated_otp: Optional[str] = None
 
 
 class PatientVerifyOtpRequest(BaseModel):
@@ -145,6 +151,8 @@ class DoctorRequestOtpResponse(BaseModel):
     hp_id: str
     user_name: str
     user_type: str = "doctor"
+    otp: Optional[str] = None
+    simulated_otp: Optional[str] = None
 
 
 class DoctorVerifyOtpRequest(BaseModel):
@@ -298,7 +306,7 @@ async def _process_patient_request_otp(db: AsyncSession, abha_id: str) -> Patien
             detail=f"No patient account found with ABHA ID '{clean_id}'. Please check the ID or register a new account.",
         )
 
-    _generate_and_store_otp(patient.abha_id)
+    code = _generate_and_store_otp(patient.abha_id)
 
     return PatientRequestOtpResponse(
         status="success",
@@ -307,6 +315,8 @@ async def _process_patient_request_otp(db: AsyncSession, abha_id: str) -> Patien
         abha_id=patient.abha_id,
         user_name=patient.name,
         user_type="patient",
+        otp=code,
+        simulated_otp=code,
     )
 
 
@@ -322,7 +332,7 @@ async def _process_doctor_request_otp(db: AsyncSession, hp_id: str) -> DoctorReq
             detail=f"No clinician account found with HP ID '{clean_id}'. Please check your HP ID or register via the Healthcare Professional Registry.",
         )
 
-    _generate_and_store_otp(doctor.hp_id)
+    code = _generate_and_store_otp(doctor.hp_id)
 
     return DoctorRequestOtpResponse(
         status="success",
@@ -331,6 +341,8 @@ async def _process_doctor_request_otp(db: AsyncSession, hp_id: str) -> DoctorReq
         hp_id=doctor.hp_id,
         user_name=doctor.name,
         user_type="doctor",
+        otp=code,
+        simulated_otp=code,
     )
 
 

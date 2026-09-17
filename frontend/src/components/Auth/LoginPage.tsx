@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   User as UserIcon,
   Stethoscope,
@@ -43,12 +43,25 @@ export default function LoginPage({
   const [otpSent, setOtpSent] = useState(false)
   const [maskedPhone, setMaskedPhone] = useState<string | null>(null)
   const [userName, setUserName] = useState<string | null>(null)
+  const [activeOtp, setActiveOtp] = useState<string | null>(null)
+  const [resendCountdown, setResendCountdown] = useState(0)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendSuccess, setResendSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPatientRegisterOpen, setIsPatientRegisterOpen] = useState(false)
   const [isDoctorRegisterOpen, setIsDoctorRegisterOpen] = useState(false)
 
   const t = useTranslation(language)
+
+  // ── Resend Countdown Effect ────────────────────────────────────
+  useEffect(() => {
+    if (resendCountdown <= 0) return
+    const timer = setTimeout(() => {
+      setResendCountdown((c) => c - 1)
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [resendCountdown])
 
   // ── Handle Role Switch ─────────────────────────────────────────
   const handleRoleChange = (newRole: UserType) => {
@@ -59,6 +72,9 @@ export default function LoginPage({
     setIdInput('')
     setUserName(null)
     setMaskedPhone(null)
+    setActiveOtp(null)
+    setResendCountdown(0)
+    setResendSuccess(false)
   }
 
   // ── Step 1: Request OTP ────────────────────────────────────────
@@ -83,16 +99,46 @@ export default function LoginPage({
         setOtpSent(true)
         setMaskedPhone(res.masked_phone || null)
         setUserName(res.user_name)
+        setActiveOtp(res.otp || res.simulated_otp || null)
+        setResendCountdown(30)
       } else {
         const res = await requestPatientOtp(cleanId)
         setOtpSent(true)
         setMaskedPhone(res.masked_phone || null)
         setUserName(res.user_name)
+        setActiveOtp(res.otp || res.simulated_otp || null)
+        setResendCountdown(30)
       }
     } catch (err) {
       setError(extractErrorMessage(err))
     } finally {
       setLoading(false)
+    }
+  }
+
+  // ── Step 1b: Resend OTP ────────────────────────────────────────
+  const handleResendOtp = async () => {
+    const cleanId = idInput.trim()
+    if (!cleanId || resendCountdown > 0 || resendLoading) return
+    setResendLoading(true)
+    setError(null)
+    setResendSuccess(false)
+
+    try {
+      if (role === 'doctor') {
+        const res = await requestDoctorOtp(cleanId)
+        setActiveOtp(res.otp || res.simulated_otp || null)
+      } else {
+        const res = await requestPatientOtp(cleanId)
+        setActiveOtp(res.otp || res.simulated_otp || null)
+      }
+      setResendSuccess(true)
+      setResendCountdown(30)
+      setTimeout(() => setResendSuccess(false), 4000)
+    } catch (err) {
+      setError(extractErrorMessage(err))
+    } finally {
+      setResendLoading(false)
     }
   }
 
@@ -277,8 +323,14 @@ export default function LoginPage({
                     </span>
                     <button
                       type="button"
-                      onClick={() => setOtpSent(false)}
-                      className="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 underline font-medium"
+                      onClick={() => {
+                        setOtpSent(false)
+                        setOtp('')
+                        setActiveOtp(null)
+                        setResendCountdown(0)
+                        setResendSuccess(false)
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 underline font-medium cursor-pointer"
                     >
                       <ArrowLeft className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
                       <span>{role === 'doctor' ? t.auth.changeHpId : t.auth.changeAbha}</span>
@@ -291,10 +343,39 @@ export default function LoginPage({
                   )}
                 </div>
 
+                {/* ── Display OTP directly on screen (Demo / SMS simulator) ── */}
+                {activeOtp && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-2xl flex items-center justify-between text-xs text-amber-900 dark:text-amber-200 shadow-sm animate-fade-in">
+                    <div className="flex items-center gap-2.5">
+                      <KeyRound className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                      <div>
+                        <span className="block text-[10px] uppercase font-bold tracking-wider text-amber-700/90 dark:text-amber-400">
+                          Verification OTP (SMS Simulator)
+                        </span>
+                        <span className="font-mono text-base font-extrabold tracking-widest text-slate-900 dark:text-amber-100">
+                          {activeOtp}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setOtp(activeOtp)}
+                      className="px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-200/90 hover:bg-amber-300 dark:bg-amber-800/80 dark:hover:bg-amber-700 text-amber-950 dark:text-amber-100 transition-all cursor-pointer active:scale-95 shadow-xs"
+                    >
+                      Auto-fill
+                    </button>
+                  </div>
+                )}
+
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    {t.auth.enterOtp}
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {t.auth.enterOtp}
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      (Test bypass: 123456)
+                    </span>
+                  </div>
                   <input
                     type="text"
                     maxLength={6}
@@ -306,10 +387,36 @@ export default function LoginPage({
                   />
                 </div>
 
+                {/* ── Resend OTP Controls ── */}
+                <div className="flex items-center justify-between px-1 text-xs">
+                  <span className="text-slate-500 dark:text-slate-400 text-[11px]">
+                    {resendSuccess ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> New OTP sent!
+                      </span>
+                    ) : (
+                      "Didn't receive code?"
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={resendCountdown > 0 || resendLoading}
+                    className="inline-flex items-center gap-1 font-bold text-brand-cyan dark:text-cyan-400 hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer disabled:cursor-not-allowed text-[11px]"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${resendLoading ? 'animate-spin' : ''}`} />
+                    <span>
+                      {resendCountdown > 0
+                        ? `Resend in ${resendCountdown}s`
+                        : 'Resend OTP'}
+                    </span>
+                  </button>
+                </div>
+
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full btn-primary py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:opacity-50 transition-all"
+                  className="w-full btn-primary py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:opacity-50 transition-all cursor-pointer"
                 >
                   {loading ? (
                     <>

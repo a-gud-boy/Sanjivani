@@ -177,7 +177,8 @@ export interface RequestOtpResult {
   status: string
   message: string
   masked_phone?: string | null
-  simulated_otp: string
+  otp?: string | null
+  simulated_otp?: string | null
   abha_id?: string
   hp_id?: string | null
   user_name: string
