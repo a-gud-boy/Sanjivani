@@ -67,13 +67,13 @@ export default function ChatBubble({ message }: ChatBubbleProps) {
           {/* TTS Playback stub — only on assistant messages */}
           {!isUser && (
             <button
-              className="opacity-0 group-hover:opacity-100 transition-opacity
-                         p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-400 hover:text-brand-cyan dark:hover:text-brand-cyan"
+              className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity
+                         p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-400 hover:text-brand-cyan dark:hover:text-brand-cyan inline-flex items-center justify-center flex-shrink-0"
               onClick={handlePlayAudio}
               aria-label="Play message audio"
               title="Listen to this message"
             >
-              <Volume2 className="w-3.5 h-3.5" />
+              <Volume2 className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
             </button>
           )}
         </div>

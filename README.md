@@ -33,11 +33,13 @@ It bridges modern allopathic clinical reasoning with traditional Indian healthca
 - **Bilingual Clinical Intelligence**: The AI interacts with patients in their native tongue and renders contextual 1-tap quick-reply choices, while strictly persisting clinical data in standardized English for physician review.
 - **Persistent Preferences**: Language selection persists automatically via local storage across browser reloads and authenticated sessions.
 
-### 3. ABHA Identity & Role-Based Access Control
-- **ABDM Compliance**: Fast authentication via 14-digit ABHA ID (`14-XXXX-XXXX-XXXX`) with simulated SMS OTP verification (`123456`).
-- **Patient Dashboard**: View verified health records, active/past medication timeline, diagnostic lab records, and past intake consultations.
+### 3. ABDM Identity & Complete Role Separation
+- **Patient Identity (ABHA ID)**: Compliant with Ayushman Bharat Health Account (ABHA) standards (`14-XXXX-XXXX-XXXX`) for patient health record federation.
+- **Healthcare Professional Identity (HP ID)**: Complete architectural separation for clinicians utilizing dedicated 10-digit Health Professional IDs (`HP-XXXX-XXXX`) with medical council registration and license validation.
+- **Cryptographic OTP Engine**: Production-grade in-memory OTP engine featuring 10-minute TTL, constant-time validation (`secrets.compare_digest`), and one-time consumption (logged directly to the backend console during development/demo).
+- **Dedicated Self-Registration**: Specialized registration flows (`PatientRegisterModal` for instant digital health card generation and `DoctorRegisterModal` for healthcare practitioner credentialing).
+- **Patient Dashboard**: View verified health records, active vs. past medication timelines, diagnostic lab records, and past intake consultations.
 - **Doctor Clinical Portal**: Comprehensive clinical review interface allowing healthcare practitioners to search patients, inspect AI intake summaries, and review digitized lab/prescription records.
-- **Self-Registration**: Built-in modal for new citizens and medical practitioners to register ABHA profiles with instant digital health card generation.
 
 ### 4. Direct VLM Prescription & Report Digitization
 - **Vision-Language Model (VLM)**: Direct multimodal parsing using models such as Google Gemini Flash, `google/medgemma-1.5-4b-it`, or `qwen/qwen3.6-27b`.
@@ -88,7 +90,7 @@ It bridges modern allopathic clinical reasoning with traditional Indian healthca
 # Start in local-only mode without public Cloudflare tunnel
 ./start.sh --no-vllm --no-tunnel
 
-# Reset & re-seed database with clean demo accounts
+# Reset database schema
 ./start.sh --reset-db
 ```
 
@@ -97,7 +99,7 @@ It bridges modern allopathic clinical reasoning with traditional Indian healthca
 # Run backend & frontend with cloud AI (Google Gemini)
 python run.py --no-vllm
 
-# Reset and re-seed the local SQLite database
+# Reset the local SQLite database schema
 python run.py --reset-db
 
 # Run with local vLLM server enabled (requires CUDA GPU)
@@ -220,7 +222,7 @@ Sanjivani/
 ├── render.yaml                    # Render Blueprint deployment specification
 ├── Procfile                       # Production process declaration
 ├── requirements.txt               # Backend dependencies (FastAPI, SQLAlchemy, Pydantic v2)
-├── sanjivani.db                   # SQLite database (auto-created and seeded)
+├── sanjivani.db                   # SQLite database (auto-created and schema synchronized)
 ├── .env.example                   # Environment configuration template
 ├── README.md                      # Main project documentation
 ├── README_WINDOWS.md              # Dedicated Windows setup guide (PowerShell, WSL 2, Docker)
@@ -230,7 +232,7 @@ Sanjivani/
 ├── app/                           # FastAPI Clinical Backend
 │   ├── main.py                    # App entrypoint, CORS, routers & exception handlers
 │   ├── api/                       # Modular REST API route handlers
-│   │   ├── auth.py                # ABHA registration, OTP dispatch, session verification
+│   │   ├── auth.py                # ABHA & HP ID registration, cryptographic OTP, session verification
 │   │   ├── doctor.py              # Doctor clinical portal & patient search endpoints
 │   │   └── patient.py             # Patient records, intake sessions, medication lifecycle
 │   ├── core/
@@ -238,8 +240,8 @@ Sanjivani/
 │   │   └── date_utils.py          # Prescription date extraction & medication duration parsing
 │   ├── db/
 │   │   ├── database.py            # Async SQLAlchemy engine & session factory
-│   │   ├── models.py              # Relational DB models (Users, Documents, Intakes)
-│   │   └── seed.py                # Database initialization & demo account seeding
+│   │   ├── models.py              # Relational DB models (Patients, Doctors, Documents, Intakes)
+│   │   └── seed.py                # Database initialization & schema synchronization
 │   ├── models/
 │   │   └── schemas.py             # Pydantic v2 validation models & clinical schemas
 │   └── services/
@@ -250,7 +252,7 @@ Sanjivani/
 │   ├── src/
 │   │   ├── App.tsx                # Main view router (Auth, Dashboard, Doctor, Intake)
 │   │   ├── components/
-│   │   │   ├── Auth/              # LoginPage, RegisterModal
+│   │   │   ├── Auth/              # LoginPage, PatientRegisterModal, DoctorRegisterModal
 │   │   │   ├── Chat/              # ChatInterface, ChatBubble, QuickReplyChips, ChatEndOverlay
 │   │   │   ├── ClinicalSummary/   # SummaryModal (SOCRATES & AYUSH clinical report views)
 │   │   │   ├── Dashboard/         # PatientDashboard (Timeline, Meds, Lab Records)
@@ -280,8 +282,9 @@ Sanjivani/
 │   └── render_manager.py          # Render Cloud deployment & environment CLI utility
 │
 └── tests/                         # Automated Test Suite (50 Tests)
+    ├── conftest.py                # Test fixtures, session cleanup & entity teardown
     ├── test_api.py                # Chat API, CORS, model endpoints & health tests
-    ├── test_auth_and_db.py        # ABHA verification, OTP & database session tests
+    ├── test_auth_and_db.py        # ABHA & HP ID verification, OTP & database session tests
     ├── test_config.py             # Application settings & environment tests
     ├── test_doctor.py             # Doctor portal endpoints & clinical summary tests
     ├── test_language.py           # Multilingual greeting, prompt injection & chat tests
@@ -311,13 +314,19 @@ Sanjivani/
 | `GET` | `/api/v1/models` | List all available local Hugging Face cached and active remote AI models |
 | `POST` | `/api/v1/models/select` | Dynamically switch active model for conversational intake or document OCR without server restart |
 
-### 4. ABHA Identity & Authentication
+### 4. Authentication & Identity Management
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/api/v1/auth/request-otp` | Request simulated 6-digit OTP for 14-digit ABHA ID |
-| `POST` | `/api/v1/auth/verify-otp` | Verify OTP code and issue authenticated user profile session |
-| `POST` | `/api/v1/auth/register` | Self-register a new Patient or Doctor profile with persistent ABHA credentials |
-| `GET` | `/api/v1/auth/me` | Fetch profile information for the authenticated user |
+| `POST` | `/api/v1/auth/patient/request-otp` | Request secure 6-digit OTP for registered Patient ABHA ID |
+| `POST` | `/api/v1/auth/patient/verify-otp` | Verify Patient OTP code and issue authenticated patient session |
+| `POST` | `/api/v1/auth/patient/register` | Self-register a new Patient profile with 14-digit ABHA ID & digital health card |
+| `POST` | `/api/v1/auth/doctor/request-otp` | Request secure 6-digit OTP for registered Doctor HP ID |
+| `POST` | `/api/v1/auth/doctor/verify-otp` | Verify Doctor OTP code and issue authenticated clinician session |
+| `POST` | `/api/v1/auth/doctor/register` | Self-register a new Doctor profile with 10-digit HP ID & clinical credentials |
+| `GET` | `/api/v1/auth/me` | Fetch profile information for the authenticated user (Patient or Doctor) |
+| `POST` | `/api/v1/auth/request-otp` | Unified/legacy endpoint: Request OTP for ABHA ID or HP ID |
+| `POST` | `/api/v1/auth/verify-otp` | Unified/legacy endpoint: Verify OTP and issue profile session |
+| `POST` | `/api/v1/auth/register` | Unified/legacy endpoint: Register patient or doctor profile |
 
 ### 5. Patient Health Records
 | Method | Endpoint | Description |

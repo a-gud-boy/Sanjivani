@@ -48,7 +48,9 @@ const getStoredLanguage = (): LanguageCode => {
     if (saved && ['en', 'hi', 'bn', 'ta', 'te', 'mr', 'gu'].includes(saved)) {
       return saved as LanguageCode
     }
-  } catch {}
+  } catch (err) {
+    console.warn('Unable to read stored language preference:', err)
+  }
   return 'en'
 }
 
@@ -88,7 +90,9 @@ export default function App() {
         const u: User = JSON.parse(saved)
         return u.user_type === 'doctor' ? 'doctor_portal' : 'patient_dashboard'
       }
-    } catch {}
+    } catch (err) {
+      console.warn('Unable to read stored user for current view:', err)
+    }
     return 'login'
   })
 
@@ -133,7 +137,9 @@ export default function App() {
   const handleLoginSuccess = (user: User) => {
     try {
       localStorage.setItem('sanjivani_auth_user', JSON.stringify(user))
-    } catch {}
+    } catch (err) {
+      console.warn('Unable to persist auth user:', err)
+    }
     setCurrentUser(user)
     if (user.user_type === 'doctor') {
       setCurrentView('doctor_portal')
@@ -152,7 +158,9 @@ export default function App() {
     lastFetchedLangRef.current = null
     try {
       localStorage.removeItem('sanjivani_auth_user')
-    } catch {}
+    } catch (err) {
+      console.warn('Unable to remove stored auth user:', err)
+    }
     setCurrentUser(null)
     setDashboardData(null)
     setCurrentView('login')
@@ -180,7 +188,9 @@ export default function App() {
   const handleSaveProfile = (updatedUser: User) => {
     try {
       localStorage.setItem('sanjivani_auth_user', JSON.stringify(updatedUser))
-    } catch {}
+    } catch (err) {
+      console.warn('Unable to persist updated profile:', err)
+    }
     setCurrentUser(updatedUser)
     loadDashboard(updatedUser.id)
   }
@@ -237,13 +247,15 @@ export default function App() {
         isSubscribed = false
       }
     }
-  }, [state.language, currentView, currentUser?.name, state.messages.length === 0])
+  }, [state.language, currentView, currentUser?.name, state.messages])
 
   // ── Language ────────────────────────────────────────────────────────────────
   const handleLanguageChange = useCallback((code: LanguageCode) => {
     try {
       localStorage.setItem('sanjivani_language', code)
-    } catch {}
+    } catch (err) {
+      console.warn('Unable to persist language preference:', err)
+    }
     setState((s) => ({ ...s, language: code }))
   }, [])
 

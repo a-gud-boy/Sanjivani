@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { Mic, MicOff, Send, Loader2, StopCircle, PhoneOff } from 'lucide-react'
+import { Mic, MicOff, Send, Loader2, StopCircle, PhoneOff, X } from 'lucide-react'
 import type { ChatMessage, ChatStatus, LanguageCode } from '../../types'
 import { useAudioRecorder } from '../../hooks/useAudioRecorder'
 import ChatBubble from './ChatBubble'
@@ -54,7 +54,6 @@ export default function ChatInterface({
     durationSeconds,
     startRecording,
     stopRecording,
-    audioBlob: _audioBlob,
     error: recordingError,
   } = useAudioRecorder()
 
@@ -198,15 +197,17 @@ export default function ChatInterface({
             <button
               onClick={() => setEndIntentBanner(false)}
               className="text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 px-2 py-1 rounded-lg
-                         hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                         hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors inline-flex items-center gap-1.5"
             >
+              <X className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
               No
             </button>
             <button
               onClick={() => { setEndIntentBanner(false); onEndChat() }}
               className="text-xs font-semibold text-brand-cyan hover:text-brand-cyan-dark
-                         px-2 py-1 rounded-lg hover:bg-brand-cyan-light dark:hover:bg-brand-cyan-light/20 transition-colors"
+                         px-2 py-1 rounded-lg hover:bg-brand-cyan-light dark:hover:bg-brand-cyan-light/20 transition-colors inline-flex items-center gap-1.5"
             >
+              <PhoneOff className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
               Yes, End Chat
             </button>
           </div>
@@ -239,7 +240,7 @@ export default function ChatInterface({
                          border border-transparent hover:border-red-200 dark:hover:border-red-900/50 transition-all duration-150"
               aria-label="End chat session"
             >
-              <PhoneOff className="w-3.5 h-3.5" />
+              <PhoneOff className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
               {t.chat.finishChat}
             </button>
           </div>
@@ -261,10 +262,10 @@ export default function ChatInterface({
                         }`}
           >
             {isRecording
-              ? <StopCircle className="w-5 h-5" />
+              ? <StopCircle className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
               : recorderState === 'error'
-              ? <MicOff className="w-5 h-5 text-red-400" />
-              : <Mic className="w-5 h-5" />
+              ? <MicOff className="w-5 h-5 text-red-400 flex-shrink-0" aria-hidden="true" />
+              : <Mic className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
             }
             {isRecording && (
               <span className="text-[9px] font-mono mt-0.5 leading-none">
@@ -311,8 +312,8 @@ export default function ChatInterface({
             aria-label={t.chat.send}
           >
             {isLoading
-              ? <Loader2 className="w-5 h-5 animate-spin" />
-              : <Send className="w-5 h-5" />
+              ? <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" aria-hidden="true" />
+              : <Send className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
             }
           </button>
         </form>

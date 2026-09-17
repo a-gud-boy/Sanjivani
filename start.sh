@@ -4,9 +4,9 @@
 # Sanjivani - Unified Dev Server Startup Script
 # Starts:
 #   1. vLLM Local Model Server (Optional: google/medgemma-1.5-4b-it on :8001)
-#   2. Relational Database Sync & Pre-seeded ABHA Accounts
+#   2. Relational Database Schema Synchronization
 #   3. FastAPI Clinical Backend (Port :8000)
-#   4. React Vite Frontend with ABHA Auth & Patient Dashboard (Port :5173)
+#   4. React Vite Frontend with ABHA/HP ID Auth & Patient Dashboard (Port :5173)
 #   5. Public Secure Tunnel (Cloudflare Quick Tunnel)
 # ==============================================================================
 
@@ -129,14 +129,13 @@ if [ "$RESET_DB" = true ]; then
     rm -f "$ROOT_DIR/sanjivani.db"
 fi
 
-# Synchronize database schema and seed demo accounts
-echo -e "${GREEN}✓ Initializing Database & Pre-Seeding Demo Accounts...${NC}"
+# Synchronize database schema
+echo -e "${GREEN}✓ Initializing Database Schema...${NC}"
 "$PYTHON_BIN" -c "
 import asyncio
-from app.db.seed import init_db, seed_demo_data
+from app.db.seed import init_db
 async def run():
     await init_db()
-    await seed_demo_data()
 asyncio.run(run())
 "
 
@@ -159,9 +158,10 @@ if [ "$START_TUNNEL" = true ]; then
     echo -e "  ${GREEN}► Public Tunnel:${NC}     (Initializing secure HTTPS URL...)"
 fi
 echo ""
-echo -e "${BOLD}ABHA Authentication:${NC}"
-echo -e "  ► Open the frontend and click ${BOLD}Register${NC} to create your Patient or Doctor profile."
-echo -e "  ► Simulated OTP is ${BOLD}123456${NC} for all enrolled accounts."
+echo -e "${BOLD}User Authentication & Identity:${NC}"
+echo -e "  ► ${GREEN}Patients:${NC}   Self-register with 14-digit ABHA ID (14-XXXX-XXXX-XXXX) & digital health card."
+echo -e "  ► ${GREEN}Doctors:${NC}    Self-register with 10-digit HP ID (HP-XXXX-XXXX) & clinical credentials."
+echo -e "  ► ${GREEN}OTP Engine:${NC} Secure 6-digit cryptographic OTP is generated with 10m TTL and logged in backend console."
 echo ""
 echo -e "${YELLOW}Press [Ctrl+C] to stop all services.${NC}"
 echo "------------------------------------------------------------"

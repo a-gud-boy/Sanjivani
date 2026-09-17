@@ -1,7 +1,7 @@
 import { useRef, useState, type DragEvent, type ChangeEvent } from 'react'
 import {
-  Upload, Camera, Loader2, ZoomIn,
-  ScanLine, X, CameraOff, CheckCircle2, FileText, Trash2,
+  Upload, Camera, ZoomIn,
+  ScanLine, X, CameraOff, CheckCircle2, FileText, Trash2, Eye, EyeOff,
 } from 'lucide-react'
 import type { ScannedDocument } from '../../types'
 import { useCameraCapture } from '../../hooks/useCameraCapture'
@@ -29,7 +29,6 @@ export default function ScannerPanel({
   const {
     cameraState,
     isActive: isCameraActive,
-    capturedDataUrl,
     capturedBlob,
     error: cameraError,
     videoRef,
@@ -86,7 +85,7 @@ export default function ScannerPanel({
       {/* ── Panel Header ── */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-surface-border dark:border-slate-800">
         <div className="flex items-center gap-2">
-          <ScanLine className="w-5 h-5 text-brand-cyan" />
+          <ScanLine className="w-5 h-5 text-brand-cyan flex-shrink-0" aria-hidden="true" />
           <h2 className="font-semibold text-slate-800 dark:text-white text-base">Document Scanner</h2>
         </div>
         {documents.length > 0 && (
@@ -121,7 +120,7 @@ export default function ScannerPanel({
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+                        <FileText className="w-5 h-5 text-slate-400 dark:text-slate-500 flex-shrink-0" aria-hidden="true" />
                       </div>
                     )}
 
@@ -142,18 +141,24 @@ export default function ScannerPanel({
                       <button
                         onClick={() => setExpandedDocId(isExpanded ? null : doc.id)}
                         className="text-xs text-brand-cyan hover:text-brand-cyan-dark px-2 py-1
-                                   rounded-lg hover:bg-brand-cyan/10 dark:hover:bg-brand-cyan/20 transition-colors"
+                                   rounded-lg hover:bg-brand-cyan/10 dark:hover:bg-brand-cyan/20 transition-colors inline-flex items-center gap-1"
+                        aria-label={isExpanded ? `Hide details for ${doc.filename}` : `View details for ${doc.filename}`}
                       >
+                        {isExpanded ? (
+                          <EyeOff className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+                        ) : (
+                          <Eye className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+                        )}
                         {isExpanded ? 'Hide' : 'View'}
                       </button>
                       {/* Full image */}
                       {doc.previewUrl && (
                         <button
                           onClick={() => window.open(doc.previewUrl!, '_blank')}
-                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0 inline-flex items-center justify-center"
                           aria-label="View full image"
                         >
-                          <ZoomIn className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                          <ZoomIn className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" aria-hidden="true" />
                         </button>
                       )}
                       {/* Remove */}
@@ -163,10 +168,10 @@ export default function ScannerPanel({
                           if (expandedDocId === doc.id) setExpandedDocId(null)
                           onRemoveDocument(doc.id)
                         }}
-                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors flex-shrink-0 inline-flex items-center justify-center"
                         aria-label={`Remove ${doc.filename}`}
                       >
-                        <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-red-500 dark:hover:text-red-400" />
+                        <Trash2 className="w-3.5 h-3.5 text-slate-400 hover:text-red-500 dark:hover:text-red-400 flex-shrink-0" aria-hidden="true" />
                       </button>
                     </div>
                   </div>
@@ -205,7 +210,7 @@ export default function ScannerPanel({
             >
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors
                               ${isDragOver ? 'bg-brand-cyan text-white' : 'bg-white dark:bg-slate-800 text-brand-cyan shadow-card'}`}>
-                <Upload className="w-5 h-5" />
+                <Upload className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
               </div>
               <div>
                 <p className="font-semibold text-slate-700 dark:text-slate-200 text-sm">
@@ -237,9 +242,10 @@ export default function ScannerPanel({
             {/* Camera Trigger */}
             <button
               onClick={startCamera}
-              className="w-full btn-secondary gap-2 min-h-[52px] rounded-xl"
+              className="w-full btn-secondary gap-2 min-h-[52px] rounded-xl inline-flex items-center justify-center"
+              aria-label="Open camera viewfinder"
             >
-              <Camera className="w-5 h-5 text-brand-cyan" />
+              <Camera className="w-5 h-5 text-brand-cyan flex-shrink-0" aria-hidden="true" />
               Open Camera Viewfinder
             </button>
 
@@ -255,7 +261,7 @@ export default function ScannerPanel({
             <div className="relative w-14 h-14">
               <div className="absolute inset-0 rounded-full border-4 border-brand-cyan-light" />
               <div className="absolute inset-0 rounded-full border-4 border-brand-cyan border-t-transparent animate-spin" />
-              <ScanLine className="absolute inset-0 m-auto w-5 h-5 text-brand-cyan" />
+              <ScanLine className="absolute inset-0 m-auto w-5 h-5 text-brand-cyan flex-shrink-0" aria-hidden="true" />
             </div>
             <div className="text-center">
               <p className="text-slate-700 font-semibold text-sm">Analyzing Document…</p>
@@ -286,12 +292,20 @@ export default function ScannerPanel({
             <canvas ref={canvasRef} className="hidden" aria-hidden="true" />
 
             <div className="flex gap-2">
-              <button onClick={stopCamera} className="btn-secondary flex-1">
-                <CameraOff className="w-4 h-4" />
+              <button
+                onClick={stopCamera}
+                className="btn-secondary flex-1 inline-flex items-center justify-center gap-2"
+                aria-label="Cancel camera capture"
+              >
+                <CameraOff className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 Cancel
               </button>
-              <button onClick={handleCameraCapture} className="btn-primary flex-[2]">
-                <Camera className="w-5 h-5" />
+              <button
+                onClick={handleCameraCapture}
+                className="btn-primary flex-[2] inline-flex items-center justify-center gap-2"
+                aria-label="Capture and scan document"
+              >
+                <Camera className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
                 Capture & Scan
               </button>
             </div>
@@ -301,7 +315,7 @@ export default function ScannerPanel({
         {/* ── API Error ── */}
         {error && !isLoading && (
           <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 animate-fade-in">
-            <X className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <X className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <p className="text-sm font-semibold text-red-700">Scan Failed</p>
               <p className="text-xs text-red-500 mt-1">{error}</p>
@@ -312,7 +326,7 @@ export default function ScannerPanel({
         {/* ── Empty state ── */}
         {documents.length === 0 && !isLoading && !showCameraView && (
           <div className="flex items-center justify-center gap-2 py-2 text-xs text-slate-400">
-            <CheckCircle2 className="w-3.5 h-3.5" />
+            <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
             Add prescriptions or lab reports above
           </div>
         )}

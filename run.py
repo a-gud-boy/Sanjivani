@@ -3,7 +3,7 @@
 Sanjivani Dev Runner
 Unified cross-platform launcher for:
   1. Local vLLM Model Server (Optional: google/medgemma-1.5-4b-it on :8001)
-  2. Database Schema Sync & Pre-seeded ABHA Accounts
+  2. Database Schema Synchronization
   3. FastAPI Clinical Backend (:8000)
   4. React Vite Frontend (:5173)
 
@@ -111,14 +111,13 @@ def main():
         except Exception as e:
             print(f"Warning: Could not remove {db_file}: {e}")
 
-    # 4. Synchronize Database & Seed Demo Accounts
-    print("✓ Initializing Database & Pre-Seeding Demo Accounts...")
+    # 4. Synchronize Database Schema
+    print("✓ Initializing Database Schema...")
     try:
-        from app.db.seed import init_db, seed_demo_data
+        from app.db.seed import init_db
 
         async def init():
             await init_db()
-            await seed_demo_data()
 
         asyncio.run(init())
     except Exception as e:
@@ -154,9 +153,10 @@ def main():
     print("  ► FastAPI Backend:   http://localhost:8000 (Swagger: http://localhost:8000/docs)")
     print("  ► React Frontend:    http://localhost:5173")
 
-    print("\nAuthentication:")
-    print("  ► Open the frontend and click 'Register' to self-enroll and generate your ABHA ID.")
-    print("  ► Simulated OTP is 123456 for all enrolled accounts.")
+    print("\nAuthentication & Identity:")
+    print("  ► Patients: Self-register with 14-digit ABHA ID (14-XXXX-XXXX-XXXX) & digital health card.")
+    print("  ► Doctors:  Self-register with 10-digit HP ID (HP-XXXX-XXXX) & clinical credentials.")
+    print("  ► OTP:      Secure 6-digit cryptographic OTP is generated with 10m TTL (logged in backend console).")
     print("\nPress [Ctrl+C] to stop all services.\n" + "-" * 60)
 
     procs = []

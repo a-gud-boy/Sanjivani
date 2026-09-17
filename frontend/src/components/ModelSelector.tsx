@@ -92,7 +92,7 @@ export default function ModelSelector() {
         title={`Active model: ${activeTextModel || 'Gemini 2.5 Flash'}`}
       >
         <div className="w-5 h-5 rounded-lg bg-brand-cyan/10 flex items-center justify-center text-brand-cyan flex-shrink-0">
-          <Cpu className="w-3.5 h-3.5" />
+          <Cpu className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
         </div>
         <div className="flex flex-col text-left">
           <span className="font-semibold text-slate-800 leading-tight max-w-[130px] truncate">
@@ -103,9 +103,10 @@ export default function ModelSelector() {
           </span>
         </div>
         <ChevronDown
-          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 ml-0.5 ${
+          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-150 flex-shrink-0 ml-0.5 ${
             isOpen ? 'rotate-180' : ''
           }`}
+          aria-hidden="true"
         />
       </button>
 
@@ -120,7 +121,7 @@ export default function ModelSelector() {
           <div className="px-4 py-3 bg-slate-50 flex items-center justify-between">
             <div>
               <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-brand-cyan" />
+                <Sparkles className="w-3.5 h-3.5 text-brand-cyan flex-shrink-0" aria-hidden="true" />
                 Multimodal AI Models
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
@@ -132,10 +133,11 @@ export default function ModelSelector() {
               onClick={loadModels}
               disabled={isLoading}
               className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200/60
-                         transition-colors disabled:opacity-50"
+                         transition-colors disabled:opacity-50 min-h-[40px] min-w-[40px] flex items-center justify-center"
               title="Rescan downloaded multimodal models"
+              aria-label="Rescan downloaded multimodal models"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 flex-shrink-0 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
             </button>
           </div>
 
@@ -150,7 +152,7 @@ export default function ModelSelector() {
           <div className="max-h-72 overflow-y-auto p-2 space-y-1.5 scrollbar-thin">
             {models.length === 0 ? (
               <div className="text-center py-6 px-4">
-                <HardDrive className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <HardDrive className="w-8 h-8 text-slate-300 mx-auto mb-2 flex-shrink-0" aria-hidden="true" />
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   Configure a <code className="bg-slate-100 px-1 py-0.5 rounded">GEMINI_API_KEY</code> or download local models like <code className="bg-slate-100 px-1 py-0.5 rounded">Qwen2.5-VL</code>.
                 </p>
@@ -197,7 +199,7 @@ export default function ModelSelector() {
                         </span>
                         {model.size_on_disk && (
                           <span className="inline-flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded-md font-medium text-slate-600">
-                            <HardDrive className="w-2.5 h-2.5" />
+                            <HardDrive className="w-2.5 h-2.5 flex-shrink-0" aria-hidden="true" />
                             {model.size_on_disk}
                           </span>
                         )}
@@ -206,9 +208,9 @@ export default function ModelSelector() {
 
                     <div className="pt-0.5 flex-shrink-0">
                       {isCurrentSwitching ? (
-                        <Loader2 className="w-4 h-4 text-brand-cyan animate-spin" />
+                        <Loader2 className="w-4 h-4 text-brand-cyan animate-spin flex-shrink-0" aria-hidden="true" />
                       ) : isActive ? (
-                        <CheckCircle2 className="w-4 h-4 text-brand-cyan" />
+                        <CheckCircle2 className="w-4 h-4 text-brand-cyan flex-shrink-0" aria-hidden="true" />
                       ) : (
                         <div className="w-4 h-4 rounded-full border border-slate-300" />
                       )}
@@ -230,7 +232,7 @@ export default function ModelSelector() {
       {/* Floating confirmation toast */}
       {notification && (
         <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 animate-fade-in">
-          <CheckCircle2 className="w-4 h-4 text-brand-cyan flex-shrink-0" />
+          <CheckCircle2 className="w-4 h-4 text-brand-cyan flex-shrink-0" aria-hidden="true" />
           <span>{notification}</span>
         </div>
       )}

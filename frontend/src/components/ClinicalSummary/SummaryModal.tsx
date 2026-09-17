@@ -1,9 +1,9 @@
 import { useEffect, useState, type KeyboardEvent } from 'react'
 import {
   X, Pill, FlaskConical, MessageSquare, Printer, User,
-  AlertTriangle, Sparkles, Loader2, FileText, ChevronDown,
+  AlertTriangle, Sparkles, FileText, ChevronDown, Check,
 } from 'lucide-react'
-import type { OCRStructuredResult, ChatMessage, ClinicalHistoryRecord, ScannedDocument, SummarySections } from '../../types'
+import type { ChatMessage, ClinicalHistoryRecord, ScannedDocument, SummarySections } from '../../types'
 
 import BrandLogo from '../BrandLogo'
 
@@ -29,7 +29,7 @@ function Section({ title, icon: Icon, children }: {
   return (
     <section>
       <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-        <Icon className="w-3.5 h-3.5 text-brand-cyan" />
+        <Icon className="w-3.5 h-3.5 text-brand-cyan flex-shrink-0" aria-hidden="true" />
         {title}
       </h3>
       {children}
@@ -59,7 +59,7 @@ function DocSection({ doc, defaultExpanded = false }: { doc: ScannedDocument; de
         className="w-full flex items-center justify-between px-4 py-3 bg-surface-muted dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <FileText className="w-4 h-4 text-brand-cyan" />
+          <FileText className="w-4 h-4 text-brand-cyan flex-shrink-0" aria-hidden="true" />
           <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{doc.filename}</span>
           {(hasMeds || hasLabs) && (
             <span className="text-xs text-slate-400 dark:text-slate-500">
@@ -67,7 +67,7 @@ function DocSection({ doc, defaultExpanded = false }: { doc: ScannedDocument; de
             </span>
           )}
         </div>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
 
       {expanded && (
@@ -86,7 +86,7 @@ function DocSection({ doc, defaultExpanded = false }: { doc: ScannedDocument; de
           {hasMeds && (
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
-                <Pill className="w-3 h-3 text-brand-cyan" /> Medications
+                <Pill className="w-3 h-3 text-brand-cyan flex-shrink-0" aria-hidden="true" /> Medications
               </p>
               <div className="flex flex-col gap-2">
                 {doc.result.medications.map((med, i) => (
@@ -105,7 +105,7 @@ function DocSection({ doc, defaultExpanded = false }: { doc: ScannedDocument; de
           {hasLabs && (
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
-                <FlaskConical className="w-3 h-3 text-brand-cyan" /> Lab Results
+                <FlaskConical className="w-3 h-3 text-brand-cyan flex-shrink-0" aria-hidden="true" /> Lab Results
               </p>
               <div className="overflow-x-auto rounded-xl border border-surface-border">
                 <table className="w-full text-sm">
@@ -229,17 +229,18 @@ export default function SummaryModal({
           <div className="flex items-center gap-2">
             <button
               onClick={() => window.print()}
-              className="btn-ghost text-xs px-3 min-h-[36px] gap-1.5 hidden sm:flex"
+              className="btn-ghost text-xs px-3 min-h-[36px] gap-1.5 hidden sm:inline-flex items-center justify-center"
+              aria-label="Print clinical summary"
             >
-              <Printer className="w-3.5 h-3.5" />
+              <Printer className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
               Print
             </button>
             <button
               onClick={onClose}
-              className="w-9 h-9 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 flex items-center justify-center transition-colors"
-              aria-label="Close"
+              className="w-9 h-9 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 flex items-center justify-center transition-colors flex-shrink-0"
+              aria-label="Close summary"
             >
-              <X className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+              <X className="w-5 h-5 text-slate-500 dark:text-slate-400 flex-shrink-0" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -259,7 +260,7 @@ export default function SummaryModal({
                   : 'border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
                 }`}
             >
-              <Icon className="w-3.5 h-3.5" />
+              <Icon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
               {label}
             </button>
           ))}
@@ -275,7 +276,7 @@ export default function SummaryModal({
               {!aiSummaryText && !summaryLoading && (
                 <div className="flex flex-col items-center gap-4 py-8 text-center">
                   <div className="w-14 h-14 rounded-2xl bg-brand-cyan/10 flex items-center justify-center">
-                    <Sparkles className="w-7 h-7 text-brand-cyan" />
+                    <Sparkles className="w-7 h-7 text-brand-cyan flex-shrink-0" aria-hidden="true" />
                   </div>
                   <div>
                     <p className="font-semibold text-slate-800 dark:text-white text-base">Generate AI Summary</p>
@@ -286,9 +287,9 @@ export default function SummaryModal({
                   </div>
                   <button
                     onClick={onGenerateSummary}
-                    className="btn-primary gap-2 min-h-[48px] px-6 rounded-xl"
+                    className="btn-primary gap-2 min-h-[48px] px-6 rounded-xl inline-flex items-center justify-center"
                   >
-                    <Sparkles className="w-4 h-4" />
+                    <Sparkles className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                     Generate Summary
                   </button>
                 </div>
@@ -300,7 +301,7 @@ export default function SummaryModal({
                   <div className="relative w-14 h-14">
                     <div className="absolute inset-0 rounded-full border-4 border-brand-cyan-light dark:border-brand-cyan/20" />
                     <div className="absolute inset-0 rounded-full border-4 border-brand-cyan border-t-transparent animate-spin" />
-                    <Sparkles className="absolute inset-0 m-auto w-5 h-5 text-brand-cyan" />
+                    <Sparkles className="absolute inset-0 m-auto w-5 h-5 text-brand-cyan flex-shrink-0" aria-hidden="true" />
                   </div>
                   <p className="text-slate-600 dark:text-slate-300 font-semibold text-sm">
                     Sanjivani AI is synthesizing your clinical summary…
@@ -346,9 +347,9 @@ export default function SummaryModal({
                     </span>
                     <button
                       onClick={onGenerateSummary}
-                      className="btn-ghost text-xs gap-1.5 min-h-[36px] px-3 border border-surface-border dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+                      className="btn-ghost text-xs gap-1.5 min-h-[36px] px-3 border border-surface-border dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 inline-flex items-center justify-center"
                     >
-                      <Sparkles className="w-3.5 h-3.5 text-brand-cyan" />
+                      <Sparkles className="w-3.5 h-3.5 text-brand-cyan flex-shrink-0" aria-hidden="true" />
                       Regenerate
                     </button>
                   </div>
@@ -426,7 +427,7 @@ export default function SummaryModal({
               {/* Empty State */}
               {!hasClinicalData && !hasDocuments && !hasConversation && (
                 <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-                  <MessageSquare className="w-10 h-10 text-slate-200 dark:text-slate-700" />
+                  <MessageSquare className="w-10 h-10 text-slate-200 dark:text-slate-700 flex-shrink-0" aria-hidden="true" />
                   <p className="text-slate-400 dark:text-slate-500 text-sm">No session data collected yet.</p>
                   <p className="text-xs text-slate-300 dark:text-slate-600">Start chatting or scan a document to see details here.</p>
                 </div>
@@ -440,7 +441,11 @@ export default function SummaryModal({
           <p className="text-[11px] text-slate-400 dark:text-slate-500">
             Generated by Sanjivani AI — Ministry of Ayush · SIH 2026
           </p>
-          <button onClick={onClose} className="btn-primary text-xs min-h-[40px] px-5">
+          <button
+            onClick={onClose}
+            className="btn-primary text-xs min-h-[40px] px-5 inline-flex items-center justify-center gap-2"
+          >
+            <Check className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
             Done
           </button>
         </div>

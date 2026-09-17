@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, Loader2, Save, User as UserIcon } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ClipboardList, Loader2, Save, User as UserIcon } from 'lucide-react'
 import type { LanguageCode, User } from '../types'
 import BrandLogo from './BrandLogo'
 import LanguageSelector from './LanguageSelector'
@@ -43,8 +43,9 @@ export default function Header({
               onClick={onBackToDashboard}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-surface-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition-colors"
               title="Return to Dashboard"
+              aria-label={t.header.dashboard}
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
               <span className="hidden sm:inline">{t.header.dashboard}</span>
             </button>
           )}
@@ -79,13 +80,13 @@ export default function Header({
           {abhaLinked ? (
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full
                             bg-brand-mint-light dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-transparent dark:border-emerald-800/50 text-xs font-semibold">
-              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
               <span>{t.header.abhaLinked}: {abhaId ?? 'Linked'}</span>
             </div>
           ) : (
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full
                             bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-medium">
-              <UserIcon className="w-3.5 h-3.5 flex-shrink-0" />
+              <UserIcon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
               <span>{t.header.walkInPatient}</span>
             </div>
           )}
@@ -98,8 +99,9 @@ export default function Header({
                          bg-white dark:bg-slate-800 hover:bg-surface-muted dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold
                          transition-colors duration-150 min-h-[40px]"
               title="View & Edit Patient Profile"
+              aria-label={t.header.profile}
             >
-              <UserIcon className="w-3.5 h-3.5 text-brand-cyan flex-shrink-0" />
+              <UserIcon className="w-3.5 h-3.5 text-brand-cyan flex-shrink-0" aria-hidden="true" />
               <span className="hidden sm:inline">{t.header.profile}</span>
             </button>
           )}
@@ -115,10 +117,11 @@ export default function Header({
 
           {/* Summary Button */}
           <button
-            className="btn-secondary text-xs hidden sm:flex min-h-[40px]"
+            className="btn-secondary text-xs hidden sm:flex items-center gap-1.5 min-h-[40px]"
             onClick={onSummaryOpen}
           >
-            {t.header.viewSummary}
+            <ClipboardList className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+            <span>{t.header.viewSummary}</span>
           </button>
 
           {/* Submit Details Button (Save to Health Record) */}
@@ -130,12 +133,12 @@ export default function Header({
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" aria-hidden="true" />
                   <span>{t.header.saving}</span>
                 </>
               ) : (
                 <>
-                  <Save className="w-3.5 h-3.5" />
+                  <Save className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
                   <span>{t.header.submitDetails}</span>
                 </>
               )}

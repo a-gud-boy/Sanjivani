@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Globe, ChevronDown } from 'lucide-react'
+import { Globe, ChevronDown, Check } from 'lucide-react'
 import { LANGUAGES, type Language, type LanguageCode } from '../types'
 
 interface LanguageSelectorProps {
@@ -53,18 +53,19 @@ export default function LanguageSelector({
         aria-expanded={dropdownOpen}
         aria-label="Change language"
       >
-        <Globe className="w-3.5 h-3.5 text-brand-cyan flex-shrink-0" />
+        <Globe className="w-3.5 h-3.5 text-brand-cyan flex-shrink-0" aria-hidden="true" />
         <span className="font-medium text-slate-800 dark:text-slate-100">{currentLang.nativeLabel}</span>
         <ChevronDown
-          className={`w-3 h-3 text-slate-400 dark:text-slate-500 transition-transform duration-150 ${
+          className={`w-3 h-3 text-slate-400 dark:text-slate-500 transition-transform duration-150 flex-shrink-0 ${
             dropdownOpen ? 'rotate-180' : ''
           }`}
+          aria-hidden="true"
         />
       </button>
 
       {dropdownOpen && (
         <div
-          className="absolute right-0 mt-1.5 w-44 bg-white dark:bg-slate-900 rounded-2xl shadow-xl
+          className="absolute right-0 mt-1.5 w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-xl
                      border border-surface-border dark:border-slate-750 overflow-hidden z-50 animate-fade-in py-1"
           role="listbox"
         >
@@ -84,7 +85,12 @@ export default function LanguageSelector({
               onClick={() => handleSelect(lang)}
             >
               <span className="font-medium">{lang.nativeLabel}</span>
-              <span className="text-[11px] text-slate-400 dark:text-slate-500">{lang.label}</span>
+              <div className="flex items-center gap-1.5 ml-auto">
+                <span className="text-[11px] text-slate-400 dark:text-slate-500">{lang.label}</span>
+                {lang.code === language && (
+                  <Check className="w-3.5 h-3.5 text-brand-cyan ml-auto flex-shrink-0" aria-hidden="true" />
+                )}
+              </div>
             </button>
           ))}
         </div>

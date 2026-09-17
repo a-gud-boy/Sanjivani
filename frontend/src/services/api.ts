@@ -6,7 +6,6 @@ import type {
   ChatInitApiResponse,
   ClinicalHistoryRecord,
   LanguageCode,
-  OCRStructuredResult,
   ScanApiResponse,
   ScannedDocument,
   SummarizeApiResponse,

@@ -3,6 +3,7 @@ import {
   User as UserIcon,
   Stethoscope,
   ShieldCheck,
+  ArrowLeft,
   ArrowRight,
   KeyRound,
   AlertCircle,
@@ -158,7 +159,7 @@ export default function LoginPage({
             }}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-brand-cyan dark:text-cyan-300 bg-brand-cyan/10 dark:bg-cyan-950/60 hover:bg-brand-cyan/20 dark:hover:bg-cyan-900/50 border border-transparent dark:border-cyan-800/60 rounded-xl transition-colors min-h-[38px]"
           >
-            <UserPlus className="w-3.5 h-3.5" />
+            <UserPlus className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
             <span>{t.auth.register}</span>
           </button>
         </div>
@@ -194,7 +195,7 @@ export default function LoginPage({
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <UserIcon className="w-4 h-4" />
+                <UserIcon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 <span>{t.auth.patientRoleTag}</span>
               </button>
               <button
@@ -206,7 +207,7 @@ export default function LoginPage({
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <Stethoscope className="w-4 h-4" />
+                <Stethoscope className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                 <span>{t.auth.doctorRoleTag}</span>
               </button>
             </div>
@@ -251,13 +252,13 @@ export default function LoginPage({
                 >
                   {loading ? (
                     <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <RefreshCw className="w-4 h-4 animate-spin flex-shrink-0" aria-hidden="true" />
                       <span>{t.auth.sendingOtp}</span>
                     </>
                   ) : (
                     <>
                       <span>{role === 'doctor' ? t.auth.doctorRequestOtp : t.auth.requestOtp}</span>
-                      <ArrowRight className="w-4 h-4" />
+                      <ArrowRight className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                     </>
                   )}
                 </button>
@@ -277,9 +278,10 @@ export default function LoginPage({
                     <button
                       type="button"
                       onClick={() => setOtpSent(false)}
-                      className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 underline font-medium"
+                      className="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 underline font-medium"
                     >
-                      {role === 'doctor' ? t.auth.changeHpId : t.auth.changeAbha}
+                      <ArrowLeft className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                      <span>{role === 'doctor' ? t.auth.changeHpId : t.auth.changeAbha}</span>
                     </button>
                   </div>
                   {maskedPhone && (
@@ -311,12 +313,12 @@ export default function LoginPage({
                 >
                   {loading ? (
                     <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <RefreshCw className="w-4 h-4 animate-spin flex-shrink-0" aria-hidden="true" />
                       <span>{t.auth.verifying}</span>
                     </>
                   ) : (
                     <>
-                      <CheckCircle2 className="w-4 h-4" />
+                      <CheckCircle2 className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                       <span>{t.auth.verifyAndEnter}</span>
                     </>
                   )}
@@ -350,7 +352,7 @@ export default function LoginPage({
                   }}
                   className="w-full py-2.5 px-3 text-xs font-bold text-brand-cyan dark:text-cyan-300 bg-white dark:bg-slate-800 hover:bg-brand-cyan/10 dark:hover:bg-cyan-900/40 border border-brand-cyan/30 dark:border-cyan-700/60 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5"
                 >
-                  <UserPlus className="w-3.5 h-3.5" />
+                  <UserPlus className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
                   <span>
                     {role === 'doctor'
                       ? t.auth.registerDoctorButton

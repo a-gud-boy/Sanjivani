@@ -111,7 +111,7 @@ python run.py --no-vllm
 > **Why `--no-vllm`?**
 > The `vLLM` inference library relies on Linux-specific kernel interfaces and does not run natively on Windows bare-metal.
 > Using `--no-vllm` starts:
-> 1. SQLite database sync & demo data seeding
+> 1. SQLite database sync & schema initialization
 > 2. FastAPI backend on `http://localhost:8000`
 > 3. React Vite frontend on `http://localhost:5173`
 > 4. Cloud AI (Gemini Flash) or the resilient clinical reasoning engine
@@ -177,15 +177,15 @@ If you use Docker Desktop:
 
 ---
 
-## 🔑 ABHA Registration & Login
+## 🔑 Registration & Login (ABHA & HP ID)
 
 Once the application is running at [http://localhost:5173](http://localhost:5173):
 
-1. Click **"Register"** or **"Register & Create ABHA ID"** on the login screen.
-2. Choose **Patient** or **Doctor** enrollment.
-3. Click **"Auto-Generate"** to create a valid 14-digit ABHA ID (`14-XXXX-XXXX-XXXX`).
-4. Complete enrollment to receive your digital ABHA ID card.
-5. Sign in immediately or use the sandbox OTP (`123456`).
+1. Click **"Register"** on the login screen.
+2. Select **Patient Registration** (generates 14-digit ABHA ID `14-XXXX-XXXX-XXXX`) or **Doctor Registration** (generates 10-digit HP ID `HP-XXXX-XXXX`).
+3. Complete registration to receive your digital health card or clinical credentials.
+4. On login, enter your ABHA ID or HP ID to dispatch a secure 6-digit OTP (automatically printed in your backend terminal console during development).
+5. Enter the OTP code to access the Patient Dashboard or Doctor Clinical Portal.
 
 ---
 
