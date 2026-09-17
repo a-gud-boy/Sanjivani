@@ -1,10 +1,11 @@
 from fastapi.testclient import TestClient
 from app.main import app
+from app.api.auth import get_active_otp
 
 client = TestClient(app)
 
 TEST_PATIENT_ABHA = "14-5555-4444-3333"
-TEST_DOCTOR_ABHA = "14-8888-7777-6666"
+TEST_DOCTOR_HP_ID = "HP-KA-99881"
 
 
 def _ensure_test_patient() -> dict:
@@ -32,11 +33,10 @@ def _ensure_test_patient() -> dict:
 
 def _ensure_test_doctor() -> dict:
     resp = client.post(
-        "/api/v1/auth/register",
+        "/api/v1/auth/doctor/register",
         json={
-            "user_type": "doctor",
             "name": "Dr. Amit Verma",
-            "abha_id": TEST_DOCTOR_ABHA,
+            "hp_id": TEST_DOCTOR_HP_ID,
             "phone": "9876543299",
             "specialization": "Panchakarma",
             "license_no": "AYUSH-KA-2024-9988",
@@ -47,11 +47,11 @@ def _ensure_test_doctor() -> dict:
         return resp.json()["user"]
     # If already exists, verify via request-otp
     otp_resp = client.post(
-        "/api/v1/auth/request-otp",
-        json={"abha_id": TEST_DOCTOR_ABHA, "user_type": "doctor"},
+        "/api/v1/auth/doctor/request-otp",
+        json={"hp_id": TEST_DOCTOR_HP_ID},
     )
     assert otp_resp.status_code == 200
-    return {"name": "Dr. Amit Verma", "abha_id": TEST_DOCTOR_ABHA}
+    return {"name": "Dr. Amit Verma", "hp_id": TEST_DOCTOR_HP_ID}
 
 
 def test_auth_register_patient_success():
@@ -98,11 +98,10 @@ def test_auth_register_duplicate_abha_fails():
 
 def test_auth_register_doctor_success():
     resp = client.post(
-        "/api/v1/auth/register",
+        "/api/v1/auth/doctor/register",
         json={
-            "user_type": "doctor",
             "name": "Dr. Amit Verma",
-            "abha_id": TEST_DOCTOR_ABHA,
+            "hp_id": TEST_DOCTOR_HP_ID,
             "phone": "9876543299",
             "specialization": "Panchakarma",
             "license_no": "AYUSH-KA-2024-9988",
@@ -114,34 +113,43 @@ def test_auth_register_doctor_success():
         data = resp.json()
         assert data["status"] == "success"
         assert data["user"]["name"] == "Dr. Amit Verma"
-        assert data["user"]["doctor_details"]["license_no"] == "AYUSH-KA-2024-9988"
-        assert data["user"]["doctor_details"]["specialization"] == "Panchakarma"
+        assert data["user"]["hp_id"] == TEST_DOCTOR_HP_ID
+        assert data["user"]["specialization"] == "Panchakarma"
+        assert data["user"]["license_no"] == "AYUSH-KA-2024-9988"
 
 
 def test_auth_request_otp_patient_success():
     _ensure_test_patient()
     resp = client.post(
-        "/api/v1/auth/request-otp",
-        json={"abha_id": TEST_PATIENT_ABHA, "user_type": "patient"},
+        "/api/v1/auth/patient/request-otp",
+        json={"abha_id": TEST_PATIENT_ABHA},
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "success"
     assert data["user_name"] == "Suresh Kumar"
-    assert data["simulated_otp"] == "123456"
+    otp = get_active_otp(TEST_PATIENT_ABHA)
+    assert otp is not None
+    assert len(otp) == 6
+    assert otp.isdigit()
 
 
 def test_auth_request_otp_doctor_success():
     _ensure_test_doctor()
     resp = client.post(
-        "/api/v1/auth/request-otp",
-        json={"abha_id": TEST_DOCTOR_ABHA, "user_type": "doctor"},
+        "/api/v1/auth/doctor/request-otp",
+        json={"hp_id": TEST_DOCTOR_HP_ID},
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "success"
     assert data["user_name"] == "Dr. Amit Verma"
-    assert data["simulated_otp"] == "123456"
+    assert data["hp_id"] == TEST_DOCTOR_HP_ID
+    otp = get_active_otp(TEST_DOCTOR_HP_ID)
+    assert otp is not None
+    assert len(otp) == 6
+    assert otp.isdigit()
+
 
 
 def test_auth_request_otp_unregistered_fails():
@@ -155,11 +163,20 @@ def test_auth_request_otp_unregistered_fails():
 
 def test_auth_verify_otp_success():
     _ensure_test_patient()
+    # Request OTP first to generate real active OTP
+    req_resp = client.post(
+        "/api/v1/auth/patient/request-otp",
+        json={"abha_id": TEST_PATIENT_ABHA},
+    )
+    assert req_resp.status_code == 200
+    real_otp = get_active_otp(TEST_PATIENT_ABHA)
+    assert real_otp is not None
+
     resp = client.post(
         "/api/v1/auth/verify-otp",
         json={
             "abha_id": TEST_PATIENT_ABHA,
-            "otp": "123456",
+            "otp": real_otp,
             "user_type": "patient",
         },
     )

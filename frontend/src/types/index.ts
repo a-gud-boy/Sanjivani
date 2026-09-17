@@ -198,48 +198,76 @@ export interface IntakeState {
 
 export type UserType = 'patient' | 'doctor'
 
-export interface User {
+export interface PatientDetails {
+  blood_group?: string
+  dob?: string
+  address_line?: string
+  city?: string
+  state?: string
+  pincode?: string
+  occupation?: string
+  marital_status?: string
+  preferred_language?: string
+  allergies?: string[]
+  chronic_conditions?: string[]
+  ayush_prakriti?: string
+  emergency_contact?: {
+    name?: string
+    relation?: string
+    phone?: string
+  }
+  address?: string
+  [key: string]: unknown
+}
+
+export interface DoctorDetails {
+  specialization?: string
+  hospital?: string
+  department?: string
+  license_no?: string
+  qualifications?: string
+  duty_status?: string
+  opd_hours?: string
+  [key: string]: unknown
+}
+
+export interface Patient {
   id: string
   abha_id: string
-  hp_id?: string | null  // Health Professional ID — populated for doctor accounts
-  user_type: UserType
+  user_type: 'patient'
   name: string
   gender?: string | null
   age_years?: number | null
   phone?: string | null
   email?: string | null
-  patient_details?: {
-    blood_group?: string
-    dob?: string
-    address_line?: string
-    city?: string
-    state?: string
-    pincode?: string
-    occupation?: string
-    marital_status?: string
-    preferred_language?: string
-    allergies?: string[]
-    chronic_conditions?: string[]
-    ayush_prakriti?: string
-    emergency_contact?: {
-      name?: string
-      relation?: string
-      phone?: string
-    }
-    address?: string
-    [key: string]: unknown
-  } | null
-  doctor_details?: {
-    specialization?: string
-    hospital?: string
-    department?: string
-    license_no?: string
-    qualifications?: string
-    duty_status?: string
-    opd_hours?: string
-    [key: string]: unknown
-  } | null
+  patient_details?: PatientDetails | null
+  doctor_details?: null
+  hp_id?: null
 }
+
+export interface Doctor {
+  id: string
+  hp_id: string
+  user_type: 'doctor'
+  name: string
+  gender?: string | null
+  age_years?: number | null
+  phone?: string | null
+  email?: string | null
+  specialization?: string
+  license_no?: string
+  hospital?: string
+  department?: string
+  qualifications?: string
+  duty_status?: string
+  opd_hours?: string
+  doctor_details?: DoctorDetails | null
+  patient_details?: null
+  abha_id?: never  // Strict compile-time guard: Doctors NEVER have an ABHA ID!
+}
+
+export type User = Patient | Doctor
+
 
 
 export interface SavedIntakeSession {

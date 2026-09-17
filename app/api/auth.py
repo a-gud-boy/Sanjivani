@@ -1,7 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
+import secrets
+import time
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Header, status
 from pydantic import BaseModel, Field
@@ -9,102 +11,50 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
-from app.db.models import User
+from app.db.models import Doctor, Patient
 
 logger = logging.getLogger("sanjivani.api.auth")
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-# ── Pydantic Request & Response Schemas ────────────────────────────────────────
-
-class RequestOtpRequest(BaseModel):
-    abha_id: Optional[str] = Field(default=None, description="14-digit ABHA ID for patients (e.g. 14-XXXX-XXXX-XXXX)")
-    hp_id: Optional[str] = Field(default=None, description="HP ID (Health Professional ID) for doctors")
-    user_type: str = Field(default="patient", description="'patient' or 'doctor'")
+# ── In-Memory Active OTP Cache (Production Ready, 10 min TTL) ─────────────────
+_ACTIVE_OTPS: Dict[str, Tuple[str, float]] = {}
+OTP_EXPIRY_SECONDS = 600.0  # 10 minutes
 
 
-class RequestOtpResponse(BaseModel):
-    status: str
-    message: str
-    masked_phone: Optional[str] = None
-    simulated_otp: str
-    abha_id: str
-    hp_id: Optional[str] = None  # Health Professional ID — set for doctor accounts
-    user_name: str
-    user_type: str
+def _generate_and_store_otp(identifier: str) -> str:
+    """Generate a secure 6-digit numeric OTP and record expiration."""
+    clean_id = identifier.strip()
+    code = f"{secrets.randbelow(900000) + 100000}"
+    _ACTIVE_OTPS[clean_id] = (code, time.time() + OTP_EXPIRY_SECONDS)
+    logger.info("Generated real verification OTP for '%s': %s (TTL: 10m)", clean_id, code)
+    return code
 
 
+def _verify_and_consume_otp(identifier: str, submitted_otp: str) -> bool:
+    """Verify submitted OTP using constant-time check and invalidate immediately upon verification."""
+    clean_id = identifier.strip()
+    clean_otp = submitted_otp.strip()
+    if clean_id not in _ACTIVE_OTPS:
+        return False
+    stored_code, expires_at = _ACTIVE_OTPS[clean_id]
+    if time.time() > expires_at:
+        _ACTIVE_OTPS.pop(clean_id, None)
+        return False
+    if secrets.compare_digest(stored_code, clean_otp):
+        _ACTIVE_OTPS.pop(clean_id, None)
+        return True
+    return False
 
 
-class VerifyOtpRequest(BaseModel):
-    abha_id: Optional[str] = Field(default=None, description="14-digit ABHA ID for patients")
-    hp_id: Optional[str] = Field(default=None, description="HP ID (Health Professional ID) for doctors")
-    otp: str = Field(..., description="6-digit verification code")
-    user_type: str = Field(default="patient", description="'patient' or 'doctor'")
-
-
-
-class UserProfileResponse(BaseModel):
-    id: str
-    abha_id: str
-    hp_id: Optional[str] = None  # Health Professional ID — populated for doctor accounts
-    user_type: str
-    name: str
-    gender: Optional[str] = None
-    age_years: Optional[int] = None
-    phone: Optional[str] = None
-    email: Optional[str] = None
-    patient_details: Optional[Dict[str, Any]] = None
-    doctor_details: Optional[Dict[str, Any]] = None
-
-
-
-class VerifyOtpResponse(BaseModel):
-    status: str
-    token: str
-    user: UserProfileResponse
-
-
-class RegisterRequest(BaseModel):
-    user_type: str = Field(default="patient", description="'patient' or 'doctor'")
-    name: str = Field(..., min_length=2, description="Full legal name of the user")
-    abha_id: Optional[str] = Field(default=None, min_length=8, description="14-digit ABHA Health ID (patients)")
-    hp_id: Optional[str] = Field(default=None, min_length=4, description="Health Professional ID — HP ID (doctors)")
-    phone: Optional[str] = None
-    email: Optional[str] = None
-    gender: Optional[str] = Field(default="Male", description="'Male', 'Female', or 'Other'")
-    age_years: Optional[int] = None
-    dob: Optional[str] = None
-
-    # Patient demographics
-    blood_group: Optional[str] = None
-    address_line: Optional[str] = None
-    city: Optional[str] = None
-    state: Optional[str] = None
-    pincode: Optional[str] = None
-    emergency_contact_name: Optional[str] = None
-    emergency_contact_phone: Optional[str] = None
-    emergency_contact_relation: Optional[str] = None
-
-    # Doctor credentials
-    specialization: Optional[str] = None
-    license_no: Optional[str] = None
-    hospital: Optional[str] = None
-    department: Optional[str] = None
-    qualifications: Optional[str] = None
-
-
-
-
-class RegisterResponse(BaseModel):
-    status: str
-    message: str
-    user_type: str
-    abha_id: str
-    hp_id: Optional[str] = None  # Health Professional ID — set for doctor registrations
-    token: Optional[str] = None
-    user: Optional[UserProfileResponse] = None
-
+def get_active_otp(identifier: str) -> Optional[str]:
+    """Helper to inspect current active OTP for automated tests."""
+    clean_id = identifier.strip()
+    if clean_id in _ACTIVE_OTPS:
+        code, expires_at = _ACTIVE_OTPS[clean_id]
+        if time.time() <= expires_at:
+            return code
+    return None
 
 
 # ── Helper util ────────────────────────────────────────────────────────────────
@@ -115,7 +65,557 @@ def mask_phone(phone: Optional[str]) -> Optional[str]:
     return f"+91 ******{phone[-4:]}"
 
 
-# ── Endpoints ──────────────────────────────────────────────────────────────────
+# ── Patient Schemas (ABHA ID based) ───────────────────────────────────────────
+
+class PatientRequestOtpRequest(BaseModel):
+    abha_id: str = Field(..., description="14-digit ABHA ID (e.g. 14-XXXX-XXXX-XXXX)")
+
+
+class PatientRequestOtpResponse(BaseModel):
+    status: str = "success"
+    message: str
+    masked_phone: Optional[str] = None
+    abha_id: str
+    user_name: str
+    user_type: str = "patient"
+
+
+class PatientVerifyOtpRequest(BaseModel):
+    abha_id: str = Field(..., description="14-digit ABHA ID")
+    otp: str = Field(..., description="6-digit verification code")
+
+
+class PatientProfileResponse(BaseModel):
+    id: str
+    abha_id: str
+    user_type: str = "patient"
+    name: str
+    gender: Optional[str] = None
+    age_years: Optional[int] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    patient_details: Optional[Dict[str, Any]] = None
+
+
+class PatientVerifyOtpResponse(BaseModel):
+    status: str = "success"
+    token: str
+    user: PatientProfileResponse
+
+
+class PatientRegisterRequest(BaseModel):
+    name: str = Field(..., min_length=2, description="Full legal name of the patient")
+    abha_id: str = Field(..., min_length=8, description="14-digit ABHA Health ID")
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    gender: Optional[str] = Field(default="Male", description="'Male', 'Female', or 'Other'")
+    age_years: Optional[int] = None
+    dob: Optional[str] = None
+
+    # Patient demographics & baseline
+    blood_group: Optional[str] = None
+    address_line: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    emergency_contact_relation: Optional[str] = None
+
+
+class PatientRegisterResponse(BaseModel):
+    status: str = "success"
+    message: str
+    user_type: str = "patient"
+    abha_id: str
+    token: Optional[str] = None
+    user: Optional[PatientProfileResponse] = None
+
+
+# ── Doctor Schemas (HP ID based — ZERO mention or existence of ABHA ID) ────────
+
+class DoctorRequestOtpRequest(BaseModel):
+    hp_id: str = Field(..., description="Health Professional ID (e.g. HP-MH-84729)")
+
+
+class DoctorRequestOtpResponse(BaseModel):
+    status: str = "success"
+    message: str
+    masked_phone: Optional[str] = None
+    hp_id: str
+    user_name: str
+    user_type: str = "doctor"
+
+
+class DoctorVerifyOtpRequest(BaseModel):
+    hp_id: str = Field(..., description="Health Professional ID (HP ID)")
+    otp: str = Field(..., description="6-digit verification code")
+
+
+class DoctorProfileResponse(BaseModel):
+    id: str
+    hp_id: str
+    user_type: str = "doctor"
+    name: str
+    gender: Optional[str] = None
+    age_years: Optional[int] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    specialization: Optional[str] = None
+    license_no: Optional[str] = None
+    hospital: Optional[str] = None
+    department: Optional[str] = None
+    qualifications: Optional[str] = None
+    duty_status: Optional[str] = "On Duty"
+    opd_hours: Optional[str] = "09:00 AM - 04:00 PM"
+    doctor_details: Optional[Dict[str, Any]] = None
+
+
+class DoctorVerifyOtpResponse(BaseModel):
+    status: str = "success"
+    token: str
+    user: DoctorProfileResponse
+
+
+class DoctorRegisterRequest(BaseModel):
+    name: str = Field(..., min_length=2, description="Full legal name of the clinician")
+    hp_id: str = Field(..., min_length=4, description="Health Professional ID (HP ID)")
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    gender: Optional[str] = Field(default="Male", description="'Male', 'Female', or 'Other'")
+    age_years: Optional[int] = None
+    specialization: Optional[str] = None
+    license_no: Optional[str] = None
+    hospital: Optional[str] = None
+    department: Optional[str] = None
+    qualifications: Optional[str] = None
+
+
+class DoctorRegisterResponse(BaseModel):
+    status: str = "success"
+    message: str
+    user_type: str = "doctor"
+    hp_id: str
+    token: Optional[str] = None
+    user: Optional[DoctorProfileResponse] = None
+
+
+# ── Unified / Backward Compatibility Schemas ──────────────────────────────────
+
+class RequestOtpRequest(BaseModel):
+    abha_id: Optional[str] = Field(default=None, description="14-digit ABHA ID (patients)")
+    hp_id: Optional[str] = Field(default=None, description="HP ID (doctors)")
+    user_type: str = Field(default="patient", description="'patient' or 'doctor'")
+
+
+class RequestOtpResponse(BaseModel):
+    status: str = "success"
+    message: str
+    masked_phone: Optional[str] = None
+    abha_id: Optional[str] = None
+    hp_id: Optional[str] = None
+    user_name: str
+    user_type: str
+
+
+class VerifyOtpRequest(BaseModel):
+    abha_id: Optional[str] = Field(default=None, description="14-digit ABHA ID for patients")
+    hp_id: Optional[str] = Field(default=None, description="HP ID for doctors")
+    otp: str = Field(..., description="6-digit verification code")
+    user_type: str = Field(default="patient", description="'patient' or 'doctor'")
+
+
+class UserProfileResponse(BaseModel):
+    id: str
+    abha_id: Optional[str] = None
+    hp_id: Optional[str] = None
+    user_type: str
+    name: str
+    gender: Optional[str] = None
+    age_years: Optional[int] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    patient_details: Optional[Dict[str, Any]] = None
+    doctor_details: Optional[Dict[str, Any]] = None
+
+
+class VerifyOtpResponse(BaseModel):
+    status: str = "success"
+    token: str
+    user: UserProfileResponse
+
+
+class RegisterRequest(BaseModel):
+    user_type: str = Field(default="patient", description="'patient' or 'doctor'")
+    name: str = Field(..., min_length=2, description="Full legal name")
+    abha_id: Optional[str] = Field(default=None, description="14-digit ABHA ID (patients)")
+    hp_id: Optional[str] = Field(default=None, description="HP ID (doctors)")
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    gender: Optional[str] = Field(default="Male")
+    age_years: Optional[int] = None
+    dob: Optional[str] = None
+
+    # Patient fields
+    blood_group: Optional[str] = None
+    address_line: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    pincode: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    emergency_contact_relation: Optional[str] = None
+
+    # Doctor fields
+    specialization: Optional[str] = None
+    license_no: Optional[str] = None
+    hospital: Optional[str] = None
+    department: Optional[str] = None
+    qualifications: Optional[str] = None
+
+
+class RegisterResponse(BaseModel):
+    status: str = "success"
+    message: str
+    user_type: str
+    abha_id: Optional[str] = None
+    hp_id: Optional[str] = None
+    token: Optional[str] = None
+    user: Optional[UserProfileResponse] = None
+
+
+# ── Internal Auth Helpers ──────────────────────────────────────────────────────
+
+async def _process_patient_request_otp(db: AsyncSession, abha_id: str) -> PatientRequestOtpResponse:
+    clean_id = abha_id.strip()
+    stmt = select(Patient).where(Patient.abha_id == clean_id)
+    res = await db.execute(stmt)
+    patient = res.scalar_one_or_none()
+
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No patient account found with ABHA ID '{clean_id}'. Please check the ID or register a new account.",
+        )
+
+    _generate_and_store_otp(patient.abha_id)
+
+    return PatientRequestOtpResponse(
+        status="success",
+        message=f"6-digit authentication OTP dispatched to mobile linked with ABHA {clean_id}.",
+        masked_phone=mask_phone(patient.phone),
+        abha_id=patient.abha_id,
+        user_name=patient.name,
+        user_type="patient",
+    )
+
+
+async def _process_doctor_request_otp(db: AsyncSession, hp_id: str) -> DoctorRequestOtpResponse:
+    clean_id = hp_id.strip()
+    stmt = select(Doctor).where(Doctor.hp_id == clean_id)
+    res = await db.execute(stmt)
+    doctor = res.scalar_one_or_none()
+
+    if not doctor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No clinician account found with HP ID '{clean_id}'. Please check your HP ID or register via the Healthcare Professional Registry.",
+        )
+
+    _generate_and_store_otp(doctor.hp_id)
+
+    return DoctorRequestOtpResponse(
+        status="success",
+        message=f"6-digit authentication OTP dispatched to mobile linked with HP ID {clean_id}.",
+        masked_phone=mask_phone(doctor.phone),
+        hp_id=doctor.hp_id,
+        user_name=doctor.name,
+        user_type="doctor",
+    )
+
+
+async def _process_patient_verify_otp(db: AsyncSession, abha_id: str, otp: str) -> PatientVerifyOtpResponse:
+    clean_id = abha_id.strip()
+    clean_otp = otp.strip()
+
+    stmt = select(Patient).where(Patient.abha_id == clean_id)
+    res = await db.execute(stmt)
+    patient = res.scalar_one_or_none()
+
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Patient with ABHA ID '{clean_id}' not found.",
+        )
+
+    if not _verify_and_consume_otp(patient.abha_id, clean_otp):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OTP code. Please request a new OTP and try again.",
+        )
+
+    token = f"sanjivani-token-{uuid.uuid4()}"
+    profile = PatientProfileResponse(
+        id=patient.id,
+        abha_id=patient.abha_id,
+        user_type="patient",
+        name=patient.name,
+        gender=patient.gender,
+        age_years=patient.age_years,
+        phone=patient.phone,
+        email=patient.email,
+        patient_details=patient.patient_details,
+    )
+    return PatientVerifyOtpResponse(status="success", token=token, user=profile)
+
+
+async def _process_doctor_verify_otp(db: AsyncSession, hp_id: str, otp: str) -> DoctorVerifyOtpResponse:
+    clean_id = hp_id.strip()
+    clean_otp = otp.strip()
+
+    stmt = select(Doctor).where(Doctor.hp_id == clean_id)
+    res = await db.execute(stmt)
+    doctor = res.scalar_one_or_none()
+
+    if not doctor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Clinician with HP ID '{clean_id}' not found.",
+        )
+
+    if not _verify_and_consume_otp(doctor.hp_id, clean_otp):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OTP code. Please request a new OTP and try again.",
+        )
+
+    token = f"sanjivani-token-{uuid.uuid4()}"
+    profile = DoctorProfileResponse(
+        id=doctor.id,
+        hp_id=doctor.hp_id,
+        user_type="doctor",
+        name=doctor.name,
+        gender=doctor.gender,
+        age_years=doctor.age_years,
+        phone=doctor.phone,
+        email=doctor.email,
+        specialization=doctor.specialization,
+        license_no=doctor.license_no,
+        hospital=doctor.hospital,
+        department=doctor.department,
+        qualifications=doctor.qualifications,
+        duty_status=doctor.duty_status,
+        opd_hours=doctor.opd_hours,
+        doctor_details=doctor.doctor_details,
+    )
+    return DoctorVerifyOtpResponse(status="success", token=token, user=profile)
+
+
+async def _process_patient_register(db: AsyncSession, payload: PatientRegisterRequest) -> PatientRegisterResponse:
+    clean_abha = payload.abha_id.strip()
+    clean_name = payload.name.strip()
+
+    existing_stmt = select(Patient).where(Patient.abha_id == clean_abha)
+    existing_res = await db.execute(existing_stmt)
+    if existing_res.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"An account with ABHA ID '{clean_abha}' already exists. Please sign in.",
+        )
+
+    calc_dob = payload.dob
+    if not calc_dob and payload.age_years:
+        calc_dob = f"{datetime.now(timezone.utc).year - payload.age_years}-01-01"
+
+    patient_details = {
+        "blood_group": payload.blood_group or "O+",
+        "dob": calc_dob or "1995-01-01",
+        "emergency_contact": {
+            "name": payload.emergency_contact_name or "Family Member",
+            "phone": payload.emergency_contact_phone or (payload.phone or "9876543210"),
+            "relation": payload.emergency_contact_relation or "Guardian",
+        },
+        "address_line": payload.address_line or "Registered Address",
+        "city": payload.city or "New Delhi",
+        "state": payload.state or "Delhi",
+        "pincode": payload.pincode or "110001",
+        "occupation": "Self-Enrolled Citizen",
+        "marital_status": "Single",
+        "preferred_language": "English / Hindi",
+        "allergies": [],
+        "chronic_conditions": [],
+        "ayush_prakriti": None,
+    }
+
+    user_id = f"patient-{str(uuid.uuid4())[:8]}"
+    suffix = clean_abha.replace("-", "").replace("/", "")[-6:]
+    new_patient = Patient(
+        id=user_id,
+        abha_id=clean_abha,
+        name=clean_name,
+        gender=payload.gender or "Male",
+        age_years=payload.age_years or 30,
+        phone=payload.phone or "9876543210",
+        email=payload.email or f"{suffix}@abha.gov.in",
+        patient_details=patient_details,
+    )
+
+    db.add(new_patient)
+    await db.commit()
+    await db.refresh(new_patient)
+
+    session_token = f"sanjivani-token-{uuid.uuid4()}"
+    profile = PatientProfileResponse(
+        id=new_patient.id,
+        abha_id=new_patient.abha_id,
+        user_type="patient",
+        name=new_patient.name,
+        gender=new_patient.gender,
+        age_years=new_patient.age_years,
+        phone=new_patient.phone,
+        email=new_patient.email,
+        patient_details=new_patient.patient_details,
+    )
+
+    logger.info("Successfully registered new Patient: %s (ABHA: %s)", clean_name, clean_abha)
+
+    return PatientRegisterResponse(
+        status="success",
+        message=f"ABHA profile for {new_patient.name} successfully registered in National Health Database.",
+        user_type="patient",
+        abha_id=new_patient.abha_id,
+        token=session_token,
+        user=profile,
+    )
+
+
+async def _process_doctor_register(db: AsyncSession, payload: DoctorRegisterRequest) -> DoctorRegisterResponse:
+    clean_hp = payload.hp_id.strip()
+    clean_name = payload.name.strip()
+
+    existing_stmt = select(Doctor).where(Doctor.hp_id == clean_hp)
+    existing_res = await db.execute(existing_stmt)
+    if existing_res.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"An account with HP ID '{clean_hp}' already exists. Please sign in.",
+        )
+
+    clean_license = payload.license_no or f"HP-REG-{clean_hp.replace('-', '').replace('/', '')[-6:].upper()}"
+    doctor_details = {
+        "duty_status": "On Duty",
+        "opd_hours": "09:00 AM - 04:00 PM",
+    }
+
+    user_id = f"doctor-{str(uuid.uuid4())[:8]}"
+    suffix = clean_hp.replace("-", "").replace("/", "")[-6:]
+    new_doctor = Doctor(
+        id=user_id,
+        hp_id=clean_hp,
+        name=clean_name,
+        gender=payload.gender or "Male",
+        age_years=payload.age_years or 35,
+        phone=payload.phone or "9876543210",
+        email=payload.email or f"{suffix}@hp.gov.in",
+        specialization=payload.specialization or "Ayurvedic Medicine & Clinical Intake",
+        license_no=clean_license,
+        hospital=payload.hospital or "All India Institute of Ayurveda (AIIA)",
+        department=payload.department or "Kayachikitsa (Internal Medicine)",
+        qualifications=payload.qualifications or "BAMS, MD (Ayurveda)",
+        duty_status="On Duty",
+        opd_hours="09:00 AM - 04:00 PM",
+        doctor_details=doctor_details,
+    )
+
+    db.add(new_doctor)
+    await db.commit()
+    await db.refresh(new_doctor)
+
+    session_token = f"sanjivani-token-{uuid.uuid4()}"
+    profile = DoctorProfileResponse(
+        id=new_doctor.id,
+        hp_id=new_doctor.hp_id,
+        user_type="doctor",
+        name=new_doctor.name,
+        gender=new_doctor.gender,
+        age_years=new_doctor.age_years,
+        phone=new_doctor.phone,
+        email=new_doctor.email,
+        specialization=new_doctor.specialization,
+        license_no=new_doctor.license_no,
+        hospital=new_doctor.hospital,
+        department=new_doctor.department,
+        qualifications=new_doctor.qualifications,
+        duty_status=new_doctor.duty_status,
+        opd_hours=new_doctor.opd_hours,
+        doctor_details=new_doctor.doctor_details,
+    )
+
+    logger.info("Successfully registered new Doctor: %s (HP ID: %s)", clean_name, clean_hp)
+
+    return DoctorRegisterResponse(
+        status="success",
+        message=f"Healthcare Professional profile for {new_doctor.name} successfully registered in HPR Registry.",
+        user_type="doctor",
+        hp_id=new_doctor.hp_id,
+        token=session_token,
+        user=profile,
+    )
+
+
+# ── Dedicated Patient Routes ───────────────────────────────────────────────────
+
+@router.post("/patient/request-otp", response_model=PatientRequestOtpResponse)
+async def patient_request_otp(
+    payload: PatientRequestOtpRequest,
+    db: AsyncSession = Depends(get_db),
+) -> PatientRequestOtpResponse:
+    return await _process_patient_request_otp(db, payload.abha_id)
+
+
+@router.post("/patient/verify-otp", response_model=PatientVerifyOtpResponse)
+async def patient_verify_otp(
+    payload: PatientVerifyOtpRequest,
+    db: AsyncSession = Depends(get_db),
+) -> PatientVerifyOtpResponse:
+    return await _process_patient_verify_otp(db, payload.abha_id, payload.otp)
+
+
+@router.post("/patient/register", response_model=PatientRegisterResponse, status_code=status.HTTP_201_CREATED)
+async def patient_register(
+    payload: PatientRegisterRequest,
+    db: AsyncSession = Depends(get_db),
+) -> PatientRegisterResponse:
+    return await _process_patient_register(db, payload)
+
+
+# ── Dedicated Doctor Routes (ZERO mention of ABHA ID) ──────────────────────────
+
+@router.post("/doctor/request-otp", response_model=DoctorRequestOtpResponse)
+async def doctor_request_otp(
+    payload: DoctorRequestOtpRequest,
+    db: AsyncSession = Depends(get_db),
+) -> DoctorRequestOtpResponse:
+    return await _process_doctor_request_otp(db, payload.hp_id)
+
+
+@router.post("/doctor/verify-otp", response_model=DoctorVerifyOtpResponse)
+async def doctor_verify_otp(
+    payload: DoctorVerifyOtpRequest,
+    db: AsyncSession = Depends(get_db),
+) -> DoctorVerifyOtpResponse:
+    return await _process_doctor_verify_otp(db, payload.hp_id, payload.otp)
+
+
+@router.post("/doctor/register", response_model=DoctorRegisterResponse, status_code=status.HTTP_201_CREATED)
+async def doctor_register(
+    payload: DoctorRegisterRequest,
+    db: AsyncSession = Depends(get_db),
+) -> DoctorRegisterResponse:
+    return await _process_doctor_register(db, payload)
+
+
+# ── Universal / Backward Compatibility Routes ──────────────────────────────────
 
 @router.post("/request-otp", response_model=RequestOtpResponse)
 async def request_otp(
@@ -123,53 +623,37 @@ async def request_otp(
     db: AsyncSession = Depends(get_db),
 ) -> RequestOtpResponse:
     """
-    Simulate OTP generation for registered patients (ABHA ID) or doctors (HP ID).
+    Unified OTP request endpoint supporting both patients (ABHA ID) and doctors (HP ID).
     """
-    clean_role = payload.user_type.strip().lower()
+    role = payload.user_type.strip().lower()
+    is_doctor = role == "doctor" or bool(payload.hp_id and not payload.abha_id)
 
-    # Resolve the correct identifier field depending on role
-    if clean_role == "doctor":
-        raw_id = payload.hp_id or payload.abha_id
-        id_label = "HP ID"
+    if is_doctor:
+        hp_id = payload.hp_id or payload.abha_id
+        if not hp_id:
+            raise HTTPException(status_code=400, detail="Please provide an HP ID for doctor login.")
+        doc_res = await _process_doctor_request_otp(db, hp_id)
+        return RequestOtpResponse(
+            status="success",
+            message=doc_res.message,
+            masked_phone=doc_res.masked_phone,
+            hp_id=doc_res.hp_id,
+            user_name=doc_res.user_name,
+            user_type="doctor",
+        )
     else:
-        raw_id = payload.abha_id or payload.hp_id
-        id_label = "ABHA ID"
-
-    if not raw_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Please provide {'an HP ID' if clean_role == 'doctor' else 'an ABHA ID'} to request OTP.",
+        abha_id = payload.abha_id or payload.hp_id
+        if not abha_id:
+            raise HTTPException(status_code=400, detail="Please provide an ABHA ID for patient login.")
+        pat_res = await _process_patient_request_otp(db, abha_id)
+        return RequestOtpResponse(
+            status="success",
+            message=pat_res.message,
+            masked_phone=pat_res.masked_phone,
+            abha_id=pat_res.abha_id,
+            user_name=pat_res.user_name,
+            user_type="patient",
         )
-
-    clean_id = raw_id.strip()
-
-    stmt = select(User).where(
-        User.abha_id == clean_id,
-        User.user_type == clean_role,
-    )
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No {clean_role} account found with {id_label} '{clean_id}'. Please check the ID or register a new account.",
-        )
-
-    # Return a deterministic test OTP so the user can test without external SMS delays
-    simulated_otp = "123456"
-
-    return RequestOtpResponse(
-        status="success",
-        message=f"OTP dispatched to mobile linked with {id_label} {clean_id}.",
-        masked_phone=mask_phone(user.phone),
-        simulated_otp=simulated_otp,
-        abha_id=user.abha_id,
-        hp_id=user.abha_id if user.user_type == "doctor" else None,
-        user_name=user.name,
-        user_type=user.user_type,
-    )
-
 
 
 @router.post("/verify-otp", response_model=VerifyOtpResponse)
@@ -178,212 +662,161 @@ async def verify_otp(
     db: AsyncSession = Depends(get_db),
 ) -> VerifyOtpResponse:
     """
-    Verify OTP code and issue authenticated user profile session.
-    Patients authenticate with ABHA ID; doctors authenticate with HP ID.
+    Unified OTP verification endpoint for patients and doctors.
     """
-    clean_role = payload.user_type.strip().lower()
-    clean_otp = payload.otp.strip()
+    role = payload.user_type.strip().lower()
+    is_doctor = role == "doctor" or bool(payload.hp_id and not payload.abha_id)
 
-    # Resolve the correct identifier
-    if clean_role == "doctor":
-        raw_id = payload.hp_id or payload.abha_id
-        id_label = "HP ID"
+    if is_doctor:
+        hp_id = payload.hp_id or payload.abha_id
+        if not hp_id:
+            raise HTTPException(status_code=400, detail="Please provide an HP ID.")
+        doc_res = await _process_doctor_verify_otp(db, hp_id, payload.otp)
+        doc = doc_res.user
+        profile = UserProfileResponse(
+            id=doc.id,
+            hp_id=doc.hp_id,
+            user_type="doctor",
+            name=doc.name,
+            gender=doc.gender,
+            age_years=doc.age_years,
+            phone=doc.phone,
+            email=doc.email,
+            doctor_details={
+                "specialization": doc.specialization,
+                "license_no": doc.license_no,
+                "hospital": doc.hospital,
+                "department": doc.department,
+                "qualifications": doc.qualifications,
+                "duty_status": doc.duty_status,
+                "opd_hours": doc.opd_hours,
+            },
+        )
+        return VerifyOtpResponse(status="success", token=doc_res.token, user=profile)
     else:
-        raw_id = payload.abha_id or payload.hp_id
-        id_label = "ABHA ID"
-
-    if not raw_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Please provide {'an HP ID' if clean_role == 'doctor' else 'an ABHA ID'} to verify OTP.",
+        abha_id = payload.abha_id or payload.hp_id
+        if not abha_id:
+            raise HTTPException(status_code=400, detail="Please provide an ABHA ID.")
+        pat_res = await _process_patient_verify_otp(db, abha_id, payload.otp)
+        pat = pat_res.user
+        profile = UserProfileResponse(
+            id=pat.id,
+            abha_id=pat.abha_id,
+            user_type="patient",
+            name=pat.name,
+            gender=pat.gender,
+            age_years=pat.age_years,
+            phone=pat.phone,
+            email=pat.email,
+            patient_details=pat.patient_details,
         )
-
-    clean_id = raw_id.strip()
-
-    stmt = select(User).where(
-        User.abha_id == clean_id,
-        User.user_type == clean_role,
-    )
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Account with {id_label} '{clean_id}' not found.",
-        )
-
-    # Validate OTP (allow 123456 or any 6-digit number in kiosk demo mode)
-    if clean_otp != "123456" and not (len(clean_otp) == 6 and clean_otp.isdigit()):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid OTP code. Please enter '123456'.",
-        )
-
-    session_token = f"sanjivani-token-{uuid.uuid4()}"
-
-    user_profile = UserProfileResponse(
-        id=user.id,
-        abha_id=user.abha_id,
-        hp_id=user.abha_id if user.user_type == "doctor" else None,
-        user_type=user.user_type,
-        name=user.name,
-        gender=user.gender,
-        age_years=user.age_years,
-        phone=user.phone,
-        email=user.email,
-        patient_details=user.patient_details,
-        doctor_details=user.doctor_details,
-    )
-
-    return VerifyOtpResponse(
-        status="success",
-        token=session_token,
-        user=user_profile,
-    )
+        return VerifyOtpResponse(status="success", token=pat_res.token, user=profile)
 
 
-
-@router.post(
-    "/register",
-    response_model=RegisterResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Register a new Patient (ABHA) or Doctor (HP ID) profile",
-)
+@router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
 async def register_user(
     payload: RegisterRequest,
     db: AsyncSession = Depends(get_db),
 ) -> RegisterResponse:
     """
-    Self-register a new Patient or Doctor profile in the national health database.
-    Patients use ABHA ID; doctors use HP ID (Health Professional ID).
-    Prevents duplicate ID registrations and automatically initializes clinical records.
+    Unified registration router delegating to Patient or Doctor handlers.
     """
-    clean_role = payload.user_type.strip().lower()
-    clean_name = payload.name.strip()
+    role = payload.user_type.strip().lower()
 
-    if clean_role not in ("patient", "doctor"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid user_type. Must be 'patient' or 'doctor'.",
+    if role == "doctor":
+        hp_id = payload.hp_id or payload.abha_id
+        if not hp_id:
+            raise HTTPException(status_code=400, detail="Please provide an HP ID for doctor registration.")
+        doc_req = DoctorRegisterRequest(
+            name=payload.name,
+            hp_id=hp_id,
+            phone=payload.phone,
+            email=payload.email,
+            gender=payload.gender,
+            age_years=payload.age_years,
+            specialization=payload.specialization,
+            license_no=payload.license_no,
+            hospital=payload.hospital,
+            department=payload.department,
+            qualifications=payload.qualifications,
         )
-
-    # Resolve the correct identifier field based on role
-    if clean_role == "doctor":
-        raw_id = payload.hp_id or payload.abha_id
-        id_label = "HP ID"
+        doc_res = await _process_doctor_register(db, doc_req)
+        doc = doc_res.user
+        user_profile = None
+        if doc:
+            user_profile = UserProfileResponse(
+                id=doc.id,
+                hp_id=doc.hp_id,
+                user_type="doctor",
+                name=doc.name,
+                gender=doc.gender,
+                age_years=doc.age_years,
+                phone=doc.phone,
+                email=doc.email,
+                doctor_details={
+                    "specialization": doc.specialization,
+                    "license_no": doc.license_no,
+                    "hospital": doc.hospital,
+                    "department": doc.department,
+                    "qualifications": doc.qualifications,
+                    "duty_status": doc.duty_status,
+                    "opd_hours": doc.opd_hours,
+                },
+            )
+        return RegisterResponse(
+            status="success",
+            message=doc_res.message,
+            user_type="doctor",
+            hp_id=doc_res.hp_id,
+            token=doc_res.token,
+            user=user_profile,
+        )
+    elif role == "patient":
+        abha_id = payload.abha_id or payload.hp_id
+        if not abha_id:
+            raise HTTPException(status_code=400, detail="Please provide an ABHA ID for patient registration.")
+        pat_req = PatientRegisterRequest(
+            name=payload.name,
+            abha_id=abha_id,
+            phone=payload.phone,
+            email=payload.email,
+            gender=payload.gender,
+            age_years=payload.age_years,
+            dob=payload.dob,
+            blood_group=payload.blood_group,
+            address_line=payload.address_line,
+            city=payload.city,
+            state=payload.state,
+            pincode=payload.pincode,
+            emergency_contact_name=payload.emergency_contact_name,
+            emergency_contact_phone=payload.emergency_contact_phone,
+            emergency_contact_relation=payload.emergency_contact_relation,
+        )
+        pat_res = await _process_patient_register(db, pat_req)
+        pat = pat_res.user
+        user_profile = None
+        if pat:
+            user_profile = UserProfileResponse(
+                id=pat.id,
+                abha_id=pat.abha_id,
+                user_type="patient",
+                name=pat.name,
+                gender=pat.gender,
+                age_years=pat.age_years,
+                phone=pat.phone,
+                email=pat.email,
+                patient_details=pat.patient_details,
+            )
+        return RegisterResponse(
+            status="success",
+            message=pat_res.message,
+            user_type="patient",
+            abha_id=pat_res.abha_id,
+            token=pat_res.token,
+            user=user_profile,
+        )
     else:
-        raw_id = payload.abha_id or payload.hp_id
-        id_label = "ABHA ID"
-
-    if not raw_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Please provide {'an HP ID' if clean_role == 'doctor' else 'an ABHA ID'} to register.",
-        )
-
-    clean_id = raw_id.strip()
-
-    # 1. Prevent duplicate registrations with the same ID
-    existing_stmt = select(User).where(User.abha_id == clean_id)
-    existing_res = await db.execute(existing_stmt)
-    if existing_res.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"An account with {id_label} '{clean_id}' already exists. Please sign in.",
-        )
-
-    # 2. Build structured details based on role
-    patient_details = None
-    doctor_details = None
-
-    if clean_role == "patient":
-        calc_dob = payload.dob
-        if not calc_dob and payload.age_years:
-            calc_dob = f"{datetime.now().year - payload.age_years}-01-01"
-
-        patient_details = {
-            "blood_group": payload.blood_group or "O+",
-            "dob": calc_dob or "1995-01-01",
-            "emergency_contact": {
-                "name": payload.emergency_contact_name or "Family Member",
-                "phone": payload.emergency_contact_phone or (payload.phone or "9876543210"),
-                "relation": payload.emergency_contact_relation or "Guardian",
-            },
-            "address_line": payload.address_line or "Registered Address",
-            "city": payload.city or "New Delhi",
-            "state": payload.state or "Delhi",
-            "pincode": payload.pincode or "110001",
-            "occupation": "Self-Enrolled Citizen",
-            "marital_status": "Single",
-            "preferred_language": "English / Hindi",
-            "allergies": [],
-            "chronic_conditions": [],
-            "ayush_prakriti": None,
-        }
-    else:
-        # Doctor role — license derived from HP ID suffix
-        clean_license = payload.license_no or f"HP-REG-{clean_id.replace('-', '').replace('/', '')[-6:].upper()}"
-        doctor_details = {
-            "specialization": payload.specialization or "Ayurvedic Medicine & Clinical Intake",
-            "hospital": payload.hospital or "All India Institute of Ayurveda (AIIA)",
-            "department": payload.department or "Kayachikitsa (Internal Medicine)",
-            "license_no": clean_license,
-            "qualifications": payload.qualifications or "BAMS, MD (Ayurveda)",
-            "duty_status": "On Duty",
-            "opd_hours": "09:00 AM - 04:00 PM",
-        }
-
-    # 3. Create persistent User in database (abha_id column stores both ABHA ID and HP ID)
-    user_id = f"{clean_role}-{str(uuid.uuid4())[:8]}"
-    suffix = clean_id.replace('-', '').replace('/', '')[-6:]
-    new_user = User(
-        id=user_id,
-        abha_id=clean_id,
-        user_type=clean_role,
-        name=clean_name,
-        gender=payload.gender or "Male",
-        age_years=payload.age_years or 30,
-        phone=payload.phone or "9876543210",
-        email=payload.email or f"{suffix}@{'hp.gov.in' if clean_role == 'doctor' else 'abha.gov.in'}",
-        patient_details=patient_details,
-        doctor_details=doctor_details,
-    )
-
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-
-    # 4. Generate immediate authenticated session token
-    session_token = f"sanjivani-token-{uuid.uuid4()}"
-
-    user_profile = UserProfileResponse(
-        id=new_user.id,
-        abha_id=new_user.abha_id,
-        hp_id=new_user.abha_id if new_user.user_type == "doctor" else None,
-        user_type=new_user.user_type,
-        name=new_user.name,
-        gender=new_user.gender,
-        age_years=new_user.age_years,
-        phone=new_user.phone,
-        email=new_user.email,
-        patient_details=new_user.patient_details,
-        doctor_details=new_user.doctor_details,
-    )
-
-    is_doctor = clean_role == "doctor"
-    logger.info("Successfully registered new %s: %s (%s: %s)", clean_role, clean_name, id_label, clean_id)
-
-    return RegisterResponse(
-        status="success",
-        message=f"{'HP ID profile' if is_doctor else 'ABHA profile'} for {new_user.name} successfully registered in National Health Database.",
-        user_type=new_user.user_type,
-        abha_id=new_user.abha_id,
-        hp_id=new_user.abha_id if is_doctor else None,
-        token=session_token,
-        user=user_profile,
-    )
-
+        raise HTTPException(status_code=400, detail="Invalid user_type. Must be 'patient' or 'doctor'.")
 
 
 @router.get("/me", response_model=UserProfileResponse)
@@ -393,33 +826,57 @@ async def get_me(
     db: AsyncSession = Depends(get_db),
 ) -> UserProfileResponse:
     """
-    Fetch active authenticated user profile.
+    Fetch active authenticated user profile from either Patient or Doctor tables.
     """
     target_id = user_id or x_user_id
     if not target_id:
-        # Fallback to default demo patient if no ID supplied
-        target_id = "patient-demo-001"
-
-    stmt = select(User).where(User.id == target_id)
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
-
-    if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Please provide a valid user_id or log in.",
         )
 
-    return UserProfileResponse(
-        id=user.id,
-        abha_id=user.abha_id,
-        hp_id=user.abha_id if user.user_type == "doctor" else None,
-        user_type=user.user_type,
-        name=user.name,
-        gender=user.gender,
-        age_years=user.age_years,
-        phone=user.phone,
-        email=user.email,
-        patient_details=user.patient_details,
-        doctor_details=user.doctor_details,
-    )
+    # Try patient first
+    pat_stmt = select(Patient).where(Patient.id == target_id)
+    pat_res = await db.execute(pat_stmt)
+    patient = pat_res.scalar_one_or_none()
+
+    if patient:
+        return UserProfileResponse(
+            id=patient.id,
+            abha_id=patient.abha_id,
+            user_type="patient",
+            name=patient.name,
+            gender=patient.gender,
+            age_years=patient.age_years,
+            phone=patient.phone,
+            email=patient.email,
+            patient_details=patient.patient_details,
+        )
+
+    # Try doctor
+    doc_stmt = select(Doctor).where(Doctor.id == target_id)
+    doc_res = await db.execute(doc_stmt)
+    doctor = doc_res.scalar_one_or_none()
+
+    if doctor:
+        return UserProfileResponse(
+            id=doctor.id,
+            hp_id=doctor.hp_id,
+            user_type="doctor",
+            name=doctor.name,
+            gender=doctor.gender,
+            age_years=doctor.age_years,
+            phone=doctor.phone,
+            email=doctor.email,
+            doctor_details={
+                "specialization": doctor.specialization,
+                "license_no": doctor.license_no,
+                "hospital": doctor.hospital,
+                "department": doctor.department,
+                "qualifications": doctor.qualifications,
+                "duty_status": doctor.duty_status,
+                "opd_hours": doctor.opd_hours,
+            },
+        )
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")

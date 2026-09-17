@@ -16,10 +16,11 @@ from app.api.patient import (
     _aggregate_medications,
 )
 from app.db.database import get_db
-from app.db.models import IntakeSession, PatientDocument, User
+from app.db.models import Doctor, IntakeSession, Patient, PatientDocument
 
 logger = logging.getLogger("sanjivani.api.doctor")
 router = APIRouter(prefix="/doctor", tags=["Doctor Clinical Oversight Portal"])
+
 
 
 # ── Pydantic Models for Doctor View ───────────────────────────────────────────
@@ -77,17 +78,17 @@ async def list_all_patients(
     """
     # 1. Fetch all patients with relationships eager-loaded
     stmt = (
-        select(User)
-        .where(User.user_type == "patient")
+        select(Patient)
         .options(
-            selectinload(User.intake_sessions),
-            selectinload(User.documents),
+            selectinload(Patient.intake_sessions),
+            selectinload(Patient.documents),
         )
-        .order_by(User.created_at.desc())
+        .order_by(Patient.created_at.desc())
     )
 
     result = await db.execute(stmt)
     patients_list = result.scalars().all()
+
 
     # 2. Compute aggregate portal statistics across the entire database
     total_patients_count = len(patients_list)
@@ -179,17 +180,17 @@ async def get_patient_dossier(
     clean_id = patient_id.strip()
 
     stmt = (
-        select(User)
-        .where((User.id == clean_id) | (User.abha_id == clean_id))
+        select(Patient)
+        .where((Patient.id == clean_id) | (Patient.abha_id == clean_id))
         .options(
-            selectinload(User.intake_sessions),
-            selectinload(User.documents),
+            selectinload(Patient.intake_sessions),
+            selectinload(Patient.documents),
         )
     )
     result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
+    patient = result.scalar_one_or_none()
 
-    if not user:
+    if not patient:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Patient '{clean_id}' not found.",
@@ -209,7 +210,7 @@ async def get_patient_dossier(
             red_flag_active=s.red_flag_active,
             created_at=s.created_at,
         )
-        for s in (user.intake_sessions or [])
+        for s in (patient.intake_sessions or [])
     ]
 
     docs_data = [
@@ -222,22 +223,23 @@ async def get_patient_dossier(
             structured_result=d.structured_result,
             created_at=d.created_at,
         )
-        for d in (user.documents or [])
+        for d in (patient.documents or [])
     ]
 
-    active_meds, past_meds = _aggregate_medications(user.documents or [])
+    active_meds, past_meds = _aggregate_medications(patient.documents or [])
 
     patient_info = {
-        "id": user.id,
-        "abha_id": user.abha_id,
-        "user_type": user.user_type,
-        "name": user.name,
-        "gender": user.gender,
-        "age_years": user.age_years,
-        "phone": user.phone,
-        "email": user.email,
-        "patient_details": user.patient_details or {},
+        "id": patient.id,
+        "abha_id": patient.abha_id,
+        "user_type": "patient",
+        "name": patient.name,
+        "gender": patient.gender,
+        "age_years": patient.age_years,
+        "phone": patient.phone,
+        "email": patient.email,
+        "patient_details": patient.patient_details or {},
     }
+
 
     return PatientDashboardResponse(
         status="success",

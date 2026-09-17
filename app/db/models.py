@@ -12,24 +12,22 @@ def generate_uuid() -> str:
     return str(uuid.uuid4())
 
 
-class User(Base):
+class Patient(Base):
     """
-    User entity supporting both 'patient' and 'doctor' roles.
-    Indexed by unique ABHA ID.
+    Patient entity registered under Ayushman Bharat Digital Mission (ABDM).
+    Indexed by unique 14-digit ABHA ID.
     """
-    __tablename__ = "users"
+    __tablename__ = "patients"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     abha_id: Mapped[str] = mapped_column(String(32), unique=True, index=True, nullable=False)
-    user_type: Mapped[str] = mapped_column(String(16), index=True, nullable=False)  # "patient" or "doctor"
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     gender: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
     age_years: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     email: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
 
-    # Role-specific rich profile payloads
-    doctor_details: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    # Patient demographics & medical baseline (blood_group, emergency_contact, address, allergies, etc.)
     patient_details: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
@@ -59,6 +57,57 @@ class User(Base):
     )
 
 
+class Doctor(Base):
+    """
+    Doctor entity registered in the Healthcare Professional Registry (HPR) / Ayush Grid.
+    Indexed by unique HP ID (Health Professional ID). Absolutely NO ABHA ID.
+    """
+    __tablename__ = "doctors"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    hp_id: Mapped[str] = mapped_column(String(32), unique=True, index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    gender: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+    age_years: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+
+    # Clinical credentials & institutional affiliation
+    specialization: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    license_no: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    hospital: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+    department: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    qualifications: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+    duty_status: Mapped[str] = mapped_column(String(32), default="On Duty")
+    opd_hours: Mapped[Optional[str]] = mapped_column(String(64), default="09:00 AM - 04:00 PM")
+
+    # Flexible doctor configuration/preferences
+    doctor_details: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
+    )
+
+    # Relationship to intake sessions reviewed or treated by this doctor
+    intake_sessions: Mapped[List["IntakeSession"]] = relationship(
+        "IntakeSession",
+        back_populates="doctor",
+        order_by="desc(IntakeSession.created_at)",
+    )
+
+
+# Backward-compatibility alias during refactoring
+User = Patient
+
+
 class IntakeSession(Base):
     """
     Recorded patient clinical intake session, containing chat dialogue,
@@ -69,9 +118,15 @@ class IntakeSession(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     patient_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey("patients.id", ondelete="CASCADE"),
         index=True,
         nullable=False,
+    )
+    doctor_id: Mapped[Optional[str]] = mapped_column(
+        String(36),
+        ForeignKey("doctors.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
     )
     session_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -102,7 +157,8 @@ class IntakeSession(Base):
     )
 
     # Relationships
-    patient: Mapped["User"] = relationship("User", back_populates="intake_sessions")
+    patient: Mapped["Patient"] = relationship("Patient", back_populates="intake_sessions")
+    doctor: Mapped[Optional["Doctor"]] = relationship("Doctor", back_populates="intake_sessions")
     documents: Mapped[List["PatientDocument"]] = relationship(
         "PatientDocument",
         back_populates="session",
@@ -118,7 +174,7 @@ class PatientDocument(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     patient_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey("patients.id", ondelete="CASCADE"),
         index=True,
         nullable=False,
     )
@@ -140,5 +196,6 @@ class PatientDocument(Base):
     )
 
     # Relationships
-    patient: Mapped["User"] = relationship("User", back_populates="documents")
+    patient: Mapped["Patient"] = relationship("Patient", back_populates="documents")
     session: Mapped[Optional["IntakeSession"]] = relationship("IntakeSession", back_populates="documents")
+

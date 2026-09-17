@@ -30,7 +30,7 @@ import {
   ChevronUp,
 } from 'lucide-react'
 import type {
-  User,
+  Doctor,
   DoctorPatientSummary,
   DoctorPortalStats,
   PatientDashboardData,
@@ -42,7 +42,7 @@ import BrandLogo from '../BrandLogo'
 import ThemeToggle from '../ThemeToggle'
 
 interface DoctorPortalProps {
-  doctor: User
+  doctor: Doctor
   onLogout: () => void
 }
 
@@ -137,20 +137,22 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                 </h1>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                  Doctor Verified
+                  HPR Verified Clinician
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-xs sm:max-w-md">
-                {String(details.specialization || 'Integrative AYUSH Clinician')} • HP ID: {doctor.hp_id || doctor.abha_id}
+                {details.specialization ? `${String(details.specialization)} • ` : ''}HP ID: {doctor.hp_id}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-surface-border dark:border-slate-700">
-              <Building2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-              <span>{String(details.hospital || 'CHC Nemmara Wellness Kiosk')}</span>
-            </div>
+            {details.hospital && (
+              <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-surface-border dark:border-slate-700">
+                <Building2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                <span>{String(details.hospital)}</span>
+              </div>
+            )}
 
             <ThemeToggle />
 
@@ -188,15 +190,22 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
           <div className="mt-6 pt-4 border-t border-white/20 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div className="flex items-center gap-2">
               <Award className="w-4 h-4 text-amber-300 flex-shrink-0" />
-              <span className="truncate">Lic: {String(details.license_no || 'AYU-KL-2018')}</span>
+              <span className="truncate">Lic: {String(details.license_no || doctor.hp_id)}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-cyan-300 flex-shrink-0" />
-              <span>{String(details.opd_hours || '09:00 - 16:30')}</span>
-            </div>
+            {details.opd_hours ? (
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-cyan-300 flex-shrink-0" />
+                <span>{String(details.opd_hours)}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-cyan-300 flex-shrink-0" />
+                <span>OPD Regular</span>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-emerald-300 flex-shrink-0" />
-              <span>Duty: {String(details.duty_status || 'On-Duty Active')}</span>
+              <span>Duty: {String(details.duty_status || 'Active')}</span>
             </div>
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-white/80 flex-shrink-0" />
@@ -347,13 +356,17 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-slate-900 dark:text-white text-sm">{p.name}</span>
-                          <span className="text-xs text-slate-400 dark:text-slate-500">
-                            ({p.age_years || 38}y, {p.gender || 'Male'})
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 flex items-center gap-0.5">
-                            <Droplet className="w-3 h-3" />
-                            {String(details.blood_group || 'B+')}
-                          </span>
+                          {(p.age_years || p.gender) && (
+                            <span className="text-xs text-slate-400 dark:text-slate-500">
+                              ({p.age_years ? `${p.age_years}y` : ''}{p.age_years && p.gender ? ', ' : ''}{p.gender || ''})
+                            </span>
+                          )}
+                          {Boolean(p.patient_details && (p.patient_details as Record<string, any>).blood_group) && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 flex items-center gap-0.5">
+                              <Droplet className="w-3 h-3" />
+                              {String((p.patient_details as Record<string, any>).blood_group)}
+                            </span>
+                          )}
                           {p.has_red_flags && (
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800 flex items-center gap-1">
                               <AlertTriangle className="w-3 h-3 text-rose-600 dark:text-rose-400" />

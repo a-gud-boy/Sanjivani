@@ -12,9 +12,10 @@ from sqlalchemy.orm import selectinload
 
 from app.core.date_utils import extract_prescription_date_from_text, parse_duration_to_days
 from app.db.database import get_db
-from app.db.models import IntakeSession, PatientDocument, User
+from app.db.models import IntakeSession, Patient, PatientDocument
 
 logger = logging.getLogger("sanjivani.api.patient")
+
 router = APIRouter(prefix="/patient", tags=["Patient Dashboard & Records"])
 
 
@@ -208,19 +209,19 @@ async def get_patient_dashboard(
     """
     clean_id = patient_id.strip()
 
-    # Query user by ID or ABHA ID
+    # Query patient by ID or ABHA ID
     stmt = (
-        select(User)
-        .where((User.id == clean_id) | (User.abha_id == clean_id))
+        select(Patient)
+        .where((Patient.id == clean_id) | (Patient.abha_id == clean_id))
         .options(
-            selectinload(User.intake_sessions),
-            selectinload(User.documents),
+            selectinload(Patient.intake_sessions),
+            selectinload(Patient.documents),
         )
     )
     result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
+    patient = result.scalar_one_or_none()
 
-    if not user:
+    if not patient:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Patient with ID/ABHA '{clean_id}' not found.",
@@ -240,7 +241,7 @@ async def get_patient_dashboard(
             red_flag_active=s.red_flag_active,
             created_at=s.created_at,
         )
-        for s in user.intake_sessions
+        for s in (patient.intake_sessions or [])
     ]
 
     documents_data = [
@@ -253,22 +254,23 @@ async def get_patient_dashboard(
             structured_result=d.structured_result,
             created_at=d.created_at,
         )
-        for d in user.documents
+        for d in (patient.documents or [])
     ]
 
-    active_meds, past_meds = _aggregate_medications(user.documents or [])
+    active_meds, past_meds = _aggregate_medications(patient.documents or [])
 
     patient_payload = {
-        "id": user.id,
-        "abha_id": user.abha_id,
-        "user_type": user.user_type,
-        "name": user.name,
-        "gender": user.gender,
-        "age_years": user.age_years,
-        "phone": user.phone,
-        "email": user.email,
-        "patient_details": user.patient_details or {},
+        "id": patient.id,
+        "abha_id": patient.abha_id,
+        "user_type": "patient",
+        "name": patient.name,
+        "gender": patient.gender,
+        "age_years": patient.age_years,
+        "phone": patient.phone,
+        "email": patient.email,
+        "patient_details": patient.patient_details or {},
     }
+
 
     return PatientDashboardResponse(
         status="success",
@@ -290,16 +292,17 @@ async def save_intake_session(
     extracted clinical history record, scanned documents, and AI clinical summary.
     """
     # 1. Verify patient exists
-    stmt = select(User).where((User.id == payload.patient_id) | (User.abha_id == payload.patient_id))
+    stmt = select(Patient).where((Patient.id == payload.patient_id) | (Patient.abha_id == payload.patient_id))
     result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
-    if not user:
+    patient = result.scalar_one_or_none()
+    if not patient:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Patient '{payload.patient_id}' not found.",
         )
 
-    patient_db_id = user.id
+    patient_db_id = patient.id
+
 
     # 2. Extract chief complaint from clinical record if available
     chief_complaint = None
@@ -454,49 +457,51 @@ async def update_patient_profile(
     Update patient personal details and clinical baseline information.
     """
     clean_id = payload.patient_id.strip()
-    stmt = select(User).where((User.id == clean_id) | (User.abha_id == clean_id))
+    stmt = select(Patient).where((Patient.id == clean_id) | (Patient.abha_id == clean_id))
     res = await db.execute(stmt)
-    user = res.scalar_one_or_none()
+    patient = res.scalar_one_or_none()
 
-    if not user:
+    if not patient:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Patient '{clean_id}' not found.",
         )
 
     if payload.name is not None:
-        user.name = payload.name.strip()
+        patient.name = payload.name.strip()
     if payload.gender is not None:
-        user.gender = payload.gender
+        patient.gender = payload.gender
     if payload.age_years is not None:
-        user.age_years = payload.age_years
+        patient.age_years = payload.age_years
     if payload.phone is not None:
-        user.phone = payload.phone.strip()
+        patient.phone = payload.phone.strip()
     if payload.email is not None:
-        user.email = payload.email.strip()
+        patient.email = payload.email.strip()
     if payload.patient_details is not None:
-        current_details = dict(user.patient_details or {})
+        current_details = dict(patient.patient_details or {})
+
         current_details.update(payload.patient_details)
-        user.patient_details = current_details
+        patient.patient_details = current_details
 
-    user.updated_at = datetime.now(timezone.utc)
+    patient.updated_at = datetime.now(timezone.utc)
     await db.commit()
-    await db.refresh(user)
+    await db.refresh(patient)
 
-    logger.info("Updated profile for patient '%s' (%s).", user.name, user.id)
+    logger.info("Updated profile for patient '%s' (%s).", patient.name, patient.id)
 
     return UpdatePatientProfileResponse(
         status="success",
         message="Patient personal profile updated successfully.",
         patient={
-            "id": user.id,
-            "abha_id": user.abha_id,
-            "user_type": user.user_type,
-            "name": user.name,
-            "gender": user.gender,
-            "age_years": user.age_years,
-            "phone": user.phone,
-            "email": user.email,
-            "patient_details": user.patient_details or {},
+            "id": patient.id,
+            "abha_id": patient.abha_id,
+            "user_type": "patient",
+            "name": patient.name,
+            "gender": patient.gender,
+            "age_years": patient.age_years,
+            "phone": patient.phone,
+            "email": patient.email,
+            "patient_details": patient.patient_details or {},
         },
     )
+

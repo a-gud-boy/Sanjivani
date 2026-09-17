@@ -171,7 +171,7 @@ export function extractErrorMessage(error: unknown): string {
 }
 
 // ----------------------------------------------------------------
-// Auth & ABHA OTP Endpoints
+// Auth & Identity Endpoints (Patient ABHA & Doctor HP ID)
 // ----------------------------------------------------------------
 
 export interface RequestOtpResult {
@@ -179,12 +179,11 @@ export interface RequestOtpResult {
   message: string
   masked_phone?: string | null
   simulated_otp: string
-  abha_id: string
-  hp_id?: string | null  // Health Professional ID for doctor accounts
+  abha_id?: string
+  hp_id?: string | null
   user_name: string
   user_type: string
 }
-
 
 export interface VerifyOtpResult {
   status: string
@@ -192,34 +191,43 @@ export interface VerifyOtpResult {
   user: import('../types').User
 }
 
-export async function requestOtp(
-  id: string,
-  userType: 'patient' | 'doctor',
-): Promise<RequestOtpResult> {
-  const body = userType === 'doctor'
-    ? { hp_id: id, user_type: userType }
-    : { abha_id: id, user_type: userType }
-  const { data } = await apiClient.post<RequestOtpResult>('/auth/request-otp', body)
-  return data
+export interface PatientRegisterPayload {
+  name: string
+  abha_id: string
+  phone?: string
+  email?: string
+  gender?: string
+  age_years?: number
+  dob?: string
+  blood_group?: string
+  address_line?: string
+  city?: string
+  state?: string
+  pincode?: string
+  emergency_contact_name?: string
+  emergency_contact_phone?: string
+  emergency_contact_relation?: string
 }
 
-export async function verifyOtp(
-  id: string,
-  otp: string,
-  userType: 'patient' | 'doctor',
-): Promise<VerifyOtpResult> {
-  const body = userType === 'doctor'
-    ? { hp_id: id, otp, user_type: userType }
-    : { abha_id: id, otp, user_type: userType }
-  const { data } = await apiClient.post<VerifyOtpResult>('/auth/verify-otp', body)
-  return data
+export interface DoctorRegisterPayload {
+  name: string
+  hp_id: string  // Healthcare Professional ID (NO abha_id!)
+  phone?: string
+  email?: string
+  gender?: string
+  age_years?: number
+  specialization?: string
+  license_no?: string
+  hospital?: string
+  department?: string
+  qualifications?: string
 }
 
 export interface RegisterPayload {
   user_type: 'patient' | 'doctor'
   name: string
-  abha_id?: string  // For patients
-  hp_id?: string    // For doctors (Health Professional ID)
+  abha_id?: string
+  hp_id?: string
   phone?: string
   email?: string
   gender?: string
@@ -244,17 +252,95 @@ export interface RegisterResult {
   status: string
   message: string
   user_type: string
-  abha_id: string
-  hp_id?: string | null  // Health Professional ID — set for doctor registrations
+  abha_id?: string
+  hp_id?: string | null
   token?: string
   user?: import('../types').User
 }
 
-
-export async function registerUser(payload: RegisterPayload): Promise<RegisterResult> {
-  const { data } = await apiClient.post<RegisterResult>('/auth/register', payload)
+// ── Dedicated Patient API Methods ──
+export async function requestPatientOtp(abhaId: string): Promise<RequestOtpResult> {
+  const { data } = await apiClient.post<RequestOtpResult>('/auth/patient/request-otp', { abha_id: abhaId })
   return data
 }
+
+export async function verifyPatientOtp(abhaId: string, otp: string): Promise<VerifyOtpResult> {
+  const { data } = await apiClient.post<VerifyOtpResult>('/auth/patient/verify-otp', { abha_id: abhaId, otp })
+  return data
+}
+
+export async function registerPatient(payload: PatientRegisterPayload): Promise<RegisterResult> {
+  const { data } = await apiClient.post<RegisterResult>('/auth/patient/register', payload)
+  return data
+}
+
+// ── Dedicated Doctor API Methods (Zero ABHA) ──
+export async function requestDoctorOtp(hpId: string): Promise<RequestOtpResult> {
+  const { data } = await apiClient.post<RequestOtpResult>('/auth/doctor/request-otp', { hp_id: hpId })
+  return data
+}
+
+export async function verifyDoctorOtp(hpId: string, otp: string): Promise<VerifyOtpResult> {
+  const { data } = await apiClient.post<VerifyOtpResult>('/auth/doctor/verify-otp', { hp_id: hpId, otp })
+  return data
+}
+
+export async function registerDoctor(payload: DoctorRegisterPayload): Promise<RegisterResult> {
+  const { data } = await apiClient.post<RegisterResult>('/auth/doctor/register', payload)
+  return data
+}
+
+// ── Unified Helpers ──
+export async function requestOtp(
+  id: string,
+  userType: 'patient' | 'doctor',
+): Promise<RequestOtpResult> {
+  return userType === 'doctor' ? requestDoctorOtp(id) : requestPatientOtp(id)
+}
+
+export async function verifyOtp(
+  id: string,
+  otp: string,
+  userType: 'patient' | 'doctor',
+): Promise<VerifyOtpResult> {
+  return userType === 'doctor' ? verifyDoctorOtp(id, otp) : verifyPatientOtp(id, otp)
+}
+
+export async function registerUser(payload: RegisterPayload): Promise<RegisterResult> {
+  if (payload.user_type === 'doctor') {
+    return registerDoctor({
+      name: payload.name,
+      hp_id: payload.hp_id || payload.abha_id || '',
+      phone: payload.phone,
+      email: payload.email,
+      gender: payload.gender,
+      age_years: payload.age_years,
+      specialization: payload.specialization,
+      license_no: payload.license_no,
+      hospital: payload.hospital,
+      department: payload.department,
+      qualifications: payload.qualifications,
+    })
+  }
+  return registerPatient({
+    name: payload.name,
+    abha_id: payload.abha_id || '',
+    phone: payload.phone,
+    email: payload.email,
+    gender: payload.gender,
+    age_years: payload.age_years,
+    dob: payload.dob,
+    blood_group: payload.blood_group,
+    address_line: payload.address_line,
+    city: payload.city,
+    state: payload.state,
+    pincode: payload.pincode,
+    emergency_contact_name: payload.emergency_contact_name,
+    emergency_contact_phone: payload.emergency_contact_phone,
+    emergency_contact_relation: payload.emergency_contact_relation,
+  })
+}
+
 
 export async function getMe(userId?: string): Promise<import('../types').User> {
   const params = userId ? { user_id: userId } : {}
