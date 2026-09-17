@@ -271,6 +271,12 @@ def test_patient_save_intake_session_and_delete():
     del_resp = client.delete("/api/v1/patient/document/test-doc-upload-101")
     assert del_resp.status_code == 200
 
+    # Delete the intake session
+    session_id = saved_session.get("session_id")
+    if session_id:
+        del_sess_resp = client.delete(f"/api/v1/patient/intake-session/{session_id}")
+        assert del_sess_resp.status_code == 200
+
     # Check dashboard no longer has the deleted document
     dash_resp_after = client.get(
         "/api/v1/patient/dashboard",
@@ -389,6 +395,10 @@ def test_active_vs_past_medications_filtering():
     assert "Cetirizine" in active_names
     assert "Cetirizine" not in past_names
 
-    # Clean up test documents
+    # Clean up test documents and session
     client.delete("/api/v1/patient/document/test-doc-past-med")
     client.delete("/api/v1/patient/document/test-doc-active-med")
+    session_id = save_resp.json().get("session_id")
+    if session_id:
+        del_sess_resp = client.delete(f"/api/v1/patient/intake-session/{session_id}")
+        assert del_sess_resp.status_code == 200
