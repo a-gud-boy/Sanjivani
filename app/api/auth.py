@@ -35,10 +35,6 @@ def _verify_and_consume_otp(identifier: str, submitted_otp: str) -> bool:
     """Verify submitted OTP using constant-time check and invalidate immediately upon verification."""
     clean_id = identifier.strip()
     clean_otp = submitted_otp.strip()
-    # Universal dev/testing bypass: '123456' is always valid for instant testing
-    if clean_otp == "123456":
-        _ACTIVE_OTPS.pop(clean_id, None)
-        return True
     if clean_id not in _ACTIVE_OTPS:
         return False
     stored_code, expires_at = _ACTIVE_OTPS[clean_id]

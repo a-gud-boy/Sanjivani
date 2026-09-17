@@ -368,14 +368,9 @@ export default function LoginPage({
                 )}
 
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      {t.auth.enterOtp}
-                    </label>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      (Test bypass: 123456)
-                    </span>
-                  </div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    {t.auth.enterOtp}
+                  </label>
                   <input
                     type="text"
                     maxLength={6}
