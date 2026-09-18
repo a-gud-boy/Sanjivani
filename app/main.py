@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 import logging
 from typing import AsyncGenerator
 
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -179,6 +179,48 @@ async def chat_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Clinical intake processing failed: {str(e)}",
+        )
+
+
+@app.post(
+    f"{settings.API_V1_PREFIX}/chat/transcribe-audio",
+    status_code=status.HTTP_200_OK,
+    tags=["Clinical Intake"],
+    summary="Transcribe speech audio recording to text for clinical intake",
+    description=(
+        "Accepts recorded audio from citizen's microphone and transcribes speech into text "
+        "using Whisper or Multimodal audio processing for the patient's language."
+    ),
+)
+async def transcribe_audio_endpoint(
+    audio: UploadFile = File(..., description="Recorded voice audio file (e.g. audio/webm, audio/wav, audio/ogg)."),
+    language: str = Form("en", description="Target spoken language code (e.g. hi, ta, en, te, mr, gu, bn)."),
+    llm_service: ClinicalLLMService = Depends(get_llm_service),
+) -> dict:
+    try:
+        audio_bytes = await audio.read()
+        if not audio_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Empty audio recording submitted.",
+            )
+        transcript = await llm_service.transcribe_audio(
+            audio_bytes=audio_bytes,
+            mime_type=audio.content_type or "audio/webm",
+            language=language,
+        )
+        return {
+            "status": "success",
+            "transcript": transcript,
+            "language": language,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error during clinical audio transcription: %s", str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Speech transcription failed: {str(e)}",
         )
 
 

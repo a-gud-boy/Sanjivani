@@ -101,6 +101,33 @@ export async function sendChatMessage(
 }
 
 // ----------------------------------------------------------------
+// Audio Transcription — POST /api/v1/chat/transcribe-audio
+// ----------------------------------------------------------------
+
+export async function transcribeAudio(
+  audioFile: Blob | File,
+  language: LanguageCode = 'en',
+  filename = 'recording.webm',
+): Promise<{ status: string; transcript: string }> {
+  const form = new FormData()
+  form.append(
+    'audio',
+    audioFile instanceof File ? audioFile : new File([audioFile], filename, { type: audioFile.type || 'audio/webm' }),
+  )
+  form.append('language', language)
+
+  const { data } = await apiClient.post<{ status: string; transcript: string }>(
+    '/chat/transcribe-audio',
+    form,
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30_000,
+    },
+  )
+  return data
+}
+
+// ----------------------------------------------------------------
 // Document Scanner — POST /api/v1/scan-document
 // ----------------------------------------------------------------
 

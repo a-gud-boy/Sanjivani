@@ -117,13 +117,16 @@ class ClinicalLLMService:
         self.base_url = self.text_base_url
 
         # Direct OpenAI-compatible Async Clients (primary)
+        # Direct OpenAI-compatible Async Clients (primary with explicit 30s timeout)
         self._direct_chat_client = AsyncOpenAI(
             api_key=self.text_api_key,
             base_url=self.text_base_url or None,
+            timeout=30.0,
         )
         self._direct_vision_client = AsyncOpenAI(
             api_key=self.vision_api_key,
             base_url=self.vision_base_url or None,
+            timeout=45.0,
         )
         self._direct_client = self._direct_chat_client  # backward-compat
 
@@ -1177,6 +1180,85 @@ class ClinicalLLMService:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Vision document transcription failed: {str(last_error)}",
         )
+
+    async def transcribe_audio(
+        self,
+        audio_bytes: bytes,
+        mime_type: str = "audio/webm",
+        language: str = "en",
+    ) -> str:
+        """
+        Transcribes speech audio recording from clinical intake into text.
+        Supports Whisper via Groq or multimodal Gemini audio via OpenAI-compatible endpoint.
+        """
+        if not audio_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Empty audio recording submitted.",
+            )
+
+        # 1. Try Groq Whisper if Groq base_url is configured
+        if self.text_base_url and "groq.com" in self.text_base_url:
+            try:
+                import io
+                audio_file = io.BytesIO(audio_bytes)
+                audio_file.name = f"recording.{mime_type.split('/')[-1].split(';')[0]}"
+                transcription = await self._direct_chat_client.audio.transcriptions.create(
+                    file=audio_file,
+                    model="whisper-large-v3",
+                    language=language if language != "en" else None,
+                )
+                if transcription and transcription.text:
+                    logger.info("Whisper audio transcription succeeded (%d chars).", len(transcription.text))
+                    return transcription.text.strip()
+            except Exception as e:
+                logger.warning("Groq Whisper transcription attempt failed: %s", str(e))
+
+        # 2. Try multimodal Gemini audio via OpenAI-compatible endpoint
+        import base64
+        base64_audio = base64.b64encode(audio_bytes).decode("utf-8")
+        clean_mime = mime_type.split(";")[0].strip() or "audio/webm"
+        audio_data_url = f"data:{clean_mime};base64,{base64_audio}"
+
+        audio_prompt = (
+            f"You are a medical speech-to-text transcription engine for the Ministry of Ayush. "
+            f"The patient spoke their clinical symptoms and health issues in language '{language}'. "
+            f"Transcribe the spoken audio verbatim into text in the spoken language. "
+            f"Output ONLY the transcribed patient text. Do not add explanations, prefixes, or quotes."
+        )
+
+        try:
+            response = await self._direct_chat_client.chat.completions.create(
+                model=self.text_model_name,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": audio_prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": audio_data_url},
+                            },
+                        ],
+                    }
+                ],
+                temperature=0.0,
+                max_tokens=1024,
+            )
+            raw_text = response.choices[0].message.content or ""
+            cleaned = re.sub(r"<thought>.*?</thought>", "", raw_text, flags=re.DOTALL)
+            if "</thought>" in cleaned:
+                cleaned = cleaned.split("</thought>")[-1]
+            cleaned = re.sub(r"<think>.*?</think>", "", cleaned, flags=re.DOTALL)
+            if "</think>" in cleaned:
+                cleaned = cleaned.split("</think>")[-1]
+            return cleaned.strip()
+        except Exception as e:
+            logger.error("Audio transcription failed: %s", str(e))
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Audio transcription failed: {str(e)}",
+            )
 
     async def parse_ocr_text(self, raw_text: str) -> OCRStructuredResult:
         """

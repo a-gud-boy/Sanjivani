@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { Mic, MicOff, Send, Loader2, StopCircle, PhoneOff, X } from 'lucide-react'
 import type { ChatMessage, ChatStatus, LanguageCode } from '../../types'
 import { useAudioRecorder } from '../../hooks/useAudioRecorder'
+import { useSpeechRecognition, SPEECH_LANG_MAP } from '../../hooks/useSpeechRecognition'
+import { transcribeAudio } from '../../services/api'
 import ChatBubble from './ChatBubble'
 import QuickReplyChips from './QuickReplyChips'
 import ChatEndOverlay from './ChatEndOverlay'
@@ -45,17 +47,73 @@ export default function ChatInterface({
   const t = useTranslation(language)
   const [inputText, setInputText] = useState('')
   const [endIntentBanner, setEndIntentBanner] = useState(false)
+  const [isTranscribingAudio, setIsTranscribingAudio] = useState(false)
+  const [transcriptionNotice, setTranscriptionNotice] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
+  // Primary: Native Web Speech API recognition
+  const {
+    isListening: isSpeechListening,
+    isSupported: isSpeechSupported,
+    interimTranscript,
+    error: speechError,
+    startListening,
+    stopListening,
+    resetTranscript,
+  } = useSpeechRecognition({
+    language,
+    onTranscriptChange: (text, isFinal) => {
+      if (isFinal && text.trim()) {
+        setInputText((prev) => (prev ? `${prev.trim()} ${text.trim()}` : text.trim()))
+      }
+    },
+  })
+
+  // Fallback: Audio recording via MediaRecorder when SpeechRecognition is not supported
   const {
     isRecording,
     recorderState,
+    audioBlob,
     durationSeconds,
     startRecording,
     stopRecording,
+    reset: resetAudioRecorder,
     error: recordingError,
   } = useAudioRecorder()
+
+  // Process audio recording fallback when SpeechRecognition is not supported
+  useEffect(() => {
+    if (audioBlob && !isSpeechSupported) {
+      setIsTranscribingAudio(true)
+      setTranscriptionNotice('Transcribing audio recording...')
+      transcribeAudio(audioBlob, language)
+        .then((res) => {
+          if (res?.transcript?.trim()) {
+            setInputText((prev) => (prev ? `${prev.trim()} ${res.transcript.trim()}` : res.transcript.trim()))
+            setTranscriptionNotice(null)
+          } else {
+            setTranscriptionNotice('Could not transcribe audio. Please try typing or speak louder.')
+          }
+        })
+        .catch((err) => {
+          console.error('Audio transcription error:', err)
+          setTranscriptionNotice('Voice transcription service unavailable. Please type your message.')
+        })
+        .finally(() => {
+          setIsTranscribingAudio(false)
+          resetAudioRecorder()
+        })
+    }
+  }, [audioBlob, isSpeechSupported, language, resetAudioRecorder])
+
+  // Clear notice after 6 seconds
+  useEffect(() => {
+    if (transcriptionNotice) {
+      const timer = setTimeout(() => setTranscriptionNotice(null), 6000)
+      return () => clearTimeout(timer)
+    }
+  }, [transcriptionNotice])
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -98,10 +156,22 @@ export default function ChatInterface({
   }
 
   const handleMicToggle = async () => {
-    if (isRecording) {
-      stopRecording()
+    if (isSpeechSupported) {
+      if (isSpeechListening) {
+        if (interimTranscript.trim()) {
+          setInputText((prev) => (prev ? `${prev.trim()} ${interimTranscript.trim()}` : interimTranscript.trim()))
+        }
+        stopListening()
+      } else {
+        resetTranscript()
+        startListening(language)
+      }
     } else {
-      await startRecording()
+      if (isRecording) {
+        stopRecording()
+      } else {
+        await startRecording()
+      }
     }
   }
 
@@ -246,39 +316,104 @@ export default function ChatInterface({
           </div>
         )}
 
+        {/* Active Speech Recognition Banner */}
+        {isSpeechListening && (
+          <div className="flex items-center gap-2 px-3 py-2 mb-2 bg-brand-cyan/10 dark:bg-brand-cyan/20 border border-brand-cyan/30 rounded-xl text-xs text-brand-cyan-dark dark:text-brand-cyan">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+            </span>
+            <span className="font-semibold uppercase tracking-wider text-[10px]">
+              Listening ({SPEECH_LANG_MAP[language] || language})
+            </span>
+            <span className="truncate italic flex-1 text-slate-700 dark:text-slate-200">
+              {interimTranscript || 'Speak your symptoms now...'}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                if (interimTranscript.trim()) {
+                  setInputText((prev) => (prev ? `${prev.trim()} ${interimTranscript.trim()}` : interimTranscript.trim()))
+                }
+                stopListening()
+              }}
+              className="text-xs font-semibold px-2 py-0.5 rounded bg-brand-cyan text-white hover:bg-brand-cyan-dark"
+            >
+              Done
+            </button>
+          </div>
+        )}
+
+        {/* Server Transcription Progress */}
+        {isTranscribingAudio && (
+          <div className="flex items-center gap-2 px-3 py-2 mb-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-800 dark:text-amber-200">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+            <span>Transcribing recorded voice through Sanjivani AI...</span>
+          </div>
+        )}
+
+        {/* Transcription Notice / Feedback */}
+        {transcriptionNotice && !isTranscribingAudio && (
+          <div className="flex items-center justify-between gap-2 px-3 py-1.5 mb-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-600 dark:text-slate-300">
+            <span>{transcriptionNotice}</span>
+            <button type="button" onClick={() => setTranscriptionNotice(null)} className="text-slate-400 hover:text-slate-600">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="flex items-end gap-2">
 
           {/* Microphone Button */}
           <button
             type="button"
             onClick={handleMicToggle}
-            disabled={isLoading || chatStatus === 'ended'}
-            aria-label={isRecording ? 'Stop recording' : t.chat.speak}
+            disabled={isLoading || chatStatus === 'ended' || isTranscribingAudio}
+            aria-label={
+              isSpeechListening
+                ? 'Stop voice listening'
+                : isRecording
+                ? 'Stop recording'
+                : `${t.chat.speak} (${SPEECH_LANG_MAP[language] || language})`
+            }
+            title={
+              isSpeechListening
+                ? 'Listening... Click to stop'
+                : `Voice Input (${SPEECH_LANG_MAP[language] || language})`
+            }
             className={`flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center
                         transition-all duration-200 disabled:opacity-40
-                        ${isRecording
-                          ? 'bg-brand-crimson text-white mic-ring shadow-lg'
+                        ${isSpeechListening || isRecording
+                          ? 'bg-brand-crimson text-white mic-ring shadow-lg animate-pulse'
                           : 'bg-surface-muted dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                         }`}
           >
-            {isRecording
-              ? <StopCircle className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
-              : recorderState === 'error'
-              ? <MicOff className="w-5 h-5 text-red-400 flex-shrink-0" aria-hidden="true" />
-              : <Mic className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
-            }
+            {isTranscribingAudio ? (
+              <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" aria-hidden="true" />
+            ) : isSpeechListening || isRecording ? (
+              <StopCircle className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
+            ) : speechError || recorderState === 'error' ? (
+              <MicOff className="w-5 h-5 text-red-400 flex-shrink-0" aria-hidden="true" />
+            ) : (
+              <Mic className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
+            )}
             {isRecording && (
               <span className="text-[9px] font-mono mt-0.5 leading-none">
                 {fmtDuration(durationSeconds)}
               </span>
             )}
+            {isSpeechListening && (
+              <span className="text-[9px] font-mono mt-0.5 leading-none uppercase">
+                {language}
+              </span>
+            )}
           </button>
 
-          {/* Recording error nudge */}
-          {recordingError && (
+          {/* Recording / Speech error nudge */}
+          {(recordingError || speechError) && (
             <p className="absolute bottom-20 left-4 right-4 text-center text-xs text-red-500 bg-white
                            border border-red-200 rounded-xl px-3 py-2 shadow-card z-10">
-              {recordingError}
+              {speechError || recordingError}
             </p>
           )}
 
