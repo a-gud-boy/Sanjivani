@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 from app.main import app
 from app.api.auth import get_active_otp
+from app.core.security import create_access_token
 
 client = TestClient(app)
 
@@ -8,7 +9,18 @@ TEST_PATIENT_ABHA = "14-5555-4444-3333"
 TEST_DOCTOR_HP_ID = "HP-KA-99881"
 
 
+def _get_doctor_headers() -> dict:
+    token = create_access_token(data={"sub": TEST_DOCTOR_HP_ID, "role": "doctor", "hp_id": TEST_DOCTOR_HP_ID})
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _get_patient_headers(patient: dict) -> dict:
+    token = create_access_token(data={"sub": patient["id"], "role": "patient", "abha_id": patient.get("abha_id")})
+    return {"Authorization": f"Bearer {token}"}
+
+
 def _ensure_test_patient() -> dict:
+    _ensure_test_doctor()
     client.post(
         "/api/v1/auth/register",
         json={
@@ -24,7 +36,11 @@ def _ensure_test_patient() -> dict:
             "pincode": "560001",
         },
     )
-    doc_resp = client.get("/api/v1/doctor/patients", params={"query": TEST_PATIENT_ABHA})
+    doc_resp = client.get(
+        "/api/v1/doctor/patients",
+        params={"query": TEST_PATIENT_ABHA},
+        headers=_get_doctor_headers(),
+    )
     assert doc_resp.status_code == 200
     patients = doc_resp.json().get("patients", [])
     assert len(patients) >= 1
@@ -203,9 +219,11 @@ def test_auth_verify_otp_invalid_code():
 
 def test_patient_dashboard_data():
     patient = _ensure_test_patient()
+    headers = _get_patient_headers(patient)
     resp = client.get(
         "/api/v1/patient/dashboard",
         params={"patient_id": patient["id"]},
+        headers=headers,
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -219,6 +237,7 @@ def test_patient_dashboard_data():
 
 def test_patient_save_intake_session_and_delete():
     patient = _ensure_test_patient()
+    headers = _get_patient_headers(patient)
     # Save a new intake session
     save_resp = client.post(
         "/api/v1/patient/intake-session",
@@ -250,6 +269,7 @@ def test_patient_save_intake_session_and_delete():
             ],
             "ai_summary_text": "Patient has mild fever for 1 day.",
         },
+        headers=headers,
     )
     assert save_resp.status_code == 200
     saved_session = save_resp.json()
@@ -260,6 +280,7 @@ def test_patient_save_intake_session_and_delete():
     dash_resp = client.get(
         "/api/v1/patient/dashboard",
         params={"patient_id": patient["id"]},
+        headers=headers,
     )
     dash_data = dash_resp.json()
     doc_filenames = [d["filename"] for d in dash_data["documents"]]
@@ -268,19 +289,20 @@ def test_patient_save_intake_session_and_delete():
     assert "Paracetamol" in med_names
 
     # Delete the uploaded document
-    del_resp = client.delete("/api/v1/patient/document/test-doc-upload-101")
+    del_resp = client.delete("/api/v1/patient/document/test-doc-upload-101", headers=headers)
     assert del_resp.status_code == 200
 
     # Delete the intake session
     session_id = saved_session.get("session_id")
     if session_id:
-        del_sess_resp = client.delete(f"/api/v1/patient/intake-session/{session_id}")
+        del_sess_resp = client.delete(f"/api/v1/patient/intake-session/{session_id}", headers=headers)
         assert del_sess_resp.status_code == 200
 
     # Check dashboard no longer has the deleted document
     dash_resp_after = client.get(
         "/api/v1/patient/dashboard",
         params={"patient_id": patient["id"]},
+        headers=headers,
     )
     dash_after = dash_resp_after.json()
     doc_filenames_after = [d["filename"] for d in dash_after["documents"]]
@@ -289,6 +311,7 @@ def test_patient_save_intake_session_and_delete():
 
 def test_update_patient_profile():
     patient = _ensure_test_patient()
+    headers = _get_patient_headers(patient)
     resp = client.put(
         "/api/v1/patient/profile",
         json={
@@ -299,6 +322,7 @@ def test_update_patient_profile():
                 "city": "Bengaluru",
             },
         },
+        headers=headers,
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -309,6 +333,7 @@ def test_update_patient_profile():
 
 def test_delete_intake_session():
     patient = _ensure_test_patient()
+    headers = _get_patient_headers(patient)
     # 1. Create an intake session to delete
     save_resp = client.post(
         "/api/v1/patient/intake-session",
@@ -322,12 +347,13 @@ def test_delete_intake_session():
                 "chief_complaint": {"symptom": "Transient headache", "duration": "1 hour"}
             },
         },
+        headers=headers,
     )
     assert save_resp.status_code == 200
     sess_id = save_resp.json()["session_id"]
 
     # 2. Delete the session
-    del_resp = client.delete(f"/api/v1/patient/intake-session/{sess_id}")
+    del_resp = client.delete(f"/api/v1/patient/intake-session/{sess_id}", headers=headers)
     assert del_resp.status_code == 200
     assert del_resp.json()["status"] == "success"
 
@@ -335,6 +361,7 @@ def test_delete_intake_session():
     dash_resp = client.get(
         "/api/v1/patient/dashboard",
         params={"patient_id": patient["id"]},
+        headers=headers,
     )
     session_ids = [s["id"] for s in dash_resp.json()["intake_sessions"]]
     assert sess_id not in session_ids
@@ -342,6 +369,7 @@ def test_delete_intake_session():
 
 def test_active_vs_past_medications_filtering():
     patient = _ensure_test_patient()
+    headers = _get_patient_headers(patient)
     # 1. Upload a session with an expired medication and an active medication
     save_resp = client.post(
         "/api/v1/patient/intake-session",
@@ -376,6 +404,7 @@ def test_active_vs_past_medications_filtering():
             ],
             "ai_summary_text": "Test session for active and past medications.",
         },
+        headers=headers,
     )
     assert save_resp.status_code == 200
 
@@ -383,6 +412,7 @@ def test_active_vs_past_medications_filtering():
     dash_resp = client.get(
         "/api/v1/patient/dashboard",
         params={"patient_id": patient["id"]},
+        headers=headers,
     )
     assert dash_resp.status_code == 200
     dash_data = dash_resp.json()
@@ -396,9 +426,9 @@ def test_active_vs_past_medications_filtering():
     assert "Cetirizine" not in past_names
 
     # Clean up test documents and session
-    client.delete("/api/v1/patient/document/test-doc-past-med")
-    client.delete("/api/v1/patient/document/test-doc-active-med")
+    client.delete("/api/v1/patient/document/test-doc-past-med", headers=headers)
+    client.delete("/api/v1/patient/document/test-doc-active-med", headers=headers)
     session_id = save_resp.json().get("session_id")
     if session_id:
-        del_sess_resp = client.delete(f"/api/v1/patient/intake-session/{session_id}")
+        del_sess_resp = client.delete(f"/api/v1/patient/intake-session/{session_id}", headers=headers)
         assert del_sess_resp.status_code == 200

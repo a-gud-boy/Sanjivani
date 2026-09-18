@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sanjivani (संजीवनी) — Clinical & Architecture Audit Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0b0f19;
+      --bg-surface: #111827;
+      --bg-surface-alt: #1e293b;
+      --bg-card: rgba(17, 24, 39, 0.85);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(20, 184, 166, 0.3);
+      --text-main: #f3f4f6;
+      --text-muted: #94a3b8;
+      --text-faint: #64748b;
+      --brand-teal: #0d9488;
+      --brand-teal-light: #14b8a6;
+      --brand-cyan: #06b6d4;
+      --brand-emerald: #10b981;
+      --crit-red: #f43f5e;
+      --crit-bg: rgba(244, 63, 94, 0.12);
+      --crit-border: rgba(244, 63, 94, 0.3);
+      --high-orange: #f97316;
+      --high-bg: rgba(249, 115, 22, 0.12);
+      --high-border: rgba(249, 115, 22, 0.3);
+      --med-amber: #eab308;
+      --med-bg: rgba(234, 179, 8, 0.12);
+      --med-border: rgba(234, 179, 8, 0.3);
+      --low-blue: #38bdf8;
+      --low-bg: rgba(56, 189, 248, 0.12);
+      --low-border: rgba(56, 189, 248, 0.3);
+      --pass-green: #22c55e;
+      --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Sidebar Navigation */
+    aside {
+      width: 280px;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border-subtle);
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      padding: 2rem 1.25rem;
+      overflow-y: auto;
+      z-index: 40;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--brand-teal), var(--brand-cyan));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.2rem;
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
+    }
+
+    .brand-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-sub {
+      font-size: 0.7rem;
+      color: var(--brand-teal-light);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    .nav-group-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-faint);
+      font-weight: 700;
+      margin: 1.5rem 0 0.5rem 0.5rem;
+    }
+
+    .nav-links {
+      list-style: none;
+    }
+
+    .nav-links a {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.6rem 0.75rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .nav-links a:hover, .nav-links a.active {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .nav-links a.active {
+      background: rgba(13, 148, 136, 0.15);
+      color: var(--brand-teal-light);
+      border-left: 3px solid var(--brand-teal-light);
+    }
+
+    /* Main Content */
+    main {
+      margin-left: 280px;
+      flex: 1;
+      padding: 2.5rem 3rem;
+      max-width: 1400px;
+    }
+
+    /* Header Banner */
+    .header-banner {
+      background: linear-gradient(135deg, rgba(13, 148, 136, 0.2) 0%, rgba(6, 182, 212, 0.08) 100%);
+      border: 1px solid var(--border-accent);
+      border-radius: 20px;
+      padding: 2.25rem;
+      margin-bottom: 2.5rem;
+      box-shadow: var(--shadow-lg);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header-banner::after {
+      content: '';
+      position: absolute;
+      top: -50px;
+      right: -50px;
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(20, 184, 166, 0.25) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.65rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border-radius: 9999px;
+      margin-bottom: 0.75rem;
+    }
+
+    .pill-audit {
+      background: rgba(13, 148, 136, 0.2);
+      color: var(--brand-teal-light);
+      border: 1px solid var(--border-accent);
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.5rem;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .meta-item strong {
+      color: var(--text-main);
+    }
+
+    /* Scorecard Grid */
+    .scorecard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 3rem;
+    }
+
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow-lg);
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.85rem;
+    }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .card-score {
+      font-size: 1.8rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.55rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      border-radius: 6px;
+    }
+
+    .status-crit {
+      background: var(--crit-bg);
+      color: var(--crit-red);
+      border: 1px solid var(--crit-border);
+    }
+
+    .status-high {
+      background: var(--high-bg);
+      color: var(--high-orange);
+      border: 1px solid var(--high-border);
+    }
+
+    .status-med {
+      background: var(--med-bg);
+      color: var(--med-amber);
+      border: 1px solid var(--med-border);
+    }
+
+    .status-pass {
+      background: rgba(34, 197, 94, 0.12);
+      color: var(--pass-green);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    .card-desc {
+      font-size: 0.82rem;
+      color: var(--text-faint);
+      margin-top: 0.6rem;
+      line-height: 1.5;
+    }
+
+    /* Section Styling */
+    section {
+      margin-bottom: 3.5rem;
+      scroll-margin-top: 2rem;
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .section-desc {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Critique Screenshots Grid */
+    .screenshot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 1.75rem;
+    }
+
+    .screenshot-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      flex-col: column;
+    }
+
+    .img-container {
+      background: #000;
+      position: relative;
+      border-bottom: 1px solid var(--border-subtle);
+      max-height: 320px;
+      overflow: hidden;
+    }
+
+    .img-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+      transition: transform 0.3s;
+    }
+
+    .img-container:hover img {
+      transform: scale(1.02);
+    }
+
+    .img-overlay-badge {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      backdrop-filter: blur(8px);
+      padding: 0.3rem 0.65rem;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+
+    .screenshot-body {
+      padding: 1.25rem 1.5rem;
+    }
+
+    .screenshot-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+
+    .critique-box {
+      background: rgba(0, 0, 0, 0.25);
+      border-left: 3px solid var(--brand-teal-light);
+      padding: 0.75rem 1rem;
+      border-radius: 0 8px 8px 0;
+      margin-top: 0.85rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .critique-box.danger {
+      border-left-color: var(--crit-red);
+      background: var(--crit-bg);
+      color: #fda4af;
+    }
+
+    .critique-box.warning {
+      border-left-color: var(--high-orange);
+      background: var(--high-bg);
+      color: #fed7aa;
+    }
+
+    /* Vulnerability & Issue Cards */
+    .issue-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .issue-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 1.5rem;
+      transition: border-color 0.2s;
+    }
+
+    .issue-card.crit {
+      border-left: 4px solid var(--crit-red);
+    }
+
+    .issue-card.high {
+      border-left: 4px solid var(--high-orange);
+    }
+
+    .issue-card.med {
+      border-left: 4px solid var(--med-amber);
+    }
+
+    .issue-card.low {
+      border-left: 4px solid var(--low-blue);
+    }
+
+    .issue-card.pass, .issue-card.resolved {
+      border-left: 4px solid var(--pass-green);
+    }
+
+    .issue-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.75rem;
+      gap: 1rem;
+    }
+
+    .issue-header-left {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .issue-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-faint);
+    }
+
+    .issue-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .file-loc {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--brand-teal-light);
+      background: rgba(20, 184, 166, 0.1);
+      padding: 0.15rem 0.5rem;
+      border-radius: 6px;
+      display: inline-block;
+      margin-bottom: 0.75rem;
+    }
+
+    .issue-desc {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      line-height: 1.6;
+    }
+
+    /* Code Blocks */
+    .code-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    @media (max-width: 900px) {
+      .code-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .code-box {
+      border-radius: 10px;
+      overflow: hidden;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      background: #090d16;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .code-header {
+      padding: 0.4rem 0.85rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .code-box.vulnerable .code-header {
+      background: rgba(244, 63, 94, 0.2);
+      color: var(--crit-red);
+      border-bottom: 1px solid rgba(244, 63, 94, 0.3);
+    }
+
+    .code-box.fixed .code-header {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--pass-green);
+      border-bottom: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    pre {
+      padding: 0.85rem;
+      overflow-x: auto;
+      line-height: 1.5;
+      color: #cbd5e1;
+    }
+
+    /* Table */
+    .table-container {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      overflow-x: auto;
+      box-shadow: var(--shadow-lg);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.86rem;
+    }
+
+    th {
+      background: rgba(255, 255, 255, 0.03);
+      padding: 1rem 1.25rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border-subtle);
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+    }
+
+    td {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-main);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Utilities */
+    .pill-tag {
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      background: var(--bg-surface-alt);
+      color: var(--text-muted);
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      aside {
+        display: none;
+      }
+      main {
+        margin-left: 0;
+        padding: 1.5rem;
+      }
+      .screenshot-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside>
+    <div class="brand">
+      <div class="brand-icon">S</div>
+      <div>
+        <div class="brand-title">Sanjivani</div>
+        <div class="brand-sub">Clinical Security Audit</div>
+      </div>
+    </div>
+
+    <div class="nav-group-title">Navigation</div>
+    <ul class="nav-links">
+      <li><a href="#executive-summary" class="active">Executive Summary</a></li>
+      <li><a href="#scorecard">Quality Scorecard</a></li>
+      <li><a href="#report-critique">Browser Report Critique</a></li>
+      <li><a href="#ui-visual-critique">UI & UX Visual Analysis</a></li>
+      <li><a href="#security-audit">Security Vulnerabilities</a></li>
+      <li><a href="#ai-architecture">AI & Clinical Engine</a></li>
+      <li><a href="#frontend-db">Frontend & Database</a></li>
+      <li><a href="#remediation-roadmap">Remediation Roadmap</a></li>
+    </ul>
+
+    <div class="nav-group-title">Key Indicators</div>
+    <div style="padding: 0.5rem; font-size: 0.78rem; color: var(--text-faint);">
+      <div style="display:flex; justify-content:space-between; margin-bottom: 0.4rem;">
+        <span>Critical Vulnerabilities:</span>
+        <span style="color: var(--crit-red); font-weight:700;">2</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom: 0.4rem;">
+        <span>High Priority Deficits:</span>
+        <span style="color: var(--high-orange); font-weight:700;">4</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom: 0.4rem;">
+        <span>Total Remediations:</span>
+        <span style="color: var(--brand-teal-light); font-weight:700;">13</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main>
+
+    <!-- Header Banner -->
+    <header class="header-banner" id="executive-summary">
+      <div class="badge-pill pill-audit">Full Systems & UI Inspection</div>
+      <h1>Sanjivani (संजीवनी) Architecture & Security Audit</h1>
+      <p style="color: var(--text-muted); font-size: 1.05rem; max-width: 800px; margin-top: 0.5rem;">
+        Comprehensive critique of browser automated test coverage, patient & clinician UX flows, 
+        ABHA authentication security, medical data protection, and AI pipeline resilience.
+      </p>
+
+      <div class="meta-row">
+        <div class="meta-item">Audited Date: <strong>18 September 2026</strong></div>
+        <div class="meta-item">Target Artifact: <strong>browser_test_report.md</strong></div>
+        <div class="meta-item">Backend Host: <strong>Render (Live HTTPS)</strong></div>
+        <div class="meta-item">Database: <strong>Supabase PostgreSQL</strong></div>
+        <div class="meta-item">Overall Status: <span class="status-badge status-crit">REMEDIATION REQUIRED</span></div>
+      </div>
+    </header>
+
+    <!-- Quality Scorecard -->
+    <section id="scorecard">
+      <h2 class="section-title">Systems Assessment Scorecard</h2>
+      <p class="section-desc">Multi-dimensional evaluation of technical robustness, clinical safety, and production readiness.</p>
+
+      <div class="scorecard-grid">
+        <!-- Card 1 -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Authentication & Access</span>
+            <span class="status-badge status-pass">RESOLVED</span>
+          </div>
+          <div class="card-score" style="color: var(--pass-green);">4.8<span style="font-size:1rem; color:var(--text-faint);">/5.0</span></div>
+          <p class="card-desc">
+            SEC-01 (OTP Leak), SEC-02 (BOLA on Medical Endpoints), and SEC-03 (Cosmetic Tokens) resolved via cryptographic HS256 JWTs, role dependencies, and frontend Axios interceptor.
+          </p>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Clinical Data Safety</span>
+            <span class="status-badge status-high">HIGH RISK</span>
+          </div>
+          <div class="card-score" style="color: var(--high-orange);">2.5<span style="font-size:1rem; color:var(--text-faint);">/5.0</span></div>
+          <p class="card-desc">
+            Hardcoded fallback blood group ('B+') and phone numbers displayed on EHR; arbitrary unauthenticated document/session deletion.
+          </p>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Testing Integrity</span>
+            <span class="status-badge status-high">HIGH RISK</span>
+          </div>
+          <div class="card-score" style="color: var(--high-orange);">2.0<span style="font-size:1rem; color:var(--text-faint);">/5.0</span></div>
+          <p class="card-desc">
+            Browser report reported 100% pass despite CDP logs showing chat interaction was skipped; unit test suite makes un-mocked live Gemini API calls.
+          </p>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">UI/UX & Accessibility</span>
+            <span class="status-badge status-med">MODERATE</span>
+          </div>
+          <div class="card-score" style="color: var(--med-amber);">3.5<span style="font-size:1rem; color:var(--text-faint);">/5.0</span></div>
+          <p class="card-desc">
+            High quality visual theme and responsive cards; mixed language leakage (Hindi button in English UI), dummy audio recorder with no STT.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Browser Test Report Critique -->
+    <section id="report-critique">
+      <h2 class="section-title">Critique of Automated Browser Report</h2>
+      <p class="section-desc">Analysis of findings from <code>browser_test_report.md</code> versus the underlying execution reality.</p>
+
+      <div class="issue-card high">
+        <div class="issue-top">
+          <div class="issue-header-left">
+            <span class="issue-id">CRIT-01</span>
+            <span class="issue-name">False Completeness on Conversational AI Intake Turn</span>
+          </div>
+          <span class="status-badge status-high">TEST FLAW</span>
+        </div>
+        <p class="issue-desc">
+          The Executive Summary in <code>browser_test_report.md</code> reported a clean pass across the patient journey. 
+          However, examining the CDP runtime execution log in step 517 reveals that the automated script logged:
+          <br><code>--- Testing Chat Interaction ---<br>Chat input detected: false</code>
+          <br><br>
+          <strong>Why this occurred:</strong> Upon successful login, the patient is routed to <code>patient_dashboard</code>. 
+          The chat input element only exists inside <code>ChatInterface.tsx</code>, which requires clicking the <em>"Add Details (नया विवरण जोड़ें)"</em> button. 
+          The script failed to navigate to the intake screen, silently bypassed the entire conversational turn, and concluded the test without verifying AI intake or quick replies.
+        </p>
+      </div>
+
+      <div class="issue-card crit" style="margin-top: 1rem;">
+        <div class="issue-top">
+          <div class="issue-header-left">
+            <span class="issue-id">CRIT-02</span>
+            <span class="issue-name">Production Exposure of SMS Simulator OTP Banner</span>
+          </div>
+          <span class="status-badge status-crit">SECURITY FLAW</span>
+        </div>
+        <p class="issue-desc">
+          Section 2.2 and 2.4 of the test report praise the on-screen OTP banner and 1-click Auto-fill. 
+          However, the test environment was connected to the <strong>live production Render backend</strong> (<code>https://sanjivani-9ne0.onrender.com</code>). 
+          The fact that the live backend returns the 6-digit OTP in the HTTP response demonstrates that <strong>the production API exposes verification credentials</strong> to anyone submitting an ABHA ID or HP ID.
+        </p>
+      </div>
+    </section>
+
+    <!-- UI & UX Visual Critique -->
+    <section id="ui-visual-critique">
+      <h2 class="section-title">Visual UI & UX Critique</h2>
+      <p class="section-desc">Detailed review of interface components, typography, accessibility, and visual hierarchy from the captured screenshots.</p>
+
+      <div class="screenshot-grid">
+        <!-- Screenshot 1 -->
+        <div class="screenshot-card">
+          <div class="img-container">
+            <img src="/home/bruno/.gemini/antigravity/brain/25f2d5c8-79ea-4540-bb06-4e3a202d7c1b/browser_01_initial_login.png" alt="Login Page Screenshot" />
+            <div class="img-overlay-badge status-pass">Visual Layout: Passed</div>
+          </div>
+          <div class="screenshot-body">
+            <div class="screenshot-title">1. Portal Landing & Identity Input</div>
+            <p style="font-size:0.83rem; color:var(--text-muted);">
+              Centered card layout with AYUSH teal gradient and toggleable roles.
+            </p>
+            <div class="critique-box">
+              <strong>UX Suggestions:</strong>
+              <ul style="margin-left: 1.2rem; margin-top: 0.3rem;">
+                <li>Add input auto-formatting for ABHA digits: <code>##-####-####-####</code>.</li>
+                <li>Increase contrast on the 11px header subtitle (fails WCAG AA 4.5:1 ratio).</li>
+                <li>Include native language preview in language selector (e.g. "English / हिन्दी").</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Screenshot 2 -->
+        <div class="screenshot-card">
+          <div class="img-container">
+            <img src="/home/bruno/.gemini/antigravity/brain/25f2d5c8-79ea-4540-bb06-4e3a202d7c1b/browser_02_patient_otp_displayed.png" alt="Patient OTP Banner Screenshot" />
+            <div class="img-overlay-badge status-crit">Critical Security Risk</div>
+          </div>
+          <div class="screenshot-body">
+            <div class="screenshot-title">2. Patient OTP Verification Screen</div>
+            <p style="font-size:0.83rem; color:var(--text-muted);">
+              Verification screen displaying on-screen OTP code and 30-second resend timer.
+            </p>
+            <div class="critique-box danger">
+              <strong>Security Vulnerability:</strong>
+              The on-screen OTP simulator must be strictly restricted to local development builds. In production, this banner must be suppressed and OTPs dispatched exclusively via secure SMS.
+            </div>
+          </div>
+        </div>
+
+        <!-- Screenshot 3 -->
+        <div class="screenshot-card">
+          <div class="img-container">
+            <img src="/home/bruno/.gemini/antigravity/brain/25f2d5c8-79ea-4540-bb06-4e3a202d7c1b/browser_03_patient_intake_loaded.png" alt="Patient Dashboard Screenshot" />
+            <div class="img-overlay-badge status-high">Clinical Hazard & i18n Leak</div>
+          </div>
+          <div class="screenshot-body">
+            <div class="screenshot-title">3. Citizen Medical Records Station</div>
+            <p style="font-size:0.83rem; color:var(--text-muted);">
+              Personalized health summary displaying vitals baseline and active medications.
+            </p>
+            <div class="critique-box warning">
+              <strong>Critical Flaws Identified:</strong>
+              <ul style="margin-left: 1.2rem; margin-top: 0.3rem;">
+                <li><strong>Hazardous Fallback:</strong> Defaulting blood group to <code>B+</code> if unrecorded is clinically unacceptable. Must show "Not recorded".</li>
+                <li><strong>Language Leakage:</strong> Button says <code>Add Details (नया विवरण जोड़ें)</code> with hardcoded Hindi even in English mode.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Screenshot 4 -->
+        <div class="screenshot-card">
+          <div class="img-container">
+            <img src="/home/bruno/.gemini/antigravity/brain/25f2d5c8-79ea-4540-bb06-4e3a202d7c1b/browser_06_doctor_portal_loaded.png" alt="Doctor Portal Screenshot" />
+            <div class="img-overlay-badge status-med">Missing i18n & Consent</div>
+          </div>
+          <div class="screenshot-body">
+            <div class="screenshot-title">4. Clinician Oversight Registry</div>
+            <p style="font-size:0.83rem; color:var(--text-muted);">
+              Doctor view displaying patient roster, metrics cards, and clinical search.
+            </p>
+            <div class="critique-box">
+              <strong>Architecture Deficits:</strong>
+              <ul style="margin-left: 1.2rem; margin-top: 0.3rem;">
+                <li>Missing <code>LanguageSelector</code> component in the Doctor Portal header.</li>
+                <li>All clinician interface text is hardcoded in English with zero i18n support.</li>
+                <li>Displays patient dossiers without patient consent verification (ABDM violation).</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Security Vulnerabilities -->
+    <section id="security-audit">
+      <h2 class="section-title">Security & Access Control Audit</h2>
+      <p class="section-desc">Vulnerabilities discovered during static code analysis of <code>app/api/auth.py</code>, <code>app/api/patient.py</code>, and <code>app/api/doctor.py</code>.</p>
+
+      <div class="issue-list">
+        <!-- SEC-01 -->
+        <div class="issue-card resolved">
+          <div class="issue-top">
+            <div class="issue-header-left">
+              <span class="issue-id">SEC-01</span>
+              <span class="issue-name">Unconditional OTP Leakage in HTTP Responses</span>
+            </div>
+            <span class="status-badge status-pass">RESOLVED</span>
+          </div>
+          <span class="file-loc">app/api/auth.py & app/core/config.py</span>
+          <p class="issue-desc">
+            <strong>Resolved:</strong> Configured <code>ENVIRONMENT</code> (production, development, staging) in <code>app/core/config.py</code>. Implemented <code>_should_expose_otp()</code> in <code>app/api/auth.py</code> to strictly suppress OTP fields in production environments and when <code>DEBUG=False</code>. Sanitized logging to prevent OTP disclosure. Verified with 5 automated tests in <code>tests/test_sec01_otp_leak.py</code>.
+          </p>
+
+          <div class="code-grid">
+            <div class="code-box vulnerable">
+              <div class="code-header">Vulnerable Implementation (Previous)</div>
+              <pre><code># app/api/auth.py
+code = _generate_and_store_otp(patient.abha_id)
+return PatientRequestOtpResponse(
+    status="success",
+    masked_phone=mask_phone(patient.phone),
+    otp=code,            # <-- EXPOSED
+    simulated_otp=code,  # <-- EXPOSED
+)</code></pre>
+            </div>
+
+            <div class="code-box fixed">
+              <div class="code-header">Remediated Implementation (Active & Verified)</div>
+              <pre><code># app/api/auth.py
+code = _generate_and_store_otp(patient.abha_id)
+expose_otp = _should_expose_otp() # Gated to DEBUG & non-prod
+return PatientRequestOtpResponse(
+    status="success",
+    masked_phone=mask_phone(patient.phone),
+    otp=code if expose_otp else None,
+    simulated_otp=code if expose_otp else None,
+)</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEC-02 -->
+        <div class="issue-card resolved">
+          <div class="issue-top">
+            <div class="issue-header-left">
+              <span class="issue-id">SEC-02</span>
+              <span class="issue-name">Broken Object Level Authorization (BOLA) Across All Medical Endpoints</span>
+            </div>
+            <span class="status-badge status-pass">RESOLVED</span>
+          </div>
+          <span class="file-loc">app/api/doctor.py, app/api/patient.py, app/api/deps.py & app/core/security.py</span>
+          <p class="issue-desc">
+            <strong>Resolved:</strong> Implemented cryptographic HS256 JWT tokens with <code>create_access_token</code> and <code>decode_access_token</code> in <code>app/core/security.py</code>. Created FastAPI dependencies (<code>get_current_user</code>, <code>require_doctor_user</code>, <code>require_patient_user</code>) in <code>app/api/deps.py</code>. Doctor endpoints now strictly require clinician authorization (401 for unauthenticated, 403 for patients). Patient endpoints enforce object-level ownership checks (returns 403 Forbidden if a patient attempts to access, mutate, or delete another patient's records or intake sessions). Verified with 18 automated tests in <code>tests/test_sec02_bola.py</code>.
+          </p>
+        </div>
+
+        <!-- SEC-03 -->
+        <div class="issue-card resolved">
+          <div class="issue-top">
+            <div class="issue-header-left">
+              <span class="issue-id">SEC-03</span>
+              <span class="issue-name">Cosmetic Token System & Missing Authorization Headers</span>
+            </div>
+            <span class="status-badge status-pass">RESOLVED</span>
+          </div>
+          <span class="file-loc">frontend/src/services/api.ts & app/api/auth.py</span>
+          <p class="issue-desc">
+            <strong>Resolved:</strong> Replaced arbitrary UUID tokens with cryptographically signed HS256 JWT tokens containing <code>sub</code>, <code>role</code>, and TTL expiration claims issued on OTP verification and registration. Configured an Axios request interceptor on <code>apiClient</code> in <code>frontend/src/services/api.ts</code> to automatically attach <code>Authorization: Bearer &lt;token&gt;</code> from <code>localStorage</code> on all API requests. Added state and token purging on logout in <code>frontend/src/App.tsx</code>. Verified via production frontend build (<code>npm run build</code>) and full integration test suites.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- AI Architecture -->
+    <section id="ai-architecture">
+      <h2 class="section-title">AI Engine & Clinical Processing</h2>
+      <p class="section-desc">Analysis of LLM prompt engineering, multimodal document OCR, audio handling, and test isolation.</p>
+
+      <div class="issue-list">
+        <!-- AI-01 -->
+        <div class="issue-card high">
+          <div class="issue-top">
+            <div class="issue-header-left">
+              <span class="issue-id">AI-01</span>
+              <span class="issue-name">Un-Mocked Live Gemini API Calls in Test Suite</span>
+            </div>
+            <span class="status-badge status-high">HIGH</span>
+          </div>
+          <span class="file-loc">tests/test_language.py : Lines 23-33, 65-80</span>
+          <p class="issue-desc">
+            <code>tests/test_language.py</code> executes synchronous live HTTP requests to Google Gemini across all 7 supported languages. 
+            This causes test suite execution to stall for 60-90+ seconds, introduces flakiness when network drops occur, and repeatedly consumes user API quotas during local development and CI runs.
+          </p>
+        </div>
+
+        <!-- AI-02 -->
+        <div class="issue-card high">
+          <div class="issue-top">
+            <div class="issue-header-left">
+              <span class="issue-id">AI-02</span>
+              <span class="issue-name">Dummy Audio Recording in Frontend (Microphone Discards Audio)</span>
+            </div>
+            <span class="status-badge status-high">HIGH</span>
+          </div>
+          <span class="file-loc">frontend/src/components/Chat/ChatInterface.tsx : Lines 51-58</span>
+          <p class="issue-desc">
+            The chat microphone button invokes <code>useAudioRecorder</code>, which accumulates chunks into an <code>audioBlob</code>. 
+            However, <code>ChatInterface.tsx</code> never uses or destructures <code>audioBlob</code>, never sends it to a speech-to-text API, and does not invoke the browser's Web Speech API. 
+            The audio is completely lost, leaving voice intake non-functional.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Frontend & Database -->
+    <section id="frontend-db">
+      <h2 class="section-title">Frontend & Database Architecture</h2>
+      <p class="section-desc">Review of data models, database migration capabilities, and frontend internationalization.</p>
+
+      <div class="issue-list">
+        <!-- FE-01 -->
+        <div class="issue-card med">
+          <div class="issue-top">
+            <div class="issue-header-left">
+              <span class="issue-id">FE-01</span>
+              <span class="issue-name">Missing Internationalization in Doctor Portal</span>
+            </div>
+            <span class="status-badge status-med">MEDIUM</span>
+          </div>
+          <span class="file-loc">frontend/src/components/Doctor/DoctorPortal.tsx</span>
+          <p class="issue-desc">
+            While patient intake supports 7 Indian languages, the Doctor Portal is entirely hardcoded in English and lacks the <code>useTranslation</code> hook. 
+            Furthermore, the Doctor Portal header lacks the <code>LanguageSelector</code> dropdown.
+          </p>
+        </div>
+
+        <!-- DB-01 -->
+        <div class="issue-card med">
+          <div class="issue-top">
+            <div class="issue-header-left">
+              <span class="issue-id">DB-01</span>
+              <span class="issue-name">Absence of Alembic Database Migration Framework</span>
+            </div>
+            <span class="status-badge status-med">MEDIUM</span>
+          </div>
+          <span class="file-loc">app/db/seed.py & app/main.py</span>
+          <p class="issue-desc">
+            Relational tables are instantiated via <code>Base.metadata.create_all</code> upon startup. 
+            There is no schema migration tool (such as Alembic). Any column changes or table additions in production PostgreSQL cannot be executed automatically without data migration scripts or wiping the database.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Remediation Roadmap -->
+    <section id="remediation-roadmap">
+      <h2 class="section-title">Prioritized Remediation Roadmap</h2>
+      <p class="section-desc">Actionable checklist for engineering remediation ordered by security and clinical impact.</p>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Priority</th>
+              <th>Issue ID</th>
+              <th>Status</th>
+              <th>Component</th>
+              <th>Task Description</th>
+              <th>Effort</th>
+              <th>Impact</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="status-badge status-crit">P0 - CRIT</span></td>
+              <td><code>SEC-01</code></td>
+              <td><span class="status-badge status-pass">RESOLVED</span></td>
+              <td>Backend Auth</td>
+              <td>Suppress OTP from response payload when in production environment; gate simulation to <code>DEBUG=True</code>.</td>
+              <td>1 hr</td>
+              <td>Prevents complete 2FA authentication bypass.</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge status-crit">P0 - CRIT</span></td>
+              <td><code>SEC-02</code></td>
+              <td><span class="status-badge status-pass">RESOLVED</span></td>
+              <td>Backend Security</td>
+              <td>Implement JWT signing and role-based dependencies (<code>get_current_user</code>) across all routes.</td>
+              <td>3 hrs</td>
+              <td>Prevents unauthorized access to medical records (BOLA).</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge status-crit">P0 - CRIT</span></td>
+              <td><code>SEC-03</code></td>
+              <td><span class="status-badge status-pass">RESOLVED</span></td>
+              <td>Frontend API</td>
+              <td>Configure Axios request interceptor to attach <code>Authorization: Bearer &lt;token&gt;</code>.</td>
+              <td>1.5 hrs</td>
+              <td>Ensures all client calls are authenticated.</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge status-crit">P0 - CRIT</span></td>
+              <td><code>FE-02</code></td>
+              <td><span class="pill-tag">PENDING</span></td>
+              <td>Frontend UI</td>
+              <td>Eliminate hardcoded fallback medical vitals (<code>B+</code> blood group, <code>38y</code> age) on patient dashboard.</td>
+              <td>0.5 hr</td>
+              <td>Eliminates life-threatening clinical misinformation hazard.</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge status-high">P1 - HIGH</span></td>
+              <td><code>AI-01</code></td>
+              <td><span class="pill-tag">PENDING</span></td>
+              <td>Backend Tests</td>
+              <td>Mock Gemini API calls in <code>tests/test_language.py</code> to prevent CI hangs and quota burn.</td>
+              <td>1 hr</td>
+              <td>Prevents token allowance exhaustion and test timeouts.</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge status-high">P1 - HIGH</span></td>
+              <td><code>AI-03</code></td>
+              <td><span class="pill-tag">PENDING</span></td>
+              <td>Frontend Chat</td>
+              <td>Implement native browser <code>SpeechRecognition</code> for voice-to-text in <code>ChatInterface.tsx</code>.</td>
+              <td>2 hrs</td>
+              <td>Restores functioning speech clinical intake.</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge status-high">P1 - HIGH</span></td>
+              <td><code>SEC-04</code></td>
+              <td><span class="pill-tag">PENDING</span></td>
+              <td>Backend DB</td>
+              <td>Migrate in-memory OTP cache to database table or Redis with TTL for multi-worker scaling.</td>
+              <td>2 hrs</td>
+              <td>Enables reliable horizontal autoscaling.</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge status-med">P2 - MED</span></td>
+              <td><code>FE-01</code></td>
+              <td><span class="pill-tag">PENDING</span></td>
+              <td>Frontend i18n</td>
+              <td>Add Doctor Portal translation dictionary and remove hardcoded Hindi from English dashboard button.</td>
+              <td>2 hrs</td>
+              <td>Provides seamless bilingual/multilingual clinician UX.</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge status-med">P2 - MED</span></td>
+              <td><code>AI-02</code></td>
+              <td><span class="pill-tag">PENDING</span></td>
+              <td>Backend AI</td>
+              <td>Configure explicit 30s timeout on <code>AsyncOpenAI</code> client in <code>llm_service.py</code>.</td>
+              <td>0.5 hr</td>
+              <td>Prevents frozen worker threads on slow external LLM calls.</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge status-med">P2 - MED</span></td>
+              <td><code>SEC-05</code></td>
+              <td><span class="pill-tag">PENDING</span></td>
+              <td>Backend Main</td>
+              <td>Replace wildcard CORS origin with explicit domain whitelist.</td>
+              <td>0.5 hr</td>
+              <td>Hardens API against cross-site credential attacks.</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge status-low">P3 - LOW</span></td>
+              <td><code>DB-01</code></td>
+              <td><span class="pill-tag">PENDING</span></td>
+              <td>Backend DB</td>
+              <td>Initialize Alembic migration environment for structured relational migrations.</td>
+              <td>2 hrs</td>
+              <td>Enables safe production database schema updates.</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge status-low">P3 - LOW</span></td>
+              <td><code>FE-03</code></td>
+              <td><span class="pill-tag">PENDING</span></td>
+              <td>Frontend Test</td>
+              <td>Add Vitest + React Testing Library suite for core frontend components.</td>
+              <td>3 hrs</td>
+              <td>Guarantees frontend UI regression protection.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // Smooth scroll and active navigation tracking
+    const links = document.querySelectorAll('.nav-links a');
+    const sections = document.querySelectorAll('section, header');
+
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        if (pageYOffset >= sectionTop - 150) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      links.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === `#${current}`) {
+          link.classList.add('active');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

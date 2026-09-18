@@ -28,6 +28,43 @@ const apiClient = axios.create({
   },
 })
 
+// SEC-03 Remediation: Attach Authorization Bearer token to all outgoing requests
+apiClient.interceptors.request.use((config) => {
+  try {
+    const token = localStorage.getItem('sanjivani_auth_token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+  } catch (err) {
+    console.warn('Unable to read auth token from localStorage:', err)
+  }
+  return config
+})
+
+export function getAuthToken(): string | null {
+  try {
+    return localStorage.getItem('sanjivani_auth_token')
+  } catch {
+    return null
+  }
+}
+
+export function setAuthToken(token: string): void {
+  try {
+    localStorage.setItem('sanjivani_auth_token', token)
+  } catch (err) {
+    console.warn('Unable to persist auth token in localStorage:', err)
+  }
+}
+
+export function clearAuthToken(): void {
+  try {
+    localStorage.removeItem('sanjivani_auth_token')
+  } catch (err) {
+    console.warn('Unable to clear auth token from localStorage:', err)
+  }
+}
+
 // ----------------------------------------------------------------
 // Chat Init — GET /api/v1/chat/init
 // ----------------------------------------------------------------
@@ -266,11 +303,17 @@ export async function requestPatientOtp(abhaId: string): Promise<RequestOtpResul
 
 export async function verifyPatientOtp(abhaId: string, otp: string): Promise<VerifyOtpResult> {
   const { data } = await apiClient.post<VerifyOtpResult>('/auth/patient/verify-otp', { abha_id: abhaId, otp })
+  if (data.token) {
+    setAuthToken(data.token)
+  }
   return data
 }
 
 export async function registerPatient(payload: PatientRegisterPayload): Promise<RegisterResult> {
   const { data } = await apiClient.post<RegisterResult>('/auth/patient/register', payload)
+  if (data.token) {
+    setAuthToken(data.token)
+  }
   return data
 }
 
@@ -282,11 +325,17 @@ export async function requestDoctorOtp(hpId: string): Promise<RequestOtpResult> 
 
 export async function verifyDoctorOtp(hpId: string, otp: string): Promise<VerifyOtpResult> {
   const { data } = await apiClient.post<VerifyOtpResult>('/auth/doctor/verify-otp', { hp_id: hpId, otp })
+  if (data.token) {
+    setAuthToken(data.token)
+  }
   return data
 }
 
 export async function registerDoctor(payload: DoctorRegisterPayload): Promise<RegisterResult> {
   const { data } = await apiClient.post<RegisterResult>('/auth/doctor/register', payload)
+  if (data.token) {
+    setAuthToken(data.token)
+  }
   return data
 }
 

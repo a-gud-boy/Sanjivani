@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.api.deps import require_doctor_user
 from app.api.patient import (
     ActiveMedication,
     PatientDashboardResponse,
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/doctor", tags=["Doctor Clinical Oversight Portal"])
 
 
 
-# ── Pydantic Models for Doctor View ───────────────────────────────────────────
+# ── Request / Response Schemas ────────────────────────────────────────────────
 
 class LatestSessionSummary(BaseModel):
     id: str
@@ -70,6 +71,7 @@ class DoctorPatientsListResponse(BaseModel):
 async def list_all_patients(
     query: Optional[str] = Query(None, description="Optional search term matching patient name or ABHA ID"),
     red_flag_only: bool = Query(False, description="Filter for patients with active red flags"),
+    current_doctor: Doctor = Depends(require_doctor_user),
     db: AsyncSession = Depends(get_db),
 ) -> DoctorPatientsListResponse:
     """
@@ -170,6 +172,7 @@ async def list_all_patients(
 @router.get("/patient/{patient_id}", response_model=PatientDashboardResponse)
 async def get_patient_dossier(
     patient_id: str,
+    current_doctor: Doctor = Depends(require_doctor_user),
     db: AsyncSession = Depends(get_db),
 ) -> PatientDashboardResponse:
     """

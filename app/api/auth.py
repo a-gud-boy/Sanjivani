@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
+from app.core.security import create_access_token
 from app.db.database import get_db
 from app.db.models import Doctor, Patient
 
@@ -22,12 +24,25 @@ _ACTIVE_OTPS: Dict[str, Tuple[str, float]] = {}
 OTP_EXPIRY_SECONDS = 600.0  # 10 minutes
 
 
+def _should_expose_otp() -> bool:
+    """
+    SEC-01 Mitigation: Plaintext OTP / simulated_otp is strictly gated behind DEBUG=True
+    and non-production environments. Never expose plaintext OTP in production responses or logs.
+    """
+    if settings.is_production:
+        return False
+    return bool(settings.DEBUG)
+
+
 def _generate_and_store_otp(identifier: str) -> str:
     """Generate a secure 6-digit numeric OTP and record expiration."""
     clean_id = identifier.strip()
     code = f"{secrets.randbelow(900000) + 100000}"
     _ACTIVE_OTPS[clean_id] = (code, time.time() + OTP_EXPIRY_SECONDS)
-    logger.info("Generated real verification OTP for '%s': %s (TTL: 10m)", clean_id, code)
+    if _should_expose_otp():
+        logger.info("Generated real verification OTP for '%s': %s (TTL: 10m)", clean_id, code)
+    else:
+        logger.info("Generated verification OTP for '%s' (dispatched via SMS gateway, TTL: 10m)", clean_id)
     return code
 
 
@@ -78,8 +93,8 @@ class PatientRequestOtpResponse(BaseModel):
     abha_id: str
     user_name: str
     user_type: str = "patient"
-    otp: Optional[str] = None
-    simulated_otp: Optional[str] = None
+    otp: Optional[str] = Field(default=None, description="Plaintext OTP. Only provided in local development when DEBUG=True. Always None in production.")
+    simulated_otp: Optional[str] = Field(default=None, description="Simulated OTP for development testing. Always None in production.")
 
 
 class PatientVerifyOtpRequest(BaseModel):
@@ -147,8 +162,8 @@ class DoctorRequestOtpResponse(BaseModel):
     hp_id: str
     user_name: str
     user_type: str = "doctor"
-    otp: Optional[str] = None
-    simulated_otp: Optional[str] = None
+    otp: Optional[str] = Field(default=None, description="Plaintext OTP. Only provided in local development when DEBUG=True. Always None in production.")
+    simulated_otp: Optional[str] = Field(default=None, description="Simulated OTP for development testing. Always None in production.")
 
 
 class DoctorVerifyOtpRequest(BaseModel):
@@ -303,6 +318,7 @@ async def _process_patient_request_otp(db: AsyncSession, abha_id: str) -> Patien
         )
 
     code = _generate_and_store_otp(patient.abha_id)
+    expose_otp = _should_expose_otp()
 
     return PatientRequestOtpResponse(
         status="success",
@@ -311,8 +327,8 @@ async def _process_patient_request_otp(db: AsyncSession, abha_id: str) -> Patien
         abha_id=patient.abha_id,
         user_name=patient.name,
         user_type="patient",
-        otp=code,
-        simulated_otp=code,
+        otp=code if expose_otp else None,
+        simulated_otp=code if expose_otp else None,
     )
 
 
@@ -329,6 +345,7 @@ async def _process_doctor_request_otp(db: AsyncSession, hp_id: str) -> DoctorReq
         )
 
     code = _generate_and_store_otp(doctor.hp_id)
+    expose_otp = _should_expose_otp()
 
     return DoctorRequestOtpResponse(
         status="success",
@@ -337,8 +354,8 @@ async def _process_doctor_request_otp(db: AsyncSession, hp_id: str) -> DoctorReq
         hp_id=doctor.hp_id,
         user_name=doctor.name,
         user_type="doctor",
-        otp=code,
-        simulated_otp=code,
+        otp=code if expose_otp else None,
+        simulated_otp=code if expose_otp else None,
     )
 
 
@@ -362,7 +379,12 @@ async def _process_patient_verify_otp(db: AsyncSession, abha_id: str, otp: str) 
             detail="Invalid or expired OTP code. Please request a new OTP and try again.",
         )
 
-    token = f"sanjivani-token-{uuid.uuid4()}"
+    token = create_access_token({
+        "sub": patient.id,
+        "role": "patient",
+        "abha_id": patient.abha_id,
+        "name": patient.name,
+    })
     profile = PatientProfileResponse(
         id=patient.id,
         abha_id=patient.abha_id,
@@ -397,7 +419,12 @@ async def _process_doctor_verify_otp(db: AsyncSession, hp_id: str, otp: str) -> 
             detail="Invalid or expired OTP code. Please request a new OTP and try again.",
         )
 
-    token = f"sanjivani-token-{uuid.uuid4()}"
+    token = create_access_token({
+        "sub": doctor.id,
+        "role": "doctor",
+        "hp_id": doctor.hp_id,
+        "name": doctor.name,
+    })
     profile = DoctorProfileResponse(
         id=doctor.id,
         hp_id=doctor.hp_id,
@@ -472,7 +499,12 @@ async def _process_patient_register(db: AsyncSession, payload: PatientRegisterRe
     await db.commit()
     await db.refresh(new_patient)
 
-    session_token = f"sanjivani-token-{uuid.uuid4()}"
+    session_token = create_access_token({
+        "sub": new_patient.id,
+        "role": "patient",
+        "abha_id": new_patient.abha_id,
+        "name": new_patient.name,
+    })
     profile = PatientProfileResponse(
         id=new_patient.id,
         abha_id=new_patient.abha_id,
@@ -539,7 +571,12 @@ async def _process_doctor_register(db: AsyncSession, payload: DoctorRegisterRequ
     await db.commit()
     await db.refresh(new_doctor)
 
-    session_token = f"sanjivani-token-{uuid.uuid4()}"
+    session_token = create_access_token({
+        "sub": new_doctor.id,
+        "role": "doctor",
+        "hp_id": new_doctor.hp_id,
+        "name": new_doctor.name,
+    })
     profile = DoctorProfileResponse(
         id=new_doctor.id,
         hp_id=new_doctor.hp_id,

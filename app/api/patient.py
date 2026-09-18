@@ -2,7 +2,7 @@ import logging
 import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -10,9 +10,10 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.api.deps import get_current_user
 from app.core.date_utils import extract_prescription_date_from_text, parse_duration_to_days
 from app.db.database import get_db
-from app.db.models import IntakeSession, Patient, PatientDocument
+from app.db.models import Doctor, IntakeSession, Patient, PatientDocument
 
 logger = logging.getLogger("sanjivani.api.patient")
 
@@ -201,6 +202,7 @@ def _aggregate_medications(
 @router.get("/dashboard", response_model=PatientDashboardResponse)
 async def get_patient_dashboard(
     patient_id: str = Query(..., description="Patient UUID or ABHA ID"),
+    current_user: Union[Patient, Doctor] = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> PatientDashboardResponse:
     """
@@ -208,6 +210,19 @@ async def get_patient_dashboard(
     uploaded clinical documents, and separated active vs past medications.
     """
     clean_id = patient_id.strip()
+
+    # BOLA enforcement: A patient user can ONLY access their own records
+    if isinstance(current_user, Patient):
+        if clean_id not in (current_user.id, current_user.abha_id):
+            logger.warning(
+                "BOLA Attempt: Patient '%s' unauthorized access attempt on records of '%s'",
+                current_user.id,
+                clean_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden: You are not authorized to view another patient's medical records.",
+            )
 
     # Query patient by ID or ABHA ID
     stmt = (
@@ -285,14 +300,30 @@ async def get_patient_dashboard(
 @router.post("/intake-session", response_model=SaveIntakeSessionResponse)
 async def save_intake_session(
     payload: SaveIntakeSessionRequest,
+    current_user: Union[Patient, Doctor] = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> SaveIntakeSessionResponse:
     """
     Save or update patient intake consultation session, including chat transcript,
     extracted clinical history record, scanned documents, and AI clinical summary.
     """
+    clean_patient_id = payload.patient_id.strip()
+
+    # BOLA enforcement: A patient user can only submit intake sessions for themselves
+    if isinstance(current_user, Patient):
+        if clean_patient_id not in (current_user.id, current_user.abha_id):
+            logger.warning(
+                "BOLA Attempt: Patient '%s' tried to create/modify intake session for '%s'",
+                current_user.id,
+                clean_patient_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden: You cannot create or modify intake sessions for another patient.",
+            )
+
     # 1. Verify patient exists
-    stmt = select(Patient).where((Patient.id == payload.patient_id) | (Patient.abha_id == payload.patient_id))
+    stmt = select(Patient).where((Patient.id == clean_patient_id) | (Patient.abha_id == clean_patient_id))
     result = await db.execute(stmt)
     patient = result.scalar_one_or_none()
     if not patient:
@@ -314,6 +345,12 @@ async def save_intake_session(
     session_stmt = select(IntakeSession).where(IntakeSession.id == session_id)
     session_res = await db.execute(session_stmt)
     existing_session = session_res.scalar_one_or_none()
+
+    if existing_session and existing_session.patient_id != patient_db_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Session ID belongs to a different patient.",
+        )
 
     if existing_session:
         existing_session.chat_history = payload.chat_history
@@ -391,6 +428,7 @@ async def save_intake_session(
 @router.delete("/document/{doc_id}")
 async def delete_patient_document(
     doc_id: str,
+    current_user: Union[Patient, Doctor] = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
     """
@@ -407,6 +445,19 @@ async def delete_patient_document(
             detail=f"Document with ID '{clean_id}' not found.",
         )
 
+    # BOLA enforcement: Patient can only delete their own documents
+    if isinstance(current_user, Patient) and doc.patient_id != current_user.id:
+        logger.warning(
+            "BOLA Attempt: Patient '%s' tried to delete document '%s' owned by '%s'",
+            current_user.id,
+            doc.id,
+            doc.patient_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You are not authorized to delete another patient's medical document.",
+        )
+
     await db.delete(doc)
     await db.commit()
     logger.info("Deleted document '%s' from patient database.", clean_id)
@@ -421,6 +472,7 @@ async def delete_patient_document(
 @router.delete("/intake-session/{session_id}")
 async def delete_intake_session(
     session_id: str,
+    current_user: Union[Patient, Doctor] = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
     """
@@ -437,6 +489,19 @@ async def delete_intake_session(
             detail=f"Intake session with ID '{clean_id}' not found.",
         )
 
+    # BOLA enforcement: Patient can only delete their own intake sessions
+    if isinstance(current_user, Patient) and sess.patient_id != current_user.id:
+        logger.warning(
+            "BOLA Attempt: Patient '%s' tried to delete intake session '%s' owned by '%s'",
+            current_user.id,
+            sess.id,
+            sess.patient_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You are not authorized to delete another patient's intake session.",
+        )
+
     await db.delete(sess)
     await db.commit()
     logger.info("Deleted intake session '%s'.", clean_id)
@@ -451,12 +516,27 @@ async def delete_intake_session(
 @router.put("/profile", response_model=UpdatePatientProfileResponse)
 async def update_patient_profile(
     payload: UpdatePatientProfileRequest,
+    current_user: Union[Patient, Doctor] = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> UpdatePatientProfileResponse:
     """
     Update patient personal details and clinical baseline information.
     """
     clean_id = payload.patient_id.strip()
+
+    # BOLA enforcement: Patient can only modify their own profile
+    if isinstance(current_user, Patient):
+        if clean_id not in (current_user.id, current_user.abha_id):
+            logger.warning(
+                "BOLA Attempt: Patient '%s' tried to modify profile of '%s'",
+                current_user.id,
+                clean_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden: You are not authorized to modify another patient's profile.",
+            )
+
     stmt = select(Patient).where((Patient.id == clean_id) | (Patient.abha_id == clean_id))
     res = await db.execute(stmt)
     patient = res.scalar_one_or_none()

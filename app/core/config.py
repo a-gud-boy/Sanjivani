@@ -12,6 +12,24 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Sanjivani Clinical Intake Assistant"
     API_V1_PREFIX: str = "/api/v1"
     DEBUG: bool = False
+    ENVIRONMENT: str = Field(
+        default="development",
+        description="Application environment: 'development', 'staging', or 'production'."
+    )
+
+    # --- JWT Authentication & Cryptography (SEC-02 / SEC-03) ---
+    SECRET_KEY: str = Field(
+        default="sanjivani-jwt-secret-key-development-2026-ayush-abdm",
+        description="Cryptographic secret key for signing JWT authentication tokens."
+    )
+    JWT_ALGORITHM: str = Field(
+        default="HS256",
+        description="Cryptographic signing algorithm for JWT tokens."
+    )
+    JWT_EXPIRY_MINUTES: int = Field(
+        default=60 * 24 * 7,  # 7 days
+        description="Access token expiration period in minutes."
+    )
 
     # --- Database Configuration (Local Zero-Cost SQLite or Cloud PostgreSQL) ---
     DATABASE_URL: str = Field(
@@ -101,6 +119,14 @@ class Settings(BaseSettings):
                 "A valid API key must be provided via GEMINI_API_KEY, GOOGLE_API_KEY, TEXT_LLM_API_KEY, or OPENAI_API_KEY."
             )
         return self
+
+    @property
+    def is_production(self) -> bool:
+        return (self.ENVIRONMENT or "").strip().lower() in ("production", "prod")
+
+    @property
+    def is_development(self) -> bool:
+        return not self.is_production
 
     @property
     def has_gemini(self) -> bool:

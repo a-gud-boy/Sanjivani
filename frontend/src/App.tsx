@@ -158,8 +158,9 @@ export default function App() {
     lastFetchedLangRef.current = null
     try {
       localStorage.removeItem('sanjivani_auth_user')
+      localStorage.removeItem('sanjivani_auth_token')
     } catch (err) {
-      console.warn('Unable to remove stored auth user:', err)
+      console.warn('Unable to remove stored auth user or token:', err)
     }
     setCurrentUser(null)
     setDashboardData(null)

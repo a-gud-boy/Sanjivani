@@ -71,3 +71,28 @@ def test_config_loads_gemini_key(monkeypatch):
     assert s.effective_vision_model_name == "gemma-4-26b-a4b-it"
     assert "googleapis.com" in s.effective_text_base_url
     assert "googleapis.com" in s.effective_vision_base_url
+
+
+def test_config_environment_and_production_flags(monkeypatch):
+    """Verify default environment is development, and is_production/is_development flags behave correctly."""
+    monkeypatch.setenv("GEMINI_API_KEY", "dummy_key_123")
+    
+    # Default: development
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    s_dev = Settings(_env_file=None)
+    assert s_dev.ENVIRONMENT == "development"
+    assert s_dev.is_development is True
+    assert s_dev.is_production is False
+
+    # Explicit production
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    s_prod = Settings(_env_file=None)
+    assert s_prod.ENVIRONMENT == "production"
+    assert s_prod.is_development is False
+    assert s_prod.is_production is True
+
+    # Explicit prod abbreviation
+    monkeypatch.setenv("ENVIRONMENT", "prod")
+    s_prod2 = Settings(_env_file=None)
+    assert s_prod2.is_production is True
+    assert s_prod2.is_development is False
