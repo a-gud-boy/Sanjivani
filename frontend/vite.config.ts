@@ -18,6 +18,17 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    port: 5173,
+    allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
   build: {
     outDir: 'dist',
     sourcemap: true,

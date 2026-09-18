@@ -70,6 +70,7 @@ if "*" in cors_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
+    allow_origin_regex=settings.CORS_ORIGIN_REGEX,
     allow_credentials=allow_creds,
     allow_methods=["*"],
     allow_headers=["*"],
