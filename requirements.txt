@@ -17,3 +17,4 @@ aiosqlite>=0.20.0
 asyncpg>=0.29.0
 greenlet>=3.0.0
 pyjwt>=2.8.0
+alembic>=1.13.0

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, func
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, func, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -114,6 +114,11 @@ class IntakeSession(Base):
     extracted clinical entities (SOCRATES / Ayush), and synthesized summaries.
     """
     __tablename__ = "intake_sessions"
+    __table_args__ = (
+        Index("ix_intake_patient_created", "patient_id", "created_at"),
+        Index("ix_intake_doctor_status", "doctor_id", "status"),
+        Index("ix_intake_session_date", "session_date"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     patient_id: Mapped[str] = mapped_column(
@@ -170,6 +175,10 @@ class PatientDocument(Base):
     Scanned or uploaded medical prescription or diagnostic laboratory document.
     """
     __tablename__ = "patient_documents"
+    __table_args__ = (
+        Index("ix_doc_patient_created", "patient_id", "created_at"),
+        Index("ix_doc_file_type", "file_type"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     patient_id: Mapped[str] = mapped_column(

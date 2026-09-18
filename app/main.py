@@ -61,11 +61,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS Middleware for kiosk / frontend integration
+# CORS Middleware for kiosk / frontend integration (SEC-05)
+cors_origins = settings.ALLOWED_CORS_ORIGINS
+allow_creds = settings.CORS_ALLOW_CREDENTIALS
+if "*" in cors_origins:
+    allow_creds = False
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_credentials=allow_creds,
     allow_methods=["*"],
     allow_headers=["*"],
 )

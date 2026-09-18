@@ -1605,11 +1605,14 @@ class ClinicalLLMService:
             self._direct_chat_client = AsyncOpenAI(
                 api_key=self.text_api_key,
                 base_url=self.text_base_url or None,
+                timeout=30.0,
             )
+            self._direct_client = self._direct_chat_client
             chat_kwargs: Dict[str, Any] = {
                 "model": self.text_model_name,
                 "api_key": self.text_api_key,
                 "temperature": 0.2,
+                "request_timeout": 30.0,
             }
             if self.text_base_url:
                 chat_kwargs["base_url"] = self.text_base_url
@@ -1631,11 +1634,13 @@ class ClinicalLLMService:
             self._direct_vision_client = AsyncOpenAI(
                 api_key=self.vision_api_key,
                 base_url=self.vision_base_url or None,
+                timeout=45.0,
             )
             vision_kwargs: Dict[str, Any] = {
                 "model": self.vision_model_name,
                 "api_key": self.vision_api_key,
                 "temperature": 0.1,
+                "request_timeout": 45.0,
             }
             if self.vision_base_url:
                 vision_kwargs["base_url"] = self.vision_base_url

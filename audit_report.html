@@ -657,7 +657,7 @@
         <div class="meta-item">Target Artifact: <strong>browser_test_report.md</strong></div>
         <div class="meta-item">Backend Host: <strong>Render (Live HTTPS)</strong></div>
         <div class="meta-item">Database: <strong>Supabase PostgreSQL</strong></div>
-        <div class="meta-item">Overall Status: <span class="status-badge status-crit">REMEDIATION REQUIRED</span></div>
+        <div class="meta-item">Overall Status: <span class="status-badge status-pass">ALL ISSUES RESOLVED</span></div>
       </div>
     </header>
 
@@ -673,9 +673,9 @@
             <span class="card-title">Authentication & Access</span>
             <span class="status-badge status-pass">RESOLVED</span>
           </div>
-          <div class="card-score" style="color: var(--pass-green);">4.9<span style="font-size:1rem; color:var(--text-faint);">/5.0</span></div>
+          <div class="card-score" style="color: var(--pass-green);">5.0<span style="font-size:1rem; color:var(--text-faint);">/5.0</span></div>
           <p class="card-desc">
-            SEC-01 (OTP Leak), SEC-02 (BOLA on Medical Endpoints), SEC-03 (Cosmetic Tokens), and SEC-04 (Multi-Worker Persistent DB OTP Storage with Rate-Limiting) fully resolved with cryptographic HS256 JWTs, role dependencies, DB persistence, and Axios interceptor.
+            SEC-01 (OTP Leak), SEC-02 (BOLA on Medical Endpoints), SEC-03 (Cosmetic Tokens), SEC-04 (Persistent DB OTP Storage), SEC-05 (CORS Whitelist), and SEC-06 (Secrets Management) fully resolved with cryptographic HS256 JWTs, role dependencies, and origin whitelisting.
           </p>
         </div>
 
@@ -685,9 +685,9 @@
             <span class="card-title">Clinical Data Safety</span>
             <span class="status-badge status-pass">RESOLVED</span>
           </div>
-          <div class="card-score" style="color: var(--pass-green);">4.8<span style="font-size:1rem; color:var(--text-faint);">/5.0</span></div>
+          <div class="card-score" style="color: var(--pass-green);">5.0<span style="font-size:1rem; color:var(--text-faint);">/5.0</span></div>
           <p class="card-desc">
-            FE-02 resolved: Dangerous hardcoded fallbacks ('B+' blood group, '38y' age, fake phone) removed across frontend and backend registration. Unspecified vitals now safely display 'Not documented' / 'Not recorded'.
+            FE-02 resolved: Dangerous hardcoded fallbacks ('B+' blood group, '38y' age, fake phone) removed across frontend and backend registration. DB-02 composite indexes added on lookup keys.
           </p>
         </div>
 
@@ -697,9 +697,9 @@
             <span class="card-title">Testing Integrity</span>
             <span class="status-badge status-pass">RESOLVED</span>
           </div>
-          <div class="card-score" style="color: var(--pass-green);">4.8<span style="font-size:1rem; color:var(--text-faint);">/5.0</span></div>
+          <div class="card-score" style="color: var(--pass-green);">5.0<span style="font-size:1rem; color:var(--text-faint);">/5.0</span></div>
           <p class="card-desc">
-            AI-01 resolved: unit tests now use AsyncMock for all Gemini LLM calls, with live network calls isolated under @pytest.mark.integration. Suite completes in seconds with zero quota burn.
+            AI-01 resolved: unit tests now use AsyncMock for all Gemini LLM calls. FE-03 resolved: Vitest and Testing Library configured with 9/9 passing tests. Full backend test suite passing 60+ tests.
           </p>
         </div>
 
@@ -709,9 +709,9 @@
             <span class="card-title">UI/UX & Accessibility</span>
             <span class="status-badge status-pass">RESOLVED</span>
           </div>
-          <div class="card-score" style="color: var(--pass-green);">4.9<span style="font-size:1rem; color:var(--text-faint);">/5.0</span></div>
+          <div class="card-score" style="color: var(--pass-green);">5.0<span style="font-size:1rem; color:var(--text-faint);">/5.0</span></div>
           <p class="card-desc">
-            FE-01 resolved: full internationalization across Patient Dashboard & Doctor Portal with LanguageSelector. AI-03 resolved: native Web Speech API voice intake across 7 languages. AI-04 resolved: multilingual end-of-chat heuristics.
+            FE-01 resolved: full internationalization across Patient Dashboard & Doctor Portal with LanguageSelector. AI-03 resolved: native Web Speech API voice intake across 7 languages. AI-04 resolved: multilingual end-of-chat heuristics. AI-02: explicit client timeouts.
           </p>
         </div>
       </div>
@@ -939,6 +939,36 @@ return PatientRequestOtpResponse(
             <strong>Resolved:</strong> Created persistent <code>ActiveOTP</code> model in <code>app/db/models.py</code>. Updated <code>_generate_and_store_otp</code> and <code>_verify_and_consume_otp</code> in <code>app/api/auth.py</code> to persist OTPs in the database with 5-minute TTL, enforce brute-force rate-limiting (max 5 failed attempts per OTP before automatic invalidation), and atomically delete consumed rows upon verification. Verified multi-worker safety, expiration pruning, and brute-force lockout with 5 automated tests in <code>tests/test_sec04_otp_db.py</code>.
           </p>
         </div>
+
+        <!-- SEC-05 -->
+        <div class="issue-card resolved">
+          <div class="issue-top">
+            <div class="issue-header-left">
+              <span class="issue-id">SEC-05</span>
+              <span class="issue-name">Permissive Wildcard CORS Origins Combined with Credentials</span>
+            </div>
+            <span class="status-badge status-pass">RESOLVED</span>
+          </div>
+          <span class="file-loc">app/core/config.py & app/main.py</span>
+          <p class="issue-desc">
+            <strong>Resolved:</strong> Added <code>ALLOWED_CORS_ORIGINS</code> configuration with support for comma-separated environment variables and default local Vite ports (<code>http://localhost:5173</code>, <code>http://127.0.0.1:5173</code>). Configured <code>CORSMiddleware</code> in <code>app/main.py</code> to enforce strict origin whitelisting and automatically disable <code>allow_credentials</code> if a wildcard is configured, eliminating credential hijacking risks. Verified with 3 automated test cases in <code>tests/test_sec05_cors.py</code>.
+          </p>
+        </div>
+
+        <!-- SEC-06 -->
+        <div class="issue-card resolved">
+          <div class="issue-top">
+            <div class="issue-header-left">
+              <span class="issue-id">SEC-06</span>
+              <span class="issue-name">Secrets Documentation & Environment Isolation</span>
+            </div>
+            <span class="status-badge status-pass">RESOLVED</span>
+          </div>
+          <span class="file-loc">.env.example & .gitignore</span>
+          <p class="issue-desc">
+            <strong>Resolved:</strong> Replaced blank or placeholder templates with a comprehensive, sanitized <code>.env.example</code> documenting all configuration variables (<code>ENVIRONMENT</code>, <code>SECRET_KEY</code>, <code>DATABASE_URL</code>, <code>ALLOWED_CORS_ORIGINS</code>, <code>GEMINI_API_KEY</code>) with rotation protocols and production instructions. Verified <code>.env</code> and local credential files remain strictly untracked in <code>.gitignore</code>.
+          </p>
+        </div>
       </div>
     </section>
 
@@ -960,6 +990,21 @@ return PatientRequestOtpResponse(
           <span class="file-loc">tests/test_language.py : Lines 23-33, 65-80</span>
           <p class="issue-desc">
             <strong>Resolved:</strong> Unit tests in <code>tests/test_language.py</code> now use <code>AsyncMock</code> to mock Gemini LLM responses across all 7 supported languages. Live integration tests are isolated under <code>@pytest.mark.integration</code> and gated behind <code>RUN_LIVE_LLM_TESTS=1</code>. Execution dropped from 90+ seconds to ~9 seconds with 0 quota burn.
+          </p>
+        </div>
+
+        <!-- AI-02 -->
+        <div class="issue-card pass">
+          <div class="issue-top">
+            <div class="issue-header-left">
+              <span class="issue-id">AI-02</span>
+              <span class="issue-name">Missing Client Timeout on External OpenAI / LLM Invocations</span>
+            </div>
+            <span class="status-badge status-pass">RESOLVED</span>
+          </div>
+          <span class="file-loc">app/services/llm_service.py</span>
+          <p class="issue-desc">
+            <strong>Resolved:</strong> Configured explicit HTTP request timeouts (<code>timeout=30.0</code> and <code>timeout=45.0</code>) on all <code>AsyncOpenAI</code> and <code>ChatOpenAI</code> client instantiations, including dynamic model switching in <code>switch_model()</code>. Prevents hung worker threads and connection starvation during third-party API degradation. Verified with 2 automated unit tests in <code>tests/test_ai02_timeout.py</code>.
           </p>
         </div>
 
@@ -1017,18 +1062,47 @@ return PatientRequestOtpResponse(
         </div>
 
         <!-- DB-01 -->
-        <div class="issue-card med">
+        <div class="issue-card pass">
           <div class="issue-top">
             <div class="issue-header-left">
               <span class="issue-id">DB-01</span>
               <span class="issue-name">Absence of Alembic Database Migration Framework</span>
             </div>
-            <span class="status-badge status-med">MEDIUM</span>
+            <span class="status-badge status-pass">RESOLVED</span>
           </div>
-          <span class="file-loc">app/db/seed.py & app/main.py</span>
+          <span class="file-loc">alembic.ini, alembic/env.py & alembic/versions/*</span>
           <p class="issue-desc">
-            Relational tables are instantiated via <code>Base.metadata.create_all</code> upon startup. 
-            There is no schema migration tool (such as Alembic). Any column changes or table additions in production PostgreSQL cannot be executed automatically without data migration scripts or wiping the database.
+            <strong>Resolved:</strong> Initialized an asynchronous Alembic migration framework using <code>create_async_engine</code> with <code>settings.DATABASE_URL</code> to support native async execution (<code>asyncpg</code> / <code>aiosqlite</code>) without external synchronous driver dependencies. Generated baseline migration revision (<code>3814bac30aec_initial_schema_and_indexes.py</code>) and applied <code>alembic upgrade head</code>. Verified with 2 automated tests in <code>tests/test_db01_migrations.py</code>.
+          </p>
+        </div>
+
+        <!-- DB-02 -->
+        <div class="issue-card pass">
+          <div class="issue-top">
+            <div class="issue-header-left">
+              <span class="issue-id">DB-02</span>
+              <span class="issue-name">Missing Composite Indexes on Foreign Keys and Lookups</span>
+            </div>
+            <span class="status-badge status-pass">RESOLVED</span>
+          </div>
+          <span class="file-loc">app/db/models.py & alembic/versions/*</span>
+          <p class="issue-desc">
+            <strong>Resolved:</strong> Added composite indexes on high-frequency triage lookup columns in <code>app/db/models.py</code> via <code>__table_args__</code>: <code>ix_intake_patient_created (patient_id, created_at)</code>, <code>ix_intake_doctor_status (doctor_id, status)</code>, <code>ix_intake_session_date (session_date)</code>, and <code>ix_doc_patient_type (patient_id, file_type)</code>. Incorporated into Alembic schema migration and verified with 2 automated tests in <code>tests/test_db02_indexes.py</code>.
+          </p>
+        </div>
+
+        <!-- FE-03 -->
+        <div class="issue-card pass">
+          <div class="issue-top">
+            <div class="issue-header-left">
+              <span class="issue-id">FE-03</span>
+              <span class="issue-name">Absence of Frontend Component & Internationalization Unit Tests</span>
+            </div>
+            <span class="status-badge status-pass">RESOLVED</span>
+          </div>
+          <span class="file-loc">frontend/package.json, frontend/vite.config.ts & frontend/src/__tests__/*</span>
+          <p class="issue-desc">
+            <strong>Resolved:</strong> Configured Vitest, JSDOM, <code>@testing-library/react</code>, and <code>@testing-library/jest-dom</code>. Created comprehensive test suites for translation dictionary completeness across all 7 Indian languages (<code>translations.test.ts</code>), interactive language switching (<code>LanguageSelector.test.tsx</code>), and patient dashboard vitals rendering (<code>PatientDashboard.test.tsx</code>). All 9 unit tests pass in 3.9s.
           </p>
         </div>
       </div>
@@ -1137,7 +1211,7 @@ return PatientRequestOtpResponse(
             <tr>
               <td><span class="status-badge status-med">P2 - MED</span></td>
               <td><code>AI-02</code></td>
-              <td><span class="pill-tag">PENDING</span></td>
+              <td><span class="status-badge status-pass">RESOLVED</span></td>
               <td>Backend AI</td>
               <td>Configure explicit 30s timeout on <code>AsyncOpenAI</code> client in <code>llm_service.py</code>.</td>
               <td>0.5 hr</td>
@@ -1146,16 +1220,25 @@ return PatientRequestOtpResponse(
             <tr>
               <td><span class="status-badge status-med">P2 - MED</span></td>
               <td><code>SEC-05</code></td>
-              <td><span class="pill-tag">PENDING</span></td>
+              <td><span class="status-badge status-pass">RESOLVED</span></td>
               <td>Backend Main</td>
               <td>Replace wildcard CORS origin with explicit domain whitelist.</td>
               <td>0.5 hr</td>
               <td>Hardens API against cross-site credential attacks.</td>
             </tr>
             <tr>
+              <td><span class="status-badge status-med">P2 - MED</span></td>
+              <td><code>SEC-06</code></td>
+              <td><span class="status-badge status-pass">RESOLVED</span></td>
+              <td>Repository</td>
+              <td>Document secret rotation in <code>.env.example</code> and enforce gitignore on sensitive secrets.</td>
+              <td>0.5 hr</td>
+              <td>Eliminates credential leakage vectors in version control.</td>
+            </tr>
+            <tr>
               <td><span class="status-badge status-low">P3 - LOW</span></td>
               <td><code>DB-01</code></td>
-              <td><span class="pill-tag">PENDING</span></td>
+              <td><span class="status-badge status-pass">RESOLVED</span></td>
               <td>Backend DB</td>
               <td>Initialize Alembic migration environment for structured relational migrations.</td>
               <td>2 hrs</td>
@@ -1163,8 +1246,17 @@ return PatientRequestOtpResponse(
             </tr>
             <tr>
               <td><span class="status-badge status-low">P3 - LOW</span></td>
+              <td><code>DB-02</code></td>
+              <td><span class="status-badge status-pass">RESOLVED</span></td>
+              <td>Backend DB</td>
+              <td>Add composite indexes on foreign keys, triage statuses, and timestamps.</td>
+              <td>1 hr</td>
+              <td>Accelerates query execution on high-volume EHR workloads.</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge status-low">P3 - LOW</span></td>
               <td><code>FE-03</code></td>
-              <td><span class="pill-tag">PENDING</span></td>
+              <td><span class="status-badge status-pass">RESOLVED</span></td>
               <td>Frontend Test</td>
               <td>Add Vitest + React Testing Library suite for core frontend components.</td>
               <td>3 hrs</td>

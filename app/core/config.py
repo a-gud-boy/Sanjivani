@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List, Any, Union
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -16,6 +16,32 @@ class Settings(BaseSettings):
         default="development",
         description="Application environment: 'development', 'staging', or 'production'."
     )
+
+    # --- CORS Configuration (SEC-05) ---
+    ALLOWED_CORS_ORIGINS: List[str] = Field(
+        default_factory=lambda: [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+        ],
+        description="Explicit list of allowed CORS origins for API requests."
+    )
+    CORS_ALLOW_CREDENTIALS: bool = Field(
+        default=True,
+        description="Whether to allow credentials with CORS requests."
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_cors_origins(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "ALLOWED_CORS_ORIGINS" in data:
+            origins = data["ALLOWED_CORS_ORIGINS"]
+            if isinstance(origins, str):
+                data["ALLOWED_CORS_ORIGINS"] = [o.strip() for o in origins.split(",") if o.strip()]
+        return data
 
     # --- JWT Authentication & Cryptography (SEC-02 / SEC-03) ---
     SECRET_KEY: str = Field(
