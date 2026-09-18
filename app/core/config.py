@@ -24,18 +24,21 @@ class Settings(BaseSettings):
             "http://127.0.0.1:5173",
             "http://localhost:4173",
             "http://127.0.0.1:4173",
+            "http://localhost:5500",
+            "http://127.0.0.1:5500",
             "http://localhost:3000",
             "http://127.0.0.1:3000",
             "http://localhost:8000",
             "http://127.0.0.1:8000",
+            "https://sanjivani-health.pages.dev",
             "https://a-gud-boy.github.io",
             "https://sanjivani-9ne0.onrender.com",
         ],
         description="Explicit list of allowed CORS origins for API requests."
     )
     CORS_ORIGIN_REGEX: Optional[str] = Field(
-        default=r"^https:\/\/([a-zA-Z0-9_-]+\.)?github\.io$|^https:\/\/([a-zA-Z0-9_-]+\.)?onrender\.com$|^http:\/\/(localhost|127\.0\.0\.1)(:[0-9]+)?$",
-        description="Regex pattern for dynamically matching allowed origins (e.g. GitHub Pages, Render subdomains, and local dev ports)."
+        default=r"^https:\/\/([a-zA-Z0-9_-]+\.)?(github\.io|pages\.dev|vercel\.app|onrender\.com)$|^http:\/\/(localhost|127\.0\.0\.1)(:[0-9]+)?$",
+        description="Regex pattern for dynamically matching allowed origins (e.g. Cloudflare Pages, GitHub Pages, Render subdomains, and local dev ports)."
     )
     CORS_ALLOW_CREDENTIALS: bool = Field(
         default=True,

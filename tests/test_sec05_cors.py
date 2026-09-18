@@ -60,6 +60,32 @@ async def test_cors_allowed_origin():
         assert res_render.headers.get("access-control-allow-origin") == "https://sanjivani-9ne0.onrender.com"
         assert res_render.headers.get("access-control-allow-credentials") == "true"
 
+        # 5. Cloudflare Pages deployment origin
+        res_cf = await client.options(
+            "/api/v1/auth/patient/register",
+            headers={
+                "Origin": "https://sanjivani-health.pages.dev",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+        assert res_cf.status_code == 200
+        assert res_cf.headers.get("access-control-allow-origin") == "https://sanjivani-health.pages.dev"
+        assert res_cf.headers.get("access-control-allow-credentials") == "true"
+
+        # 6. Live Server port 5500
+        res_live = await client.options(
+            "/api/v1/auth/patient/register",
+            headers={
+                "Origin": "http://127.0.0.1:5500",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+        assert res_live.status_code == 200
+        assert res_live.headers.get("access-control-allow-origin") == "http://127.0.0.1:5500"
+        assert res_live.headers.get("access-control-allow-credentials") == "true"
+
 
 @pytest.mark.asyncio
 async def test_cors_disallowed_origin():
