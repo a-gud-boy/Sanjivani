@@ -95,15 +95,15 @@ export default function DoctorRegisterModal({
       const payload = {
         name: name.trim(),
         hp_id: cleanHpId,
-        phone: phone.trim() || '9876543210',
+        phone: phone.trim() || undefined,
         email: generatedEmail,
-        gender,
-        age_years: parseInt(ageYears, 10) || 38,
-        specialization: specialization.trim(),
+        gender: gender || undefined,
+        age_years: ageYears.trim() ? parseInt(ageYears, 10) : undefined,
+        specialization: specialization.trim() || undefined,
         license_no: generatedLicense,
-        hospital: hospital.trim(),
-        department: department.trim(),
-        qualifications: qualifications.trim(),
+        hospital: hospital.trim() || undefined,
+        department: department.trim() || undefined,
+        qualifications: qualifications.trim() || undefined,
       }
 
       const res = await registerDoctor(payload)

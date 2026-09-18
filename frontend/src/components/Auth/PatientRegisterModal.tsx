@@ -97,12 +97,12 @@ export default function PatientRegisterModal({
       const payload = {
         name: name.trim(),
         abha_id: cleanAbhaId,
-        phone: phone.trim() || '9876543210',
+        phone: phone.trim() || undefined,
         email: generatedEmail,
-        gender,
-        age_years: parseInt(ageYears, 10) || 30,
-        dob,
-        blood_group: bloodGroup,
+        gender: gender || undefined,
+        age_years: ageYears.trim() ? parseInt(ageYears, 10) : undefined,
+        dob: dob || undefined,
+        blood_group: bloodGroup || undefined,
         address_line: addressLine.trim() || undefined,
         city: city.trim() || undefined,
         state: state.trim() || undefined,
@@ -204,7 +204,9 @@ export default function PatientRegisterModal({
                       {registeredPatient.name}
                     </h4>
                     <p className="text-xs text-cyan-200 font-medium">
-                      Blood Group: {registeredPatient.patient_details?.blood_group || 'O+'} • {registeredPatient.gender || 'Male'}, {registeredPatient.age_years || 30} yrs
+                      Blood Group: {registeredPatient.patient_details?.blood_group || 'Not documented'}
+                      {registeredPatient.gender ? ` • ${registeredPatient.gender}` : ''}
+                      {registeredPatient.age_years ? `, ${registeredPatient.age_years} yrs` : ''}
                     </p>
                   </div>
 

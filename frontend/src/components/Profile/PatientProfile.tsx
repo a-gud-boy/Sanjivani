@@ -36,8 +36,8 @@ export default function PatientProfile({
 
   // ── Form State ─────────────────────────────────────────────────────────────
   const [name, setName] = useState(patient.name || '')
-  const [ageYears, setAgeYears] = useState(String(patient.age_years || 38))
-  const [gender, setGender] = useState(patient.gender || 'Male')
+  const [ageYears, setAgeYears] = useState(patient.age_years ? String(patient.age_years) : '')
+  const [gender, setGender] = useState(patient.gender || '')
   const [phone, setPhone] = useState(patient.phone || '')
   const [email, setEmail] = useState(patient.email || '')
 
@@ -50,8 +50,8 @@ export default function PatientProfile({
   const [state, setState] = useState(details.state ? String(details.state) : '')
   const [pincode, setPincode] = useState(details.pincode ? String(details.pincode) : '')
   const [occupation, setOccupation] = useState(details.occupation ? String(details.occupation) : '')
-  const [maritalStatus, setMaritalStatus] = useState(details.marital_status ? String(details.marital_status) : 'Married')
-  const [bloodGroup, setBloodGroup] = useState(details.blood_group ? String(details.blood_group) : 'B+')
+  const [maritalStatus, setMaritalStatus] = useState(details.marital_status ? String(details.marital_status) : '')
+  const [bloodGroup, setBloodGroup] = useState(details.blood_group ? String(details.blood_group) : '')
   const [prakriti, setPrakriti] = useState(details.ayush_prakriti ? String(details.ayush_prakriti) : '')
 
   // Emergency contact
@@ -111,13 +111,15 @@ export default function PatientProfile({
         },
       }
 
+      const parsedAge = ageYears.trim() ? parseInt(ageYears, 10) : undefined
+
       const res = await updatePatientProfile({
         patient_id: patient.id,
         name: name.trim(),
-        gender,
-        age_years: parseInt(ageYears, 10) || 38,
-        phone: phone.trim(),
-        email: email.trim(),
+        gender: gender || undefined,
+        age_years: Number.isFinite(parsedAge) ? parsedAge : undefined,
+        phone: phone.trim() || undefined,
+        email: email.trim() || undefined,
         patient_details: updatedDetailsPayload,
       })
 
@@ -270,6 +272,7 @@ export default function PatientProfile({
                   onChange={(e) => setGender(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 >
+                  <option value="">Select Gender</option>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                   <option value="Other">Other</option>
@@ -297,6 +300,7 @@ export default function PatientProfile({
                   onChange={(e) => setMaritalStatus(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 >
+                  <option value="">Select Marital Status</option>
                   <option value="Married">Married</option>
                   <option value="Single">Single</option>
                   <option value="Divorced">Divorced</option>
@@ -479,6 +483,7 @@ export default function PatientProfile({
                   onChange={(e) => setBloodGroup(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
                 >
+                  <option value="">Not Recorded / Pending Test</option>
                   <option value="A+">A+</option>
                   <option value="A-">A-</option>
                   <option value="B+">B+</option>

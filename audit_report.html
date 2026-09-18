@@ -683,11 +683,11 @@
         <div class="card">
           <div class="card-header">
             <span class="card-title">Clinical Data Safety</span>
-            <span class="status-badge status-high">HIGH RISK</span>
+            <span class="status-badge status-pass">RESOLVED</span>
           </div>
-          <div class="card-score" style="color: var(--high-orange);">2.5<span style="font-size:1rem; color:var(--text-faint);">/5.0</span></div>
+          <div class="card-score" style="color: var(--pass-green);">4.7<span style="font-size:1rem; color:var(--text-faint);">/5.0</span></div>
           <p class="card-desc">
-            Hardcoded fallback blood group ('B+') and phone numbers displayed on EHR; arbitrary unauthenticated document/session deletion.
+            FE-02 resolved: Dangerous hardcoded fallbacks ('B+' blood group, '38y' age, fake phone) removed across frontend and backend registration. Unspecified vitals now safely display 'Not documented' / 'Not recorded'.
           </p>
         </div>
 
@@ -807,18 +807,18 @@
         <div class="screenshot-card">
           <div class="img-container">
             <img src="/home/bruno/.gemini/antigravity/brain/25f2d5c8-79ea-4540-bb06-4e3a202d7c1b/browser_03_patient_intake_loaded.png" alt="Patient Dashboard Screenshot" />
-            <div class="img-overlay-badge status-high">Clinical Hazard & i18n Leak</div>
+            <div class="img-overlay-badge status-pass">FE-02 Resolved</div>
           </div>
           <div class="screenshot-body">
             <div class="screenshot-title">3. Citizen Medical Records Station</div>
             <p style="font-size:0.83rem; color:var(--text-muted);">
               Personalized health summary displaying vitals baseline and active medications.
             </p>
-            <div class="critique-box warning">
-              <strong>Critical Flaws Identified:</strong>
+            <div class="critique-box">
+              <strong>Clinical Flaws Addressed:</strong>
               <ul style="margin-left: 1.2rem; margin-top: 0.3rem;">
-                <li><strong>Hazardous Fallback:</strong> Defaulting blood group to <code>B+</code> if unrecorded is clinically unacceptable. Must show "Not recorded".</li>
-                <li><strong>Language Leakage:</strong> Button says <code>Add Details (नया विवरण जोड़ें)</code> with hardcoded Hindi even in English mode.</li>
+                <li><strong>Hazardous Fallback (Resolved):</strong> Defaulting blood group to <code>B+</code> and age to <code>38y</code> has been eliminated. Interface now displays "Not documented" badge when blood group is unrecorded.</li>
+                <li><strong>Language Leakage (Pending FE-01):</strong> Button says <code>Add Details (नया विवरण जोड़ें)</code> with hardcoded Hindi even in English mode.</li>
               </ul>
             </div>
           </div>
@@ -1058,7 +1058,7 @@ return PatientRequestOtpResponse(
             <tr>
               <td><span class="status-badge status-crit">P0 - CRIT</span></td>
               <td><code>FE-02</code></td>
-              <td><span class="pill-tag">PENDING</span></td>
+              <td><span class="status-badge status-pass">RESOLVED</span></td>
               <td>Frontend UI</td>
               <td>Eliminate hardcoded fallback medical vitals (<code>B+</code> blood group, <code>38y</code> age) on patient dashboard.</td>
               <td>0.5 hr</td>

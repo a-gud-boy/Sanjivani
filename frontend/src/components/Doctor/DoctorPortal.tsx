@@ -836,7 +836,11 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                               <span className="font-bold text-slate-900 dark:text-white block">Clinical &amp; AYUSH Baseline</span>
                               <p className="flex items-center gap-1">
                                 <span className="text-slate-500 dark:text-slate-400">Blood Group:</span>
-                                <span className="font-bold text-rose-600 dark:text-rose-400">{String(d.blood_group || '—')}</span>
+                                {d.blood_group ? (
+                                  <span className="font-bold text-rose-600 dark:text-rose-400">{String(d.blood_group)}</span>
+                                ) : (
+                                  <span className="text-slate-400 dark:text-slate-500 font-medium text-xs">Not documented</span>
+                                )}
                               </p>
                               <p className="flex items-center gap-1">
                                 <span className="text-slate-500 dark:text-slate-400">AYUSH Prakriti:</span>

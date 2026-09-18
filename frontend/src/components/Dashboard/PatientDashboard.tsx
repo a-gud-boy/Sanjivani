@@ -109,7 +109,9 @@ export default function PatientDashboard({
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                ABHA ID: {patient.abha_id} • {patient.age_years || 38}y, {patient.gender || 'Male'}
+                ABHA ID: {patient.abha_id}
+                {patient.age_years ? ` • ${patient.age_years}y` : ''}
+                {patient.gender ? ` • ${patient.gender}` : ''}
               </p>
             </div>
           </div>
@@ -169,14 +171,30 @@ export default function PatientDashboard({
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-sm text-slate-900 dark:text-white">{patient.name}</span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">({patient.age_years || 38}y, {patient.gender || 'Male'})</span>
-                <span className="text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Droplet className="w-3 h-3" />
-                  {String(patientDetails.blood_group || 'B+')}
-                </span>
+                {(patient.age_years || patient.gender) && (
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    ({[patient.age_years ? `${patient.age_years}y` : null, patient.gender].filter(Boolean).join(', ')})
+                  </span>
+                )}
+                {patientDetails.blood_group ? (
+                  <span className="text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Droplet className="w-3 h-3" />
+                    {String(patientDetails.blood_group)}
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-full flex items-center gap-1" title="Blood group not documented">
+                    <Droplet className="w-3 h-3 text-slate-400" />
+                    Not documented
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                ABHA: <span className="font-mono text-slate-700 dark:text-slate-300">{patient.abha_id}</span> • Phone: {patient.phone || '+91 98765 43210'}
+                ABHA: <span className="font-mono text-slate-700 dark:text-slate-300">{patient.abha_id}</span>
+                {patient.phone ? (
+                  <> • Phone: <span className="text-slate-700 dark:text-slate-300">{patient.phone}</span></>
+                ) : (
+                  <> • Phone: <span className="italic text-slate-400 dark:text-slate-500">Not recorded</span></>
+                )}
               </p>
             </div>
           </div>
