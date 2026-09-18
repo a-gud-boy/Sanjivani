@@ -508,9 +508,15 @@ export default function App() {
     )
   }
 
-  // ── ROUTE 2: Doctor Portal Placeholder ─────────────────────────────────────
   if (currentView === 'doctor_portal' && currentUser.user_type === 'doctor') {
-    return <DoctorPortal doctor={currentUser} onLogout={handleLogout} />
+    return (
+      <DoctorPortal
+        doctor={currentUser}
+        onLogout={handleLogout}
+        language={state.language}
+        onLanguageChange={handleLanguageChange}
+      />
+    )
   }
 
   // ── ROUTE 3: Patient Dashboard ─────────────────────────────────────────────

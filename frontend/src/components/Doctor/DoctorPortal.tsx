@@ -32,17 +32,28 @@ import type {
   DoctorPatientSummary,
   DoctorPortalStats,
   PatientDashboardData,
+  LanguageCode,
 } from '../../types'
 import { getDoctorPatients, getDoctorPatientDossier, extractErrorMessage } from '../../services/api'
 import BrandLogo from '../BrandLogo'
+import LanguageSelector from '../LanguageSelector'
 import ThemeToggle from '../ThemeToggle'
+import { useTranslation } from '../../i18n/translations'
 
 interface DoctorPortalProps {
   doctor: Doctor
   onLogout: () => void
+  language?: LanguageCode
+  onLanguageChange?: (code: LanguageCode) => void
 }
 
-export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
+export default function DoctorPortal({
+  doctor,
+  onLogout,
+  language = 'en',
+  onLanguageChange,
+}: DoctorPortalProps) {
+  const t = useTranslation(language)
   const details = doctor.doctor_details || {}
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -133,7 +144,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                 </h1>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                  HPR Verified Clinician
+                  {t.doctor.hprVerified}
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-xs sm:max-w-md">
@@ -150,15 +161,19 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
               </div>
             )}
 
+            {onLanguageChange && (
+              <LanguageSelector language={language} onLanguageChange={onLanguageChange} />
+            )}
+
             <ThemeToggle />
 
             <button
               onClick={onLogout}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 rounded-xl transition-colors"
-              title="Sign Out"
+              title={t.doctor.signOut}
             >
               <LogOut className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-              <span>Sign Out</span>
+              <span>{t.doctor.signOut}</span>
             </button>
           </div>
         </div>
@@ -171,14 +186,13 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
           <div className="relative z-10 max-w-3xl space-y-2">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-md text-[11px] font-semibold text-white">
               <Stethoscope className="w-3.5 h-3.5" />
-              <span>Doctor Clinical Oversight Station (EHR Database Access)</span>
+              <span>{t.doctor.stationTitle}</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight">
-              Clinical Review &amp; Patient Records Registry
+              {t.doctor.clinicalReviewTitle}
             </h2>
             <p className="text-xs sm:text-sm text-emerald-100 leading-relaxed">
-              Live healthcare provider portal connecting to all registered patients in the database.
-              Inspect AI-digitized intake transcripts, multimodal OCR verified prescriptions, and AYUSH Prakriti assessments.
+              {t.doctor.portalDescription}
             </p>
           </div>
 
@@ -196,16 +210,16 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
             ) : (
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-cyan-300 flex-shrink-0" />
-                <span>OPD Regular</span>
+                <span>{t.doctor.opdRegular}</span>
               </div>
             )}
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-emerald-300 flex-shrink-0" />
-              <span>Duty: {String(details.duty_status || 'Active')}</span>
+              <span>{details.duty_status ? `Duty: ${String(details.duty_status)}` : t.doctor.dutyActive}</span>
             </div>
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-white/80 flex-shrink-0" />
-              <span>Today: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+              <span>{t.doctor.today}: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
             </div>
           </div>
         </div>
@@ -214,48 +228,48 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-surface-border dark:border-slate-800 shadow-card transition-colors">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Registered Patients</span>
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{t.doctor.registeredPatients}</span>
               <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                 <Users className="w-4 h-4" />
               </div>
             </div>
             <p className="text-2xl font-bold text-slate-900 dark:text-white mt-2">{stats.total_patients}</p>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Live database records</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{t.doctor.liveRecords}</p>
           </div>
 
           <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-surface-border dark:border-slate-800 shadow-card transition-colors">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Triage Red Flags</span>
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{t.doctor.triageRedFlags}</span>
               <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${stats.red_flag_patients > 0 ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400' : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'}`}>
                 <AlertTriangle className="w-4 h-4" />
               </div>
             </div>
             <p className="text-2xl font-bold text-slate-900 dark:text-white mt-2">{stats.red_flag_patients}</p>
             <p className={`text-[11px] mt-0.5 ${stats.red_flag_patients > 0 ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-emerald-600 dark:text-emerald-400'}`}>
-              {stats.red_flag_patients > 0 ? 'Urgent attention needed' : 'All vitals stable'}
+              {stats.red_flag_patients > 0 ? t.doctor.urgentAttention : t.doctor.vitalsStable}
             </p>
           </div>
 
           <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-surface-border dark:border-slate-800 shadow-card transition-colors">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Digitized Prescriptions</span>
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{t.doctor.digitizedPrescriptions}</span>
               <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
                 <FileCheck2 className="w-4 h-4" />
               </div>
             </div>
             <p className="text-2xl font-bold text-slate-900 dark:text-white mt-2">{stats.total_prescriptions}</p>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">Verified via AI Vision OCR</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{t.doctor.verifiedOcr}</p>
           </div>
 
           <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-surface-border dark:border-slate-800 shadow-card transition-colors">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Consultation Sessions</span>
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{t.doctor.consultationSessions}</span>
               <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
                 <Activity className="w-4 h-4" />
               </div>
             </div>
             <p className="text-2xl font-bold text-slate-900 dark:text-white mt-2">{stats.total_consultations}</p>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">AI intake consultations</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{t.doctor.aiIntakeConsultations}</p>
           </div>
         </div>
 
@@ -271,7 +285,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
             <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400 dark:text-slate-500" />
             <input
               type="text"
-              placeholder="Search patients by name or ABHA ID..."
+              placeholder={t.doctor.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
@@ -288,7 +302,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
               }`}
             >
               <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 text-rose-500 dark:text-rose-400" aria-hidden="true" />
-              <span>Red Flags Only</span>
+              <span>{t.doctor.redFlagsOnly}</span>
             </button>
 
             <button
@@ -300,15 +314,15 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
               }`}
             >
               <FileCheck2 className="w-3.5 h-3.5 flex-shrink-0 text-purple-600 dark:text-purple-400" aria-hidden="true" />
-              <span>With Documents</span>
+              <span>{t.doctor.withDocuments}</span>
             </button>
 
             <button
               onClick={fetchPatients}
               disabled={isLoading}
               className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 border border-surface-border dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-              title="Refresh Patient Records"
-              aria-label="Refresh Patient Records"
+              title={t.doctor.refreshRecords}
+              aria-label={t.doctor.refreshRecords}
             >
               <RefreshCw className={`w-4 h-4 flex-shrink-0 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
             </button>
@@ -320,7 +334,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
           <div className="px-6 py-4 border-b border-surface-border dark:border-slate-800 flex items-center justify-between">
             <div>
               <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                Registered Patients in Database ({displayedPatients.length})
+                {t.doctor.patientQueue} ({displayedPatients.length})
               </h3>
               <p className="text-xs text-slate-400 dark:text-slate-500">
                 Click any patient to review their complete clinical dossier, consultations, and prescriptions
@@ -412,7 +426,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                         className="btn-primary text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm hover:shadow-md transition-all"
                       >
                         <FileText className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-                        <span>View Clinical Dossier</span>
+                        <span>{t.doctor.reviewDossier}</span>
                       </button>
                     </div>
                   </div>
@@ -421,7 +435,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
             </div>
           ) : (
             <div className="p-12 text-center text-slate-400">
-              <p className="text-sm font-semibold">No patients found matching your search.</p>
+              <p className="text-sm font-semibold">{t.doctor.noPatients}</p>
               <p className="text-xs mt-1">Try changing your filters or search keywords.</p>
             </div>
           )}
@@ -487,7 +501,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                     }`}
                   >
                     <Activity className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-                    <span>Intake Consultations ({dossier.intake_sessions.length})</span>
+                    <span>{t.doctor.tabConsultations} ({dossier.intake_sessions.length})</span>
                   </button>
 
                   <button
@@ -499,7 +513,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                     }`}
                   >
                     <FileText className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-                    <span>Prescriptions &amp; Labs ({dossier.documents.length})</span>
+                    <span>{t.doctor.tabPrescriptions} ({dossier.documents.length})</span>
                   </button>
 
                   <button
@@ -511,7 +525,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                     }`}
                   >
                     <Pill className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-                    <span>Medications ({dossier.active_medications.length + (dossier.past_medications || []).length})</span>
+                    <span>{t.doctor.tabMedications} ({dossier.active_medications.length + (dossier.past_medications || []).length})</span>
                   </button>
 
                   <button
@@ -523,7 +537,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                     }`}
                   >
                     <HeartPulse className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-                    <span>Baseline &amp; Demographics</span>
+                    <span>{t.doctor.tabBaseline}</span>
                   </button>
                 </div>
 
@@ -900,7 +914,7 @@ export default function DoctorPortal({ doctor, onLogout }: DoctorPortalProps) {
                 className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-surface-border dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors inline-flex items-center justify-center gap-2"
               >
                 <X className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-                <span>Close Dossier</span>
+                <span>{t.doctor.closeDossier}</span>
               </button>
             </div>
           </div>

@@ -1,5 +1,33 @@
 import type { LanguageCode } from '../types'
 
+export const MULTILINGUAL_END_INTENT_PHRASES: Record<LanguageCode, string[]> = {
+  en: [
+    'done', "that's all", "thats all", 'finished', 'end chat', 'end the chat',
+    'bye', 'goodbye', 'thank you', 'thanks', 'no more', "i'm done", "im done",
+    'done sharing', 'enough', 'nothing else', 'that is all', 'stop', 'exit',
+    'all done', 'complete', 'completed',
+  ],
+  hi: [
+    'बस इतना ही', 'धन्यवाद', 'हो गया', 'समाप्त', 'अलविदा', 'बस',
+    'कुछ नहीं', 'काफी है', 'बंद करो', 'पूर्ण', 'ठीक है धन्यवाद', 'बस धन्यवाद',
+  ],
+  bn: [
+    'হয়ে গেছে', 'ধন্যবাদ', 'আর কিছু নেই', 'সমাপ্ত', 'বিদায়', 'যথেষ্ট', 'শেষ',
+  ],
+  ta: [
+    'முடிந்தது', 'நன்றி', 'அவ்வளவுதான்', 'போதும்', 'முடிவு', 'விடைபெறுகிறேன்',
+  ],
+  te: [
+    'పూర్తయింది', 'ధన్యవాదాలు', 'ఇంతే', 'చాలు', 'ముగింపు', 'సెలవు',
+  ],
+  mr: [
+    'झाले', 'धन्यवाद', 'एवढेच', 'पुरे', 'समाप्त', 'निरोप', 'संपले',
+  ],
+  gu: [
+    'પૂરું થયું', 'આભાર', 'બસ આટલું જ', 'થઈ ગયું', 'પૂરું', 'આવજો', 'બસ',
+  ],
+}
+
 export interface TranslationDictionary {
   auth: {
     title: string
@@ -78,6 +106,9 @@ export interface TranslationDictionary {
     chatEndedTitle: string
     chatEndedDesc: string
     generatingQuestion: string
+    endIntentPrompt?: string
+    endIntentYes?: string
+    endIntentNo?: string
   }
   scanner: {
     title: string
@@ -86,6 +117,42 @@ export interface TranslationDictionary {
     uploadFile: string
     dropzone: string
     scanning: string
+  }
+  doctor: {
+    hprVerified: string
+    signOut: string
+    stationTitle: string
+    clinicalReviewTitle: string
+    portalDescription: string
+    opdRegular: string
+    dutyActive: string
+    today: string
+    registeredPatients: string
+    liveRecords: string
+    triageRedFlags: string
+    urgentAttention: string
+    vitalsStable: string
+    digitizedPrescriptions: string
+    verifiedOcr: string
+    consultationSessions: string
+    aiIntakeConsultations: string
+    searchPlaceholder: string
+    redFlagsOnly: string
+    withDocuments: string
+    refreshRecords: string
+    patientQueue: string
+    colPatient: string
+    colDemographics: string
+    colTriage: string
+    colDocuments: string
+    colActions: string
+    noPatients: string
+    reviewDossier: string
+    tabConsultations: string
+    tabPrescriptions: string
+    tabMedications: string
+    tabBaseline: string
+    closeDossier: string
   }
 }
 
@@ -168,6 +235,9 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       chatEndedTitle: 'Intake Consultation Concluded',
       chatEndedDesc: 'Your symptoms and clinical history have been documented. You can view your summary or submit details to your health record.',
       generatingQuestion: 'Generating clinical question...',
+      endIntentPrompt: 'Did you mean to end the chat?',
+      endIntentYes: 'Yes, End Chat',
+      endIntentNo: 'No',
     },
     scanner: {
       title: 'Medical Document Scanner',
@@ -176,6 +246,42 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       uploadFile: 'Upload File',
       dropzone: 'Drag & drop prescription or test report image here, or click to browse',
       scanning: 'Scanning & Digitizing document...',
+    },
+    doctor: {
+      hprVerified: 'HPR Verified Clinician',
+      signOut: 'Sign Out',
+      stationTitle: 'Doctor Clinical Oversight Station (EHR Database Access)',
+      clinicalReviewTitle: 'Clinical Review & Patient Records Registry',
+      portalDescription: 'Live healthcare provider portal connecting to all registered patients in the database. Inspect AI-digitized intake transcripts, multimodal OCR verified prescriptions, and AYUSH Prakriti assessments.',
+      opdRegular: 'OPD Regular',
+      dutyActive: 'Duty: Active',
+      today: 'Today',
+      registeredPatients: 'Registered Patients',
+      liveRecords: 'Live database records',
+      triageRedFlags: 'Triage Red Flags',
+      urgentAttention: 'Urgent attention needed',
+      vitalsStable: 'All vitals stable',
+      digitizedPrescriptions: 'Digitized Prescriptions',
+      verifiedOcr: 'Verified via AI Vision OCR',
+      consultationSessions: 'Consultation Sessions',
+      aiIntakeConsultations: 'AI intake consultations',
+      searchPlaceholder: 'Search patients by name or ABHA ID...',
+      redFlagsOnly: 'Red Flags Only',
+      withDocuments: 'With Documents',
+      refreshRecords: 'Refresh Patient Records',
+      patientQueue: 'Live Patient Review Queue',
+      colPatient: 'Patient',
+      colDemographics: 'Demographics',
+      colTriage: 'Triage Status',
+      colDocuments: 'Documents',
+      colActions: 'Actions',
+      noPatients: 'No patients found matching your search criteria.',
+      reviewDossier: 'Review Dossier',
+      tabConsultations: 'AI Consultations',
+      tabPrescriptions: 'Prescriptions',
+      tabMedications: 'Medications',
+      tabBaseline: 'AYUSH & Baseline',
+      closeDossier: 'Close Dossier',
     },
   },
 
@@ -257,6 +363,9 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       chatEndedTitle: 'परामर्श समाप्त हो गया है',
       chatEndedDesc: 'आपके लक्षण और स्वास्थ्य इतिहास रिकॉर्ड कर लिए गए हैं। आप सारांश देख सकते हैं या रिकॉर्ड सुरक्षित कर सकते हैं।',
       generatingQuestion: 'चिकित्सीय प्रश्न तैयार किया जा रहा है...',
+      endIntentPrompt: 'क्या आप बातचीत समाप्त करना चाहते हैं?',
+      endIntentYes: 'हाँ, बातचीत समाप्त करें',
+      endIntentNo: 'नहीं',
     },
     scanner: {
       title: 'दस्तावेज़ स्कैनर',
@@ -265,6 +374,42 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       uploadFile: 'फ़ाइल चुनें',
       dropzone: 'पर्चे या जांच रिपोर्ट की छवि यहां खींचें या चुनने के लिए क्लिक करें',
       scanning: 'दस्तावेज़ स्कैन व डिजिटाइज़ हो रहा है...',
+    },
+    doctor: {
+      hprVerified: 'HPR सत्यापित चिकित्सक',
+      signOut: 'लॉग आउट',
+      stationTitle: 'चिकित्सक नैदानिक निगरानी स्टेशन (EHR डेटाबेस)',
+      clinicalReviewTitle: 'नैदानिक समीक्षा और रोगी रिकॉर्ड रजिस्ट्री',
+      portalDescription: 'डेटाबेस में सभी पंजीकृत रोगियों से जुड़ा स्वास्थ्य प्रदाता पोर्टल। AI-डिजिटाइज़्ड ट्रांसक्रिप्ट, OCR सत्यापित पर्चे और आयुष प्रकृति का निरीक्षण करें।',
+      opdRegular: 'ओपीडी सामान्य',
+      dutyActive: 'ड्यूटी: सक्रिय',
+      today: 'आज',
+      registeredPatients: 'पंजीकृत मरीज',
+      liveRecords: 'सक्रिय डेटाबेस रिकॉर्ड',
+      triageRedFlags: 'आपातकालीन रेड फ्लैग',
+      urgentAttention: 'तत्काल ध्यान आवश्यक',
+      vitalsStable: 'सभी महत्वपूर्ण लक्षण स्थिर',
+      digitizedPrescriptions: 'डिजिटाइज़्ड नुस्खे',
+      verifiedOcr: 'AI विज़न OCR द्वारा सत्यापित',
+      consultationSessions: 'परामर्श सत्र',
+      aiIntakeConsultations: 'AI प्राथमिक परामर्श',
+      searchPlaceholder: 'नाम या ABHA ID से मरीज खोजें...',
+      redFlagsOnly: 'केवल रेड फ्लैग',
+      withDocuments: 'दस्तावेजों सहित',
+      refreshRecords: 'रोगी रिकॉर्ड रीफ्रेश करें',
+      patientQueue: 'सक्रिय रोगी समीक्षा कतार',
+      colPatient: 'मरीज',
+      colDemographics: 'जनसांख्यिकी',
+      colTriage: 'ट्राइएज स्थिति',
+      colDocuments: 'दस्तावेज़',
+      colActions: 'कार्रवाई',
+      noPatients: 'खोज मानदंडों से मेल खाता कोई मरीज नहीं मिला।',
+      reviewDossier: 'डोज़ियर देखें',
+      tabConsultations: 'AI परामर्श',
+      tabPrescriptions: 'दवा के नुस्खे',
+      tabMedications: 'सक्रिय दवाएं',
+      tabBaseline: 'आयुष एवं मेडिकल बेसलाइन',
+      closeDossier: 'डोज़ियर बंद करें',
     },
   },
 
@@ -346,6 +491,9 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       chatEndedTitle: 'পরামর্শ শেষ হয়েছে',
       chatEndedDesc: 'আপনার স্বাস্থ্য লক্ষণ লিপিবদ্ধ করা হয়েছে। আপনি সারাংশ দেখতে বা সংরক্ষণ করতে পারেন।',
       generatingQuestion: 'প্রশ্ন তৈরি হচ্ছে...',
+      endIntentPrompt: 'আপনি কি কথোপকথন শেষ করতে চান?',
+      endIntentYes: 'হ্যাঁ, কথোপকথন শেষ করুন',
+      endIntentNo: 'না',
     },
     scanner: {
       title: 'মেডিকেল ডকুমেন্ট স্ক্যানার',
@@ -354,6 +502,42 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       uploadFile: 'ফাইল আপলোড',
       dropzone: 'প্রেসক্রিপশন বা রিপোর্ট ছবি এখানে আনুন বা ক্লিক করুন',
       scanning: 'নথি স্ক্যান ও ডিজিটাইজ হচ্ছে...',
+    },
+    doctor: {
+      hprVerified: 'HPR যাচাইকৃত চিকিৎসক',
+      signOut: 'সাইন আউট',
+      stationTitle: 'চিকিৎসক ক্লিনিকাল তত্ত্বাবধান স্টেশন (EHR ডেটাবেস)',
+      clinicalReviewTitle: 'ক্লিনিকাল পর্যালোচনা ও রোগী রেকর্ড রেজিস্ট্রি',
+      portalDescription: 'ডেটাবেসে সমস্ত নিবন্ধিত রোগীর সাথে সংযুক্ত স্বাস্থ্য পরিষেবা পোর্টাল। AI ডিজিটালাইজড প্রতিলিপি এবং প্রেসক্রিপশন পর্যালোচনা করুন।',
+      opdRegular: 'ওপিডি নিয়মিত',
+      dutyActive: 'ডিউটি: সক্রিয়',
+      today: 'আজ',
+      registeredPatients: 'নিবন্ধিত রোগী',
+      liveRecords: 'লাইভ ডেটাবেস রেকর্ড',
+      triageRedFlags: 'জরুরি রেড ফ্ল্যাগ',
+      urgentAttention: 'জরুরি মনোযোগ প্রয়োজন',
+      vitalsStable: 'সমস্ত লক্ষণ স্থিতিশীল',
+      digitizedPrescriptions: 'ডিজিটাইজড প্রেসক্রিপশন',
+      verifiedOcr: 'AI ভিশন OCR দ্বারা যাচাইকৃত',
+      consultationSessions: 'পরামর্শ সেশন',
+      aiIntakeConsultations: 'AI প্রাথমিক পরামর্শ',
+      searchPlaceholder: 'নাম বা ABHA ID দিয়ে রোগী খুঁজুন...',
+      redFlagsOnly: 'শুধুমাত্র রেড ফ্ল্যাগ',
+      withDocuments: 'নথিপত্র সহ',
+      refreshRecords: 'রোগীর রেকর্ড রিফ্রেশ করুন',
+      patientQueue: 'লাইভ রোগী পর্যালোচনা সারি',
+      colPatient: 'রোগী',
+      colDemographics: 'জনপরিসংখ্যান',
+      colTriage: 'ট্রায়াজ অবস্থা',
+      colDocuments: 'নথিপত্র',
+      colActions: 'পদক্ষেপ',
+      noPatients: 'কোনো রোগী পাওয়া যায়নি।',
+      reviewDossier: 'ডোসিয়ার পর্যালোচনা',
+      tabConsultations: 'AI परामर्श',
+      tabPrescriptions: 'প্রেসক্রিপশন',
+      tabMedications: 'ওষুধ',
+      tabBaseline: 'আয়ুষ ও বেসলাইন',
+      closeDossier: 'ডোসিয়ার বন্ধ করুন',
     },
   },
 
@@ -435,6 +619,9 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       chatEndedTitle: 'மருத்துவ ஆலோசனை முடிவடைந்தது',
       chatEndedDesc: 'உங்கள் அறிகுறிகள் மற்றும் மருத்துவ விவரங்கள் ஆவணப்படுத்தப்பட்டுள்ளன.',
       generatingQuestion: 'கேள்வி உருவாக்கப்படுகிறது...',
+      endIntentPrompt: 'உரையாடலை முடிக்க விரும்புகிறீர்களா?',
+      endIntentYes: 'ஆம், உரையாடலை முடிக்கவும்',
+      endIntentNo: 'இல்லை',
     },
     scanner: {
       title: 'மருத்துவ ஆவண ஸ்கேனர்',
@@ -443,6 +630,42 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       uploadFile: 'கோப்பைப் பதிவேற்று',
       dropzone: 'மருந்து சீட்டு அல்லது அறிக்கை படத்தை இங்கே இழுத்து விடவும்',
       scanning: 'ஆவணம் ஸ்கேன் செய்யப்படுகிறது...',
+    },
+    doctor: {
+      hprVerified: 'HPR சரிபார்க்கப்பட்ட மருத்துவர்',
+      signOut: 'வெளியேறு',
+      stationTitle: 'மருத்துவர் மருத்துவ மேற்பார்வை நிலையம் (EHR தரவுத்தளம்)',
+      clinicalReviewTitle: 'மருத்துவ ஆய்வு மற்றும் நோயாளி பதிவேடு',
+      portalDescription: 'பதிவுசெய்யப்பட்ட அனைத்து நோயாளிகளுடனும் இணைக்கப்பட்ட சுகாதார வழங்குநர் தளம். AI டிஜிட்டல் ஆவணங்களை ஆய்வு செய்யவும்.',
+      opdRegular: 'OPD வழக்கமான',
+      dutyActive: 'பணி: செயலில்',
+      today: 'இன்று',
+      registeredPatients: 'பதிவுசெய்யப்பட்ட நோயாளிகள்',
+      liveRecords: 'நேரடி தரவுத்தள பதிவுகள்',
+      triageRedFlags: 'அவசர எச்சரிக்கை குறிகள்',
+      urgentAttention: 'அவசர கவனம் தேவை',
+      vitalsStable: 'அனைத்து அளவுகளும் சீராக உள்ளன',
+      digitizedPrescriptions: 'டிஜிட்டல் மருந்துச்சீட்டுகள்',
+      verifiedOcr: 'AI விஷன் OCR மூலம் சரிபார்க்கப்பட்டது',
+      consultationSessions: 'ஆலோசனை அமர்வுகள்',
+      aiIntakeConsultations: 'AI உட்கொள்ளல் ஆலோசனைகள்',
+      searchPlaceholder: 'பெயர் அல்லது ABHA ID மூலம் நோயாளியைத் தேடுங்கள்...',
+      redFlagsOnly: 'எச்சரிக்கைக் குறிகள் மட்டும்',
+      withDocuments: 'ஆவணங்களுடன்',
+      refreshRecords: 'பதிவுகளைப் புதுப்பிக்கவும்',
+      patientQueue: 'நேரடி நோயாளி வரிசை',
+      colPatient: 'நோயாளி',
+      colDemographics: 'மக்கள்தொகை விவரம்',
+      colTriage: 'நிலை வகைப்படுத்தல்',
+      colDocuments: 'ஆவணங்கள்',
+      colActions: 'செயல்கள்',
+      noPatients: 'நோயாளிகள் எவரும் காணப்படவில்லை.',
+      reviewDossier: 'ஆவணத்தொகுப்பை மதிப்பாய்வு செய்',
+      tabConsultations: 'AI ஆலோசனைகள்',
+      tabPrescriptions: 'மருந்துச்சீட்டுகள்',
+      tabMedications: 'மருந்துகள்',
+      tabBaseline: 'ஆயுஷ் & அடிப்படை',
+      closeDossier: 'மூடுக',
     },
   },
 
@@ -524,6 +747,9 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       chatEndedTitle: 'సంప్రదింపు ముగిసింది',
       chatEndedDesc: 'మీ ఆరోగ్య లక్షణాలు నమోదు చేయబడ్డాయి.',
       generatingQuestion: 'ప్రశ్న సిద్ధం అవుతోంది...',
+      endIntentPrompt: 'మీరు చాట్ ముగించాలనుకుంటున్నారా?',
+      endIntentYes: 'అవును, చాట్ ముగించు',
+      endIntentNo: 'కాదు',
     },
     scanner: {
       title: 'మెడికల్ డాక్యుమెంట్ స్కానర్',
@@ -532,6 +758,42 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       uploadFile: 'ఫైల్ ఎంచుకోండి',
       dropzone: 'ప్రిస్క్రిప్షన్ లేదా ల్యాబ్ రిపోర్ట్ చిత్రాన్ని ఇక్కడ ఉంచండి',
       scanning: 'పత్రం స్కాన్ అవుతోంది...',
+    },
+    doctor: {
+      hprVerified: 'HPR ధృవీకరించబడిన వైద్యులు',
+      signOut: 'లాగ్ అవుట్',
+      stationTitle: 'వైద్యుల క్లినికల్ పర్యవేక్షణ స్టేషన్ (EHR డేటాబేస్)',
+      clinicalReviewTitle: 'క్లినికల్ సమీక్ష & రోగి రికార్డుల రిజిస్ట్రీ',
+      portalDescription: 'నమోదైన రోగులందరికీ అనుసంధానించబడిన ఆరోగ్య సేవల పోర్టల్. AI డిజిటలైజ్డ్ ప్రిస్క్రిప్షన్లను సమీక్షించండి.',
+      opdRegular: 'OPD రెగ్యులర్',
+      dutyActive: 'డ్యూటీ: యాక్టివ్',
+      today: 'ఈ రోజు',
+      registeredPatients: 'నమోదైన రోగులు',
+      liveRecords: 'ప్రత్యక్ష డేటాబేస్ రికార్డులు',
+      triageRedFlags: 'అత్యవసర రెడ్ ఫ్లాగ్‌లు',
+      urgentAttention: 'తక్షణ శ్రద్ధ అవసరం',
+      vitalsStable: 'అన్ని సంకేతాలు స్థిరంగా ఉన్నాయి',
+      digitizedPrescriptions: 'డిజిటలైజ్డ్ ప్రిస్క్రిప్షన్‌లు',
+      verifiedOcr: 'AI విజన్ OCR ద్వారా ధృవీకరించబడింది',
+      consultationSessions: 'సంప్రదింపు సెషన్‌లు',
+      aiIntakeConsultations: 'AI ప్రాథమిక సంప్రదింపులు',
+      searchPlaceholder: 'పేరు లేదా ABHA ID ద్వారా రోగులను శోధించండి...',
+      redFlagsOnly: 'రెడ్ ఫ్లాగ్‌లు మాత్రమే',
+      withDocuments: 'పత్రాలతో కూడినవి',
+      refreshRecords: 'రోగి రికార్డులను రిఫ్రెష్ చేయండి',
+      patientQueue: 'ప్రత్యక్ష రోగి సమీక్ష వరుస',
+      colPatient: 'రోగి',
+      colDemographics: 'జనాభా వివరాలు',
+      colTriage: 'ట్రయాజ్ స్థితి',
+      colDocuments: 'పత్రాలు',
+      colActions: 'చర్యలు',
+      noPatients: 'రోగులెవరూ కనుగొనబడలేదు.',
+      reviewDossier: 'డోసియర్ సమీక్షించండి',
+      tabConsultations: 'AI సంప్రదింపులు',
+      tabPrescriptions: 'ప్రిస్క్రిప్షన్లు',
+      tabMedications: 'మందులు',
+      tabBaseline: 'ఆయుష్ & బేస్‌లైన్',
+      closeDossier: 'డోసియర్ మూసివేయి',
     },
   },
 
@@ -613,6 +875,9 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       chatEndedTitle: 'सल्लामसलत पूर्ण झाली आहे',
       chatEndedDesc: 'तुमची लक्षणे आणि वैद्यकीय इतिहास नोंदवला गेला आहे.',
       generatingQuestion: 'वैद्यकीय प्रश्न तयार होत आहे...',
+      endIntentPrompt: 'तुम्हाला संभाषण समाप्त करायचे आहे का?',
+      endIntentYes: 'होय, संभाषण समाप्त करा',
+      endIntentNo: 'नाही',
     },
     scanner: {
       title: 'वैद्यकीय कागदपत्र स्कॅनर',
@@ -621,6 +886,42 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       uploadFile: 'फाइल निवडा',
       dropzone: 'प्रिस्क्रिप्शन किंवा अहवाल येथे ड्रॅग करा किंवा क्लिक करा',
       scanning: 'कागदपत्र स्कॅन होत आहे...',
+    },
+    doctor: {
+      hprVerified: 'HPR सत्यापित चिकित्सक',
+      signOut: 'साइन आउट',
+      stationTitle: 'डॉक्टर क्लिनिकल निरीक्षण केंद्र (EHR डेटाबेस)',
+      clinicalReviewTitle: 'क्लिनिकल पुनरावलोकन आणि रुग्ण नोंदी नोंदणी',
+      portalDescription: 'डेटाबेसमध्ये नोंदणीकृत सर्व रुग्णांशी जोडलेले हेल्थकेअर पोर्टल. AI डिजिटलाइझ्ड ट्रान्सक्रिप्ट आणि प्रिस्क्रिप्शन तपासा.',
+      opdRegular: 'OPD नियमित',
+      dutyActive: 'ड्युटी: सक्रिय',
+      today: 'आज',
+      registeredPatients: 'नोंदणीकृत रुग्ण',
+      liveRecords: 'लाइव्ह डेटाबेस नोंदी',
+      triageRedFlags: 'तातडीचे रेड फ्लॅग',
+      urgentAttention: 'तातडीचे लक्ष आवश्यक',
+      vitalsStable: 'सर्व लक्षणे स्थिर',
+      digitizedPrescriptions: 'डिजिटलाइझ्ड औषधपत्रिका',
+      verifiedOcr: 'AI व्हिजन OCR द्वारे सत्यापित',
+      consultationSessions: 'सल्लामसलत सत्रे',
+      aiIntakeConsultations: 'AI इनटेक सल्लामसलत',
+      searchPlaceholder: 'नाव किंवा ABHA ID द्वारे रुग्ण शोधा...',
+      redFlagsOnly: 'फक्त रेड फ्लॅग्ज',
+      withDocuments: 'कागदपत्रांसह',
+      refreshRecords: 'रुग्ण नोंदी रीफ्रेश करा',
+      patientQueue: 'थेट रुग्ण पुनरावलोकन रांग',
+      colPatient: 'रुग्ण',
+      colDemographics: 'लोकसंख्याशास्त्र',
+      colTriage: 'ट्रायज स्थिती',
+      colDocuments: 'कागदपत्रे',
+      colActions: 'कृती',
+      noPatients: 'कोणतेही रुग्ण आढळले नाहीत.',
+      reviewDossier: 'डोसियर तपासा',
+      tabConsultations: 'AI सल्लामसलत',
+      tabPrescriptions: 'औषधपत्रिका',
+      tabMedications: 'औषधे',
+      tabBaseline: 'आयुष आणि बेसलाइन',
+      closeDossier: 'डोसियर बंद करा',
     },
   },
 
@@ -702,6 +1003,9 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       chatEndedTitle: 'સલાહ પૂર્ણ થઈ છે',
       chatEndedDesc: 'તમારા લક્ષણો અને તબીબી ઇતિહાસ નોંધવામાં આવ્યો છે.',
       generatingQuestion: 'પ્રશ્ન તૈયાર થઈ રહ્યો છે...',
+      endIntentPrompt: 'શું તમે વાતચીત સમાપ્ત કરવા માંગો છો?',
+      endIntentYes: 'હા, વાતચીત સમાપ્ત કરો',
+      endIntentNo: 'ના',
     },
     scanner: {
       title: 'મેડિકલ દસ્તાવેજ સ્કેનર',
@@ -710,6 +1014,42 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       uploadFile: 'ફાઇલ અપલોડ',
       dropzone: 'પ્રિસ્ક્રિપ્શન અથવા રિપોર્ટ અહીં ખેંચો અથવા ક્લિક કરો',
       scanning: 'દસ્તાવેજ સ્કેન થઈ રહ્યો છે...',
+    },
+    doctor: {
+      hprVerified: 'HPR પ્રમાણિત તબીબ',
+      signOut: 'સાઇન આઉટ',
+      stationTitle: 'તબીબી દેખરેખ કેન્દ્ર (EHR ડેટાબેઝ)',
+      clinicalReviewTitle: 'ક્લિનિકલ સમીક્ષા અને દર્દી રેકોર્ડ રજિસ્ટ્રી',
+      portalDescription: 'ડેટાબેઝમાં નોંધાયેલા તમામ દર્દીઓ સાથે જોડાયેલ આરોગ્ય પ્રદાતા પોર્ટલ. AI ડિજિટાઇઝ્ડ પ્રિસ્ક્રિપ્શન તપાસો.',
+      opdRegular: 'OPD નિયમિત',
+      dutyActive: 'ફરજ: સક્રિય',
+      today: 'આજે',
+      registeredPatients: 'નોંધાયેલા દર્દીઓ',
+      liveRecords: 'લાઇવ ડેટાબેઝ રેકોર્ડ્સ',
+      triageRedFlags: 'તાત્કાલિક રેડ ફ્લેગ',
+      urgentAttention: 'તાત્કાલિક ધ્યાનની જરૂર છે',
+      vitalsStable: 'તમામ પરિમાણો સ્થિર છે',
+      digitizedPrescriptions: 'ડિજિટાઇઝ્ડ પ્રિસ્ક્રિપ્શન્સ',
+      verifiedOcr: 'AI વિઝન OCR દ્વારા ચકાસાયેલ',
+      consultationSessions: 'પરામર્શ સત્રો',
+      aiIntakeConsultations: 'AI પ્રાથમિક પરામર્શ',
+      searchPlaceholder: 'નામ અથવા ABHA ID દ્વારા દર્દી શોધો...',
+      redFlagsOnly: 'માત્ર રેડ ફ્લેગ્સ',
+      withDocuments: 'દસ્તાવેજો સાથે',
+      refreshRecords: 'દર્દી રેકોર્ડ રિફ્રેશ કરો',
+      patientQueue: 'લાઇવ દર્દી સમીક્ષા કતાર',
+      colPatient: 'દર્દી',
+      colDemographics: 'જનસાंख्यिकी',
+      colTriage: 'ટ્રાયજ સ્થિતિ',
+      colDocuments: 'દસ્તાવેજો',
+      colActions: 'પગલાં',
+      noPatients: 'કોઈ દર્દી મળ્યા નથી.',
+      reviewDossier: 'ડોઝિયર જુઓ',
+      tabConsultations: 'AI પરામર્શ',
+      tabPrescriptions: 'પ્રિસ્ક્રિપ્શન્સ',
+      tabMedications: 'દવાઓ',
+      tabBaseline: 'આયુષ અને બેઝલાઇન',
+      closeDossier: 'ડોઝિયર બંધ કરો',
     },
   },
 }

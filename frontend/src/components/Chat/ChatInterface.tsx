@@ -7,18 +7,22 @@ import { transcribeAudio } from '../../services/api'
 import ChatBubble from './ChatBubble'
 import QuickReplyChips from './QuickReplyChips'
 import ChatEndOverlay from './ChatEndOverlay'
-import { useTranslation } from '../../i18n/translations'
+import { useTranslation, MULTILINGUAL_END_INTENT_PHRASES } from '../../i18n/translations'
 
-// Client-side heuristic: phrases that suggest the user is done
-const END_INTENT_PHRASES = [
-  'done', "that's all", "thats all", 'finished', 'end chat', 'end the chat',
-  'bye', 'goodbye', 'thank you', 'thanks', 'no more', "i'm done", "im done",
-  'done sharing', 'enough', 'nothing else', 'that is all', 'stop', 'exit',
-]
+// AI-04: Multilingual end-intent recognition across 7 Indian languages
+const ALL_END_INTENT_PHRASES = Object.values(MULTILINGUAL_END_INTENT_PHRASES).flat()
 
-function hasEndIntent(text: string): boolean {
+export function hasEndIntent(text: string, language?: LanguageCode): boolean {
   const lower = text.toLowerCase().trim()
-  return END_INTENT_PHRASES.some((phrase) => lower.includes(phrase))
+  if (!lower) return false
+
+  if (language && MULTILINGUAL_END_INTENT_PHRASES[language]) {
+    const langPhrases = MULTILINGUAL_END_INTENT_PHRASES[language]
+    if (langPhrases.some((phrase) => lower.includes(phrase.toLowerCase()))) {
+      return true
+    }
+  }
+  return ALL_END_INTENT_PHRASES.some((phrase) => lower.includes(phrase.toLowerCase()))
 }
 
 interface ChatInterfaceProps {
@@ -139,7 +143,7 @@ export default function ChatInterface({
     if (!text || isLoading) return
 
     // Client-side end-intent detection
-    if (hasEndIntent(text)) {
+    if (hasEndIntent(text, language)) {
       setEndIntentBanner(true)
     }
 
@@ -262,7 +266,9 @@ export default function ChatInterface({
       {endIntentBanner && chatStatus === 'active' && (
         <div className="mx-3 mb-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800
                         flex items-center justify-between gap-3 animate-fade-in">
-          <p className="text-xs text-slate-600 dark:text-slate-300">Did you mean to end the chat?</p>
+          <p className="text-xs text-slate-600 dark:text-slate-300">
+            {t.chat.endIntentPrompt || 'Did you mean to end the chat?'}
+          </p>
           <div className="flex gap-2">
             <button
               onClick={() => setEndIntentBanner(false)}
@@ -270,7 +276,7 @@ export default function ChatInterface({
                          hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors inline-flex items-center gap-1.5"
             >
               <X className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-              No
+              {t.chat.endIntentNo || 'No'}
             </button>
             <button
               onClick={() => { setEndIntentBanner(false); onEndChat() }}
@@ -278,7 +284,7 @@ export default function ChatInterface({
                          px-2 py-1 rounded-lg hover:bg-brand-cyan-light dark:hover:bg-brand-cyan-light/20 transition-colors inline-flex items-center gap-1.5"
             >
               <PhoneOff className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-              Yes, End Chat
+              {t.chat.endIntentYes || 'Yes, End Chat'}
             </button>
           </div>
         </div>
@@ -289,6 +295,9 @@ export default function ChatInterface({
         <QuickReplyChips
           chips={visibleChips}
           onSelect={(text) => {
+            if (hasEndIntent(text, language)) {
+              setEndIntentBanner(true)
+            }
             setInputText('')
             onSendMessage(text)
           }}

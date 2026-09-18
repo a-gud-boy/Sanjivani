@@ -231,7 +231,7 @@ export default function PatientDashboard({
                 className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white text-brand-cyan hover:bg-cyan-50 font-bold text-sm flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5"
               >
                 <PlusCircle className="w-5 h-5 flex-shrink-0 text-brand-cyan" aria-hidden="true" />
-                <span>Add Details (नया विवरण जोड़ें)</span>
+                <span>{t.dashboard.addDetails}</span>
               </button>
             </div>
           </div>

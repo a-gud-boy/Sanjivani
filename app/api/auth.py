@@ -7,19 +7,19 @@ from typing import Any, Dict, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Header, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.db.database import get_db
-from app.db.models import Doctor, Patient
+from app.db.models import ActiveOTP, Doctor, Patient
 
 logger = logging.getLogger("sanjivani.api.auth")
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-# ── In-Memory Active OTP Cache (Production Ready, 10 min TTL) ─────────────────
+# ── Active OTP Store (SEC-04: Multi-Worker Persistent Database + Memory Sync) ───
 _ACTIVE_OTPS: Dict[str, Tuple[str, float]] = {}
 OTP_EXPIRY_SECONDS = 600.0  # 10 minutes
 
@@ -34,11 +34,36 @@ def _should_expose_otp() -> bool:
     return bool(settings.DEBUG)
 
 
-def _generate_and_store_otp(identifier: str) -> str:
-    """Generate a secure 6-digit numeric OTP and record expiration."""
+async def _generate_and_store_otp(identifier: str, db: Optional[AsyncSession] = None) -> str:
+    """
+    Generate a secure 6-digit numeric OTP and record expiration.
+    SEC-04: Persists OTP in shared database table `active_otps` with 10-min TTL
+    and supports multi-worker architectures seamlessly.
+    """
     clean_id = identifier.strip()
     code = f"{secrets.randbelow(900000) + 100000}"
-    _ACTIVE_OTPS[clean_id] = (code, time.time() + OTP_EXPIRY_SECONDS)
+    expires_at = time.time() + OTP_EXPIRY_SECONDS
+    _ACTIVE_OTPS[clean_id] = (code, expires_at)
+
+    if db is not None:
+        try:
+            # Clear any preexisting OTPs for this identifier
+            await db.execute(delete(ActiveOTP).where(ActiveOTP.identifier == clean_id))
+            # Clean up globally expired OTPs to prevent table bloat
+            await db.execute(delete(ActiveOTP).where(ActiveOTP.expires_at < time.time()))
+
+            otp_record = ActiveOTP(
+                identifier=clean_id,
+                code=code,
+                expires_at=expires_at,
+                attempts_count=0,
+            )
+            db.add(otp_record)
+            await db.commit()
+        except Exception as err:
+            logger.warning("Failed to persist OTP to database for '%s': %s", clean_id, err)
+            await db.rollback()
+
     if _should_expose_otp():
         logger.info("Generated real verification OTP for '%s': %s (TTL: 10m)", clean_id, code)
     else:
@@ -46,14 +71,63 @@ def _generate_and_store_otp(identifier: str) -> str:
     return code
 
 
-def _verify_and_consume_otp(identifier: str, submitted_otp: str) -> bool:
-    """Verify submitted OTP using constant-time check and invalidate immediately upon verification."""
+async def _verify_and_consume_otp(identifier: str, submitted_otp: str, db: Optional[AsyncSession] = None) -> bool:
+    """
+    Verify submitted OTP using constant-time check and invalidate immediately upon verification.
+    SEC-04: Checks shared database table `active_otps`, enforces TTL, enforces max 5 failed attempts limit,
+    and consumes OTP atomically. Also maintains backward-compatible sync with in-memory cache.
+    """
     clean_id = identifier.strip()
     clean_otp = submitted_otp.strip()
+    now_ts = time.time()
+
+    if db is not None:
+        try:
+            stmt = select(ActiveOTP).where(ActiveOTP.identifier == clean_id)
+            res = await db.execute(stmt)
+            otp_record = res.scalar_one_or_none()
+
+            if otp_record is not None:
+                # Check expiry
+                if now_ts > otp_record.expires_at:
+                    await db.execute(delete(ActiveOTP).where(ActiveOTP.id == otp_record.id))
+                    _ACTIVE_OTPS.pop(clean_id, None)
+                    await db.commit()
+                    return False
+
+                # Check attempts lockout (5 failed attempts)
+                if otp_record.attempts_count >= 5:
+                    logger.warning("OTP locked out for '%s' after %d failed attempts", clean_id, otp_record.attempts_count)
+                    await db.execute(delete(ActiveOTP).where(ActiveOTP.id == otp_record.id))
+                    _ACTIVE_OTPS.pop(clean_id, None)
+                    await db.commit()
+                    return False
+
+                # Constant-time comparison
+                if secrets.compare_digest(otp_record.code, clean_otp):
+                    # Invalidate immediately upon successful verification
+                    await db.execute(delete(ActiveOTP).where(ActiveOTP.id == otp_record.id))
+                    _ACTIVE_OTPS.pop(clean_id, None)
+                    await db.commit()
+                    return True
+                else:
+                    # Increment failed attempt count
+                    otp_record.attempts_count += 1
+                    if otp_record.attempts_count >= 5:
+                        logger.warning("OTP for '%s' reached maximum failed attempts (5). Invalidating code.", clean_id)
+                        await db.execute(delete(ActiveOTP).where(ActiveOTP.id == otp_record.id))
+                        _ACTIVE_OTPS.pop(clean_id, None)
+                    await db.commit()
+                    return False
+        except Exception as err:
+            logger.warning("Database OTP verification error for '%s': %s. Falling back to memory cache.", clean_id, err)
+            await db.rollback()
+
+    # Fallback / in-memory check (for tests or standalone invocations)
     if clean_id not in _ACTIVE_OTPS:
         return False
     stored_code, expires_at = _ACTIVE_OTPS[clean_id]
-    if time.time() > expires_at:
+    if now_ts > expires_at:
         _ACTIVE_OTPS.pop(clean_id, None)
         return False
     if secrets.compare_digest(stored_code, clean_otp):
@@ -317,7 +391,7 @@ async def _process_patient_request_otp(db: AsyncSession, abha_id: str) -> Patien
             detail=f"No patient account found with ABHA ID '{clean_id}'. Please check the ID or register a new account.",
         )
 
-    code = _generate_and_store_otp(patient.abha_id)
+    code = await _generate_and_store_otp(patient.abha_id, db=db)
     expose_otp = _should_expose_otp()
 
     return PatientRequestOtpResponse(
@@ -344,7 +418,7 @@ async def _process_doctor_request_otp(db: AsyncSession, hp_id: str) -> DoctorReq
             detail=f"No clinician account found with HP ID '{clean_id}'. Please check your HP ID or register via the Healthcare Professional Registry.",
         )
 
-    code = _generate_and_store_otp(doctor.hp_id)
+    code = await _generate_and_store_otp(doctor.hp_id, db=db)
     expose_otp = _should_expose_otp()
 
     return DoctorRequestOtpResponse(
@@ -373,7 +447,7 @@ async def _process_patient_verify_otp(db: AsyncSession, abha_id: str, otp: str) 
             detail=f"Patient with ABHA ID '{clean_id}' not found.",
         )
 
-    if not _verify_and_consume_otp(patient.abha_id, clean_otp):
+    if not await _verify_and_consume_otp(patient.abha_id, clean_otp, db=db):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired OTP code. Please request a new OTP and try again.",
@@ -413,7 +487,7 @@ async def _process_doctor_verify_otp(db: AsyncSession, hp_id: str, otp: str) -> 
             detail=f"Clinician with HP ID '{clean_id}' not found.",
         )
 
-    if not _verify_and_consume_otp(doctor.hp_id, clean_otp):
+    if not await _verify_and_consume_otp(doctor.hp_id, clean_otp, db=db):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired OTP code. Please request a new OTP and try again.",

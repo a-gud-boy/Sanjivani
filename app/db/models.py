@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text, func
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -198,4 +198,23 @@ class PatientDocument(Base):
     # Relationships
     patient: Mapped["Patient"] = relationship("Patient", back_populates="documents")
     session: Mapped[Optional["IntakeSession"]] = relationship("IntakeSession", back_populates="documents")
+
+
+class ActiveOTP(Base):
+    """
+    Persistent OTP store for multi-worker deployments (SEC-04).
+    Tracks active OTP code, expiration epoch, and failed verification attempts.
+    """
+    __tablename__ = "active_otps"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    identifier: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    code: Mapped[str] = mapped_column(String(16), nullable=False)
+    expires_at: Mapped[float] = mapped_column(Float, index=True, nullable=False)
+    attempts_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
+    )
 
