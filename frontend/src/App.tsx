@@ -21,6 +21,7 @@ import {
   saveIntakeSession,
   deletePatientDocument,
   deleteIntakeSession,
+  prewarmBackend,
 } from './services/api'
 
 import Header from './components/Header'
@@ -178,6 +179,11 @@ export default function App() {
       window.removeEventListener('sanjivani:auth-expired', onAuthExpired)
     }
   }, [handleLogout])
+
+  // ── Pre-warm Backend on Initial Mount (Mitigate Render Free-Tier Cold Starts) ──
+  useEffect(() => {
+    prewarmBackend()
+  }, [])
 
   // ── Load Dashboard Data ────────────────────────────────────────────────────
   const loadDashboard = useCallback(async (patientId: string) => {

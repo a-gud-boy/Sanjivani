@@ -531,3 +531,16 @@ export async function getDoctorPatientDossier(
   const { data } = await apiClient.get(`/doctor/patient/${patientId}`)
   return data
 }
+
+/**
+ * Silently pre-warms the backend on initial application load to wake up
+ * Render free-tier containers in the background without UI interruption.
+ */
+export async function prewarmBackend(): Promise<void> {
+  try {
+    await apiClient.get('/health', { timeout: 60_000 })
+  } catch {
+    // Non-blocking silent background wake-up; intentionally suppress errors
+  }
+}
+

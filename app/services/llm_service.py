@@ -1961,14 +1961,16 @@ class ClinicalLLMService:
         # 5. If Gemini / Gemma is configured or active, add Google Cloud models to catalog
         if settings.effective_gemini_key or any(k in (self.text_model_name or "").lower() for k in ("gemini", "gemma")):
             gemini_catalog = [
+                ("gemini-3.1-flash-lite", "Gemini 3.1 Flash-Lite (Google Cloud AI)"),
+                ("gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite (Google Cloud AI)"),
+                ("gemini-3.6-flash", "Gemini 3.6 Flash (Google Cloud AI)"),
+                ("gemini-3.8-flash", "Gemini 3.8 Flash (Google Cloud AI)"),
+                ("gemini-3.7-flash", "Gemini 3.7 Flash (Google Cloud AI)"),
+                ("gemini-3.5-flash", "Gemini 3.5 Flash (Google Cloud AI)"),
                 ("gemma-4-26b-a4b-it", "Gemma 4 26B (Google Cloud AI)"),
                 ("gemma-4-31b-it", "Gemma 4 31B (Google Cloud AI)"),
-                ("gemini-3.5-flash", "Gemini 3.5 Flash (Google Cloud AI)"),
-                ("gemini-3.7-flash", "Gemini 3.7 Flash (Google Cloud AI)"),
                 ("gemini-2.5-flash", "Gemini 2.5 Flash (Google Cloud AI)"),
                 ("gemini-2.5-pro", "Gemini 2.5 Pro (Google Cloud AI)"),
-                ("gemini-1.5-flash", "Gemini 1.5 Flash (Google Cloud AI)"),
-                ("gemini-2.0-flash", "Gemini 2.0 Flash (Google Cloud AI)"),
             ]
             for gid, gname in gemini_catalog:
                 is_active = (gid == self.text_model_name or gid == self.vision_model_name)
