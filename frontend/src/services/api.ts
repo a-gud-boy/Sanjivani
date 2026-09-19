@@ -41,6 +41,25 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
+// Handle 401 Unauthorized globally (session expired, invalid token, or patient profile reset)
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      clearAuthToken()
+      try {
+        localStorage.removeItem('sanjivani_auth_user')
+      } catch (err) {
+        console.warn('Unable to remove stored auth user on 401:', err)
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sanjivani:auth-expired'))
+      }
+    }
+    return Promise.reject(error)
+  },
+)
+
 export function getAuthToken(): string | null {
   try {
     return localStorage.getItem('sanjivani_auth_token')
@@ -75,7 +94,10 @@ export async function getInitialGreeting(
 ): Promise<ChatInitApiResponse> {
   const params: Record<string, string> = { language }
   if (patientName) params.patient_name = patientName
-  const { data } = await apiClient.get<ChatInitApiResponse>('/chat/init', { params })
+  const { data } = await apiClient.get<ChatInitApiResponse>('/chat/init', {
+    params,
+    timeout: 8_000,
+  })
   return data
 }
 

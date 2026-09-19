@@ -26,6 +26,14 @@ PATIENT_B_ABHA = "14-4444-5555-6666"
 DOCTOR_HP_ID = "HP-DOC-77889"
 
 
+@pytest.fixture(autouse=True, scope="module")
+def cleanup_bola_test_entities():
+    """Ensure BOLA test entities are completely purged after running."""
+    yield
+    from tests.conftest import purge_test_entities
+    purge_test_entities()
+
+
 def _register_and_get_patient(name: str, abha: str, phone: str):
     resp = client.post(
         "/api/v1/auth/register",

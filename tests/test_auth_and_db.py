@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 from app.api.auth import get_active_otp
@@ -7,6 +8,14 @@ client = TestClient(app)
 
 TEST_PATIENT_ABHA = "14-5555-4444-3333"
 TEST_DOCTOR_HP_ID = "HP-KA-99881"
+
+
+@pytest.fixture(autouse=True, scope="module")
+def cleanup_auth_db_test_entities():
+    """Ensure test entities are completely purged after running."""
+    yield
+    from tests.conftest import purge_test_entities
+    purge_test_entities()
 
 
 def _get_doctor_headers() -> dict:

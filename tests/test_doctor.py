@@ -6,6 +6,14 @@ from app.main import app
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True, scope="module")
+def cleanup_doctor_test_entities():
+    """Ensure doctor test entities are completely purged after running."""
+    yield
+    from tests.conftest import purge_test_entities
+    purge_test_entities()
+
+
 def _get_or_create_test_doctor() -> str:
     resp = client.post(
         "/api/v1/auth/doctor/register",

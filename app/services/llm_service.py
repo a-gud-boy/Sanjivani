@@ -1,3 +1,4 @@
+import asyncio
 import glob
 import json
 import logging
@@ -58,6 +59,7 @@ JSON_BLUEPRINT_CHAT = """{
   "hpi_socrates": { "site": null, "onset": null, "character": null, "radiation": null, "associations": null, "time_course": null, "exacerbating_relieving": null, "severity_1_to_10": null },
   "ayush_dashavidha_pariksha": { "prakriti": null, "vikriti": null, "agni": null, "koshtha": null },
   "ahara_vihara_lifestyle": { "diet_habits": null, "sleep_pattern": null, "koshtha_bowel": null, "agni_digestion": null },
+  "family_history": [],
   "red_flag_alert": false,
   "next_question_to_ask_patient": "Direct doctor clinical question here (no empathy or filler)",
   "suggested_quick_replies": ["Patient answer option 1", "Patient answer option 2", "Patient answer option 3"]
@@ -97,6 +99,317 @@ OFFTOPIC_KEYWORDS = [
     "weather", "joke", "poem", "song", "who is the prime minister", "president",
     "cricket", "football", "movie", "cinema", "politics", "recipe", "capital of"
 ]
+
+CLINICAL_SUMMARY_I18N: dict[str, Any] = {
+    "en": {
+        "lang_name": "English",
+        "script": "Latin script",
+        "patient_info_header": "PATIENT INFO",
+        "chief_complaint_header": "CHIEF COMPLAINT",
+        "history_header": "HISTORY OF PRESENTING ILLNESS",
+        "clinical_narrative_header": "CLINICAL NARRATIVE",
+        "documents_header": "DOCUMENTS & INVESTIGATIONS",
+        "ayush_header": "AYUSH ASSESSMENT",
+        "red_flags_header": "RED FLAGS",
+        "recommendations_header": "RECOMMENDATIONS",
+        "age_label": "Age {age} years",
+        "gender_label": "Gender: {gender}",
+        "language_label": "Language: {lang}",
+        "gender_map": {"male": "Male", "female": "Female", "other": "Other"},
+        "hpi_labels": {
+            "site": "Location",
+            "onset": "Pattern",
+            "character": "Character",
+            "radiation": "Radiation",
+            "severity": "Severity",
+            "associations": "Associated symptoms",
+            "time_course": "Timing",
+            "exacerbating_relieving": "Aggravating/relieving",
+            "sleep": "Sleep",
+            "diet": "Diet",
+            "bowel": "Bowel habit",
+            "digestion": "Digestion",
+        },
+        "ayush_labels": {
+            "prakriti": "Prakriti",
+            "vikriti": "Vikriti",
+            "agni": "Agni",
+            "koshtha": "Koshtha",
+        },
+        "emergency_alert": "⚠️ EMERGENCY: Patient has reported acute life-threatening symptoms. Immediate hospital referral required.",
+        "document_prefix": "Document",
+        "medications_label": "Medications:",
+        "lab_investigations_label": "Lab Investigations:",
+        "raw_ocr_label": "Raw OCR Text:",
+        "for_duration": "for {duration}",
+        "abnormal_badge": " [ABNORMAL]",
+        "empty_data_fallback": "No clinical data collected yet. Start a conversation or scan a document.",
+    },
+    "hi": {
+        "lang_name": "Hindi",
+        "script": "Devanagari script",
+        "patient_info_header": "मरीज़ की जानकारी",
+        "chief_complaint_header": "मुख्य समस्या",
+        "history_header": "वर्तमान बीमारी का इतिहास",
+        "clinical_narrative_header": "चिकित्सीय विवरण",
+        "documents_header": "दस्तावेज़ एवं जाँच",
+        "ayush_header": "आयुष मूल्यांकन",
+        "red_flags_header": "चेतावनी संकेत",
+        "recommendations_header": "सिफारिशें",
+        "age_label": "आयु {age} वर्ष",
+        "gender_label": "लिंग: {gender}",
+        "language_label": "भाषा: {lang}",
+        "gender_map": {"male": "पुरुष", "female": "महिला", "other": "अन्य"},
+        "hpi_labels": {
+            "site": "स्थान",
+            "onset": "प्रारंभ",
+            "character": "प्रकृति",
+            "radiation": "फैलाव",
+            "severity": "तीव्रता",
+            "associations": "संबंधित लक्षण",
+            "time_course": "समय",
+            "exacerbating_relieving": "बढ़ाने/घटाने वाले कारक",
+            "sleep": "नींद",
+            "diet": "आहार",
+            "bowel": "मल त्याग",
+            "digestion": "पाचन",
+        },
+        "ayush_labels": {
+            "prakriti": "प्रकृति",
+            "vikriti": "विकृति",
+            "agni": "अग्नि",
+            "koshtha": "कोष्ठ",
+        },
+        "emergency_alert": "⚠️ आपातकालीन: मरीज ने जीवन के लिए गंभीर लक्षणों की सूचना दी है। तुरंत अस्पताल में रेफरल आवश्यक है।",
+        "document_prefix": "दस्तावेज़",
+        "medications_label": "दवाइयाँ:",
+        "lab_investigations_label": "प्रयोगशाला जाँच:",
+        "raw_ocr_label": "मूल ओसीआर पाठ:",
+        "for_duration": "{duration} के लिए",
+        "abnormal_badge": " [असामान्य]",
+        "empty_data_fallback": "अभी तक कोई चिकित्सीय डेटा एकत्र नहीं हुआ है। बातचीत शुरू करें या दस्तावेज़ स्कैन करें।",
+    },
+    "bn": {
+        "lang_name": "Bengali",
+        "script": "Bengali script",
+        "patient_info_header": "রোগীর তথ্য",
+        "chief_complaint_header": "প্রধান সমস্যা",
+        "history_header": "বর্তমান অসুস্থতার ইতিহাস",
+        "clinical_narrative_header": "ক্লিনিকাল বিবরণ",
+        "documents_header": "নথি ও পরীক্ষাসমূহ",
+        "ayush_header": "আয়ুষ মূল্যায়ন",
+        "red_flags_header": "জরুরি সতর্কতা",
+        "recommendations_header": "সুপারিশসমূহ",
+        "age_label": "বয়স {age} বছর",
+        "gender_label": "লিঙ্গ: {gender}",
+        "language_label": "ভাষা: {lang}",
+        "gender_map": {"male": "পুরুষ", "female": "মহিলা", "other": "অন্যান্য"},
+        "hpi_labels": {
+            "site": "স্থান",
+            "onset": "শুরু",
+            "character": "ধরন",
+            "radiation": "বিস্তার",
+            "severity": "তীব্রতা",
+            "associations": "আনুষঙ্গিক লক্ষণ",
+            "time_course": "সময়কাল",
+            "exacerbating_relieving": "বাড়ানো/কমানোর কারণ",
+            "sleep": "ঘুম",
+            "diet": "খাদ্যাভ্যাস",
+            "bowel": "মলত্যাগ",
+            "digestion": "হজম",
+        },
+        "ayush_labels": {
+            "prakriti": "প্রকৃতি",
+            "vikriti": "বিকৃতি",
+            "agni": "অগ্নি",
+            "koshtha": "কোষ্ঠ",
+        },
+        "emergency_alert": "⚠️ জরুরি: রোগী গুরুতর জীবন-সংশয়ী উপসর্গের কথা জানিয়েছেন। অবিলম্বে হাসপাতালে রেফারেল প্রয়োজন।",
+        "document_prefix": "নথি",
+        "medications_label": "ওষুধসমূহ:",
+        "lab_investigations_label": "ল্যাব পরীক্ষাসমূহ:",
+        "raw_ocr_label": "মূল ওসিআর টেক্সট:",
+        "for_duration": "{duration} ধরে",
+        "abnormal_badge": " [অস্বাভাবিক]",
+        "empty_data_fallback": "এখনও পর্যন্ত কোনো ক্লিনিকাল তথ্য সংগ্রহ করা হয়নি। কথোপকথন শুরু করুন বা নথি স্ক্যান করুন।",
+    },
+    "ta": {
+        "lang_name": "Tamil",
+        "script": "Tamil script",
+        "patient_info_header": "நோயாளி விவரங்கள்",
+        "chief_complaint_header": "முக்கிய புகார்",
+        "history_header": "தற்போதைய நோய் வரலாறு",
+        "clinical_narrative_header": "மருத்துவ விவரிப்பு",
+        "documents_header": "ஆவணங்கள் மற்றும் ஆய்வுகள்",
+        "ayush_header": "ஆயுஷ் மதிப்பீடு",
+        "red_flags_header": "அவசர எச்சரிக்கை",
+        "recommendations_header": "பரிந்துரைகள்",
+        "age_label": "வயது {age} ஆண்டுகள்",
+        "gender_label": "பாலினம்: {gender}",
+        "language_label": "மொழி: {lang}",
+        "gender_map": {"male": "ஆண்", "female": "பெண்", "other": "மற்றவை"},
+        "hpi_labels": {
+            "site": "இடம்",
+            "onset": "தொடக்கம்",
+            "character": "தன்மை",
+            "radiation": "பரவல்",
+            "severity": "தீவிரம்",
+            "associations": "தொடர்புடைய அறிகுறிகள்",
+            "time_course": "கால அளவு",
+            "exacerbating_relieving": "தீவிரப்படுத்தும்/தணிக்கும் காரணிகள்",
+            "sleep": "தூக்கம்",
+            "diet": "உணவுமுறை",
+            "bowel": "குடல் இயக்கம்",
+            "digestion": "செரிமானம்",
+        },
+        "ayush_labels": {
+            "prakriti": "பிரகிருதி",
+            "vikriti": "விக்ருதி",
+            "agni": "அக்னி",
+            "koshtha": "கோஷ்டா",
+        },
+        "emergency_alert": "⚠️ அவசரம்: நோயாளி உயிருக்கு ஆபத்தான கடுமையான அறிகுறிகளைத் தெரிவித்துள்ளார். உடனடியாக மருத்துவமனைக்கு பரிந்துரைக்க வேண்டும்.",
+        "document_prefix": "ஆவணம்",
+        "medications_label": "மருந்துகள்:",
+        "lab_investigations_label": "ஆய்வக பரிசோதனைகள்:",
+        "raw_ocr_label": "அசல் OCR உரை:",
+        "for_duration": "{duration} வரை",
+        "abnormal_badge": " [இயல்புக்கு மாறான]",
+        "empty_data_fallback": "இன்னும் மருத்துவத் தகவல்கள் எதுவும் சேகரிக்கப்படவில்லை. உரையாடலைத் தொடங்கவும் அல்லது ஆவணத்தை ஸ்கேன் செய்யவும்.",
+    },
+    "te": {
+        "lang_name": "Telugu",
+        "script": "Telugu script",
+        "patient_info_header": "రోగి వివరాలు",
+        "chief_complaint_header": "ప్రధాన సమస్య",
+        "history_header": "ప్రస్తుత అనారోగ్య చరిత్ర",
+        "clinical_narrative_header": "క్లినికల్ వివరణ",
+        "documents_header": "పత్రాలు & పరీక్షలు",
+        "ayush_header": "ఆయుష్ అంచనా",
+        "red_flags_header": "అత్యవసర హెచ్చరికలు",
+        "recommendations_header": "సిఫార్సులు",
+        "age_label": "వయస్సు {age} సంవత్సరాలు",
+        "gender_label": "లింగం: {gender}",
+        "language_label": "భాష: {lang}",
+        "gender_map": {"male": "పురుషుడు", "female": "స్త్రీ", "other": "ఇతర"},
+        "hpi_labels": {
+            "site": "స్థానం",
+            "onset": "ప్రారంభం",
+            "character": "స్వభావం",
+            "radiation": "వ్యాప్తి",
+            "severity": "తీవ్రత",
+            "associations": "సంబంధిత లక్షణాలు",
+            "time_course": "సమయ వ్యవధి",
+            "exacerbating_relieving": "ఎక్కువ/తక్కువ చేసే అంశాలు",
+            "sleep": "నిద్ర",
+            "diet": "ఆహారం",
+            "bowel": "మల విసర్జన",
+            "digestion": "జీర్ణక్రియ",
+        },
+        "ayush_labels": {
+            "prakriti": "ప్రకృతి",
+            "vikriti": "వికృతి",
+            "agni": "అగ్ని",
+            "koshtha": "కోష్ఠం",
+        },
+        "emergency_alert": "⚠️ అత్యవసరం: రోగి ప్రాణాంతక తీవ్రమైన లక్షణాలను నివేదించారు. వెంటనే ఆసుపత్రికి రిఫరల్ అవసరం.",
+        "document_prefix": "పత్రం",
+        "medications_label": "మందులు:",
+        "lab_investigations_label": "ప్రయోగశాల పరీక్షలు:",
+        "raw_ocr_label": "ప్రాథమిక OCR టెక్స్ట్:",
+        "for_duration": "{duration} పాటు",
+        "abnormal_badge": " [అసాధారణ]",
+        "empty_data_fallback": "ఇంకా క్లినికల్ సమాచారం ఏదీ సేకరించబడలేదు. సంభాషణను ప్రారంభించండి లేదా పత్రాన్ని స్కాన్ చేయండి.",
+    },
+    "mr": {
+        "lang_name": "Marathi",
+        "script": "Devanagari script",
+        "patient_info_header": "रुग्णाची माहिती",
+        "chief_complaint_header": "मुख्य तक्रार",
+        "history_header": "सध्याच्या आजाराचा इतिहास",
+        "clinical_narrative_header": "वैद्यकीय वर्णन",
+        "documents_header": "दस्तऐवज व तपासण्या",
+        "ayush_header": "आयुष मूल्यांकन",
+        "red_flags_header": "धोक्याची चिन्हे",
+        "recommendations_header": "शिफारसी",
+        "age_label": "वय {age} वर्षे",
+        "gender_label": "लिंग: {gender}",
+        "language_label": "भाषा: {lang}",
+        "gender_map": {"male": "पुरुष", "female": "महिला", "other": "इतर"},
+        "hpi_labels": {
+            "site": "स्थान",
+            "onset": "सुरुवात",
+            "character": "स्वरूप",
+            "radiation": "प्रसार",
+            "severity": "तीव्रता",
+            "associations": "संबंधित लक्षणे",
+            "time_course": "कालावधी",
+            "exacerbating_relieving": "वाढवणारे/कमी करणारे घटक",
+            "sleep": "झोप",
+            "diet": "आहार",
+            "bowel": "शौचास होणे",
+            "digestion": "पचन",
+        },
+        "ayush_labels": {
+            "prakriti": "प्रकृती",
+            "vikriti": "विकृती",
+            "agni": "अग्नी",
+            "koshtha": "कोष्ठ",
+        },
+        "emergency_alert": "⚠️ आणीबाणी: रुग्णाने जीवघेणी गंभीर लक्षणे नोंदवली आहेत. त्वरित रुग्णालयात रेफर करणे आवश्यक आहे.",
+        "document_prefix": "दस्तऐवज",
+        "medications_label": "औषधे:",
+        "lab_investigations_label": "प्रयोगशाळा तपासण्या:",
+        "raw_ocr_label": "मूळ OCR मजकूर:",
+        "for_duration": "{duration} साठी",
+        "abnormal_badge": " [असामान्य]",
+        "empty_data_fallback": "अद्याप कोणताही वैद्यकीय डेटा गोळा केलेला नाही. संभाषण सुरू करा किंवा दस्तऐवज स्कॅन करा.",
+    },
+    "gu": {
+        "lang_name": "Gujarati",
+        "script": "Gujarati script",
+        "patient_info_header": "દર્દીની માહિતી",
+        "chief_complaint_header": "મુખ્ય ફરિયાદ",
+        "history_header": "હાલની બીમારીનો ઇતિહાસ",
+        "clinical_narrative_header": "તબીબી સારાંશ",
+        "documents_header": "દસ્તાવેજો અને તપાસ",
+        "ayush_header": "આયુષ મૂલ્યાંકન",
+        "red_flags_header": "જોખમી સંકેતો",
+        "recommendations_header": "ભલામણો",
+        "age_label": "ઉંમર {age} વર્ષ",
+        "gender_label": "જાતિ: {gender}",
+        "language_label": "ભાષા: {lang}",
+        "gender_map": {"male": "પુરુષ", "female": "સ્ત્રી", "other": "અન્ય"},
+        "hpi_labels": {
+            "site": "સ્થળ",
+            "onset": "શરૂઆત",
+            "character": "પ્રકાર",
+            "radiation": "ફેલાવો",
+            "severity": "તીવ્રતા",
+            "associations": "સંબંધિત લક્ષણો",
+            "time_course": "સમયગાળો",
+            "exacerbating_relieving": "વધારતા/ઘટાડતા પરિબળો",
+            "sleep": "ઊંઘ",
+            "diet": "ખોરાક",
+            "bowel": "મળત્યાગ",
+            "digestion": "પાચન",
+        },
+        "ayush_labels": {
+            "prakriti": "પ્રકૃતિ",
+            "vikriti": "વિકૃતિ",
+            "agni": "અગ્નિ",
+            "koshtha": "કોષ્ઠ",
+        },
+        "emergency_alert": "⚠️ કટોકટી: દર્દીએ ગંભીર જીવન-જોખમી લક્ષણો દર્શાવ્યા છે. તાત્કાલિક હોસ્પિટલ રેફરલ જરૂરી છે.",
+        "document_prefix": "દસ્તાવેજ",
+        "medications_label": "દવાઓ:",
+        "lab_investigations_label": "લેબોરેટરી તપાસ:",
+        "raw_ocr_label": "મૂળ OCR લખાણ:",
+        "for_duration": "{duration} માટે",
+        "abnormal_badge": " [અસામાન્ય]",
+        "empty_data_fallback": "હજુ સુધી કોઈ તબીબી ડેટા એકત્રિત થયો નથી. વાતચીત શરૂ કરો અથવા દસ્તાવેજ સ્કેન કરો.",
+    },
+}
 
 
 class ClinicalLLMService:
@@ -202,7 +515,7 @@ class ClinicalLLMService:
             f"- You MUST formulate 'next_question_to_ask_patient' in {lang_name}.\n"
             f"- You MUST formulate all items in 'suggested_quick_replies' in {lang_name}.\n"
             f"- Formulate fluent, direct, natural {lang_name} questions and quick replies.\n"
-            f"- Internal clinical JSON entities (such as symptoms, anatomy, onset, severity, diagnosis, Ayush Prakriti) should be standardized in English for doctor clinical records, but the patient interaction ('next_question_to_ask_patient' and 'suggested_quick_replies') MUST be in {lang_name}.\n\n"
+            f"- Internal clinical JSON entities (such as symptoms, anatomy, onset, severity, diagnosis, Ayush Prakriti, family conditions) should be standardized in English for doctor clinical records, but the patient interaction ('next_question_to_ask_patient' and 'suggested_quick_replies') MUST be in {lang_name}.\n\n"
             "CRITICAL INSTRUCTION - DIRECT CLINICAL QUESTIONS ONLY (NO EMPATHY FILLER):\n"
             "- Ask clinical questions DIRECTLY without conversational empathy, sympathy, pleasantries, or acknowledging filler.\n"
             "- NEVER use phrases like 'I am sorry to hear that...', 'I'm sorry to hear...', 'I understand...', 'Thank you for sharing...', 'To help me understand better...', or 'It must be uncomfortable...'.\n"
@@ -213,7 +526,9 @@ class ClinicalLLMService:
             "STRICT CLINICAL EXTRACTION RULES:\n"
             "1. In the JSON state, ONLY populate fields with facts that the patient has EXPLICITLY mentioned in the conversation.\n"
             "2. If a detail (e.g. onset, timing, severity, radiation, character, Ayush Prakriti/Agni) has NOT been explicitly stated by the patient, you MUST set it to null. NEVER guess, assume, or default to values like 'intermittent', 'acute', or 'moderate' unless the patient explicitly said so.\n"
-            "3. If the patient answers your question with a brief phrase (e.g., 'Upper right'), only update the relevant field (e.g., site: 'Upper right'). Do not fabricate answers to your other questions.\n\n"
+            "3. If the patient answers your question with a brief phrase (e.g., 'Upper right'), only update the relevant field (e.g., site: 'Upper right'). Do not fabricate answers to your other questions.\n"
+            "4. For 'family_history': Only add an entry when the patient EXPLICITLY mentions a relative's condition. Each entry MUST have 'relative' (e.g., 'Father', 'Mother', 'Sibling') and 'condition' (e.g., 'Type 2 Diabetes'). Optional 'notes' field for extra context. Use an empty array [] when no family history is mentioned.\n"
+            "5. GENERAL CHECKUP / NO SPECIFIC COMPLAINT: If the patient reports no specific symptoms or wants a general checkup, after covering basic vitals and lifestyle, ask ONE direct question about family history of common hereditary conditions (e.g., diabetes, hypertension, heart disease, cancer, thyroid disorders).\n\n"
             "OUTPUT INSTRUCTION:\n"
             "Respond by outputting ONLY a single JSON object containing:\n"
             f"- \"next_question_to_ask_patient\": A direct, focused clinical question to the patient in {lang_name} with ZERO conversational empathy or filler.\n"
@@ -222,6 +537,7 @@ class ClinicalLLMService:
             "- \"hpi_socrates\": {\"site\": string or null, \"onset\": string or null, \"character\": string or null, \"radiation\": string or null, \"associations\": string or null, \"time_course\": string or null, \"exacerbating_relieving\": string or null, \"severity_1_to_10\": number or string or null}\n"
             "- \"ayush_dashavidha_pariksha\": {\"prakriti\": string or null, \"vikriti\": string or null, \"agni\": string or null, \"koshtha\": string or null}\n"
             "- \"ahara_vihara_lifestyle\": {\"diet_habits\": string or null, \"sleep_pattern\": string or null, \"koshtha_bowel\": string or null, \"agni_digestion\": string or null}\n"
+            "- \"family_history\": array of objects [{\"relative\": string, \"condition\": string, \"notes\": string or null}] — empty array [] if no family history mentioned\n"
             "- \"red_flag_alert\": boolean (true if emergency symptoms like acute chest pain, stroke signs, or severe respiratory distress are reported, otherwise false)"
             f"{state_info}"
         )
@@ -767,15 +1083,18 @@ class ClinicalLLMService:
         )
 
         try:
-            response = await self._direct_chat_client.chat.completions.create(
-                model=self.text_model_name,
-                messages=[
-                    {"role": "system", "content": "You are Sanjivani AI. Keep greetings very brief and direct. Output valid JSON only."},
-                    {"role": "user", "content": prompt},
-                ],  # type: ignore
-                response_format={"type": "json_object"},
-                temperature=0.4,
-                max_tokens=2048,
+            response = await asyncio.wait_for(
+                self._direct_chat_client.chat.completions.create(
+                    model=self.text_model_name,
+                    messages=[
+                        {"role": "system", "content": "You are Sanjivani AI. Keep greetings very brief and direct. Output valid JSON only."},
+                        {"role": "user", "content": prompt},
+                    ],  # type: ignore
+                    response_format={"type": "json_object"},
+                    temperature=0.4,
+                    max_tokens=256,
+                ),
+                timeout=5.0,
             )
             raw_content = response.choices[0].message.content or "{}"
             cleaned = re.sub(r"<thought>.*?</thought>", "", raw_content, flags=re.DOTALL)
@@ -1189,7 +1508,10 @@ class ClinicalLLMService:
     ) -> str:
         """
         Transcribes speech audio recording from clinical intake into text.
-        Supports Whisper via Groq or multimodal Gemini audio via OpenAI-compatible endpoint.
+        Supports:
+        1. Whisper via Groq (whisper-large-v3) if Groq is available.
+        2. Google Gemini multimodal audio via native REST generateContent (e.g. gemini-3.6-flash, gemini-flash-latest).
+        3. Whisper via OpenAI (whisper-1) if OpenAI key is available.
         """
         if not audio_bytes:
             raise HTTPException(
@@ -1197,13 +1519,45 @@ class ClinicalLLMService:
                 detail="Empty audio recording submitted.",
             )
 
-        # 1. Try Groq Whisper if Groq base_url is configured
-        if self.text_base_url and "groq.com" in self.text_base_url:
+        clean_mime = (mime_type or "audio/webm").split(";")[0].strip().lower()
+        if "opus" in clean_mime or "ogg" in clean_mime:
+            clean_mime = "audio/ogg"
+        elif "wav" in clean_mime:
+            clean_mime = "audio/wav"
+        elif "mp4" in clean_mime or "m4a" in clean_mime:
+            clean_mime = "audio/mp4"
+        elif "mp3" in clean_mime or "mpeg" in clean_mime:
+            clean_mime = "audio/mp3"
+        elif "webm" in clean_mime:
+            clean_mime = "audio/webm"
+        else:
+            clean_mime = "audio/webm"
+
+        # 1. Try Groq Whisper if Groq is configured
+        has_groq = bool(
+            (self.text_base_url and "groq.com" in self.text_base_url)
+            or (self.vision_base_url and "groq.com" in self.vision_base_url)
+            or (os.environ.get("GROQ_API_KEY"))
+            or (self.text_api_key and self.text_api_key.startswith("gsk_"))
+        )
+        if has_groq:
             try:
                 import io
+                groq_key = (
+                    os.environ.get("GROQ_API_KEY")
+                    or (self.text_api_key if self.text_api_key and self.text_api_key.startswith("gsk_") else None)
+                    or (self.vision_api_key if self.vision_api_key and self.vision_api_key.startswith("gsk_") else None)
+                    or self.text_api_key
+                )
+                groq_client = (
+                    self._direct_chat_client
+                    if (self.text_base_url and "groq.com" in self.text_base_url)
+                    else AsyncOpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
+                )
+                ext = clean_mime.split("/")[-1]
                 audio_file = io.BytesIO(audio_bytes)
-                audio_file.name = f"recording.{mime_type.split('/')[-1].split(';')[0]}"
-                transcription = await self._direct_chat_client.audio.transcriptions.create(
+                audio_file.name = f"recording.{ext}"
+                transcription = await groq_client.audio.transcriptions.create(
                     file=audio_file,
                     model="whisper-large-v3",
                     language=language if language != "en" else None,
@@ -1214,51 +1568,102 @@ class ClinicalLLMService:
             except Exception as e:
                 logger.warning("Groq Whisper transcription attempt failed: %s", str(e))
 
-        # 2. Try multimodal Gemini audio via OpenAI-compatible endpoint
-        import base64
-        base64_audio = base64.b64encode(audio_bytes).decode("utf-8")
-        clean_mime = mime_type.split(";")[0].strip() or "audio/webm"
-        audio_data_url = f"data:{clean_mime};base64,{base64_audio}"
+        # 2. Try Google Gemini Native Multimodal Audio API
+        gemini_key = settings.effective_gemini_key or (self.text_api_key if self.text_api_key and self.text_api_key.startswith("AQ.") else None)
+        if gemini_key:
+            import base64
+            import httpx
+            base64_audio = base64.b64encode(audio_bytes).decode("utf-8")
+            audio_prompt = (
+                f"You are a medical speech-to-text transcription engine for the Ministry of Ayush. "
+                f"The patient spoke their symptoms in language '{language}'. "
+                f"Transcribe the spoken audio verbatim into text in the spoken language. "
+                f"If the audio contains silence, background noise, or no intelligible speech, output ONLY: NO_SPEECH_DETECTED. "
+                f"Output ONLY the transcribed patient text. Do not add explanations, prefixes, or quotes."
+            )
 
-        audio_prompt = (
-            f"You are a medical speech-to-text transcription engine for the Ministry of Ayush. "
-            f"The patient spoke their clinical symptoms and health issues in language '{language}'. "
-            f"Transcribe the spoken audio verbatim into text in the spoken language. "
-            f"Output ONLY the transcribed patient text. Do not add explanations, prefixes, or quotes."
-        )
+            candidate_audio_models = [
+                getattr(settings, "GEMINI_AUDIO_MODEL_NAME", "gemini-3.6-flash"),
+                "gemini-3.6-flash",
+                "gemini-3.8-flash",
+                "gemini-flash-latest",
+            ]
+            seen_models = set()
+            unique_models = [m for m in candidate_audio_models if m and not (m in seen_models or seen_models.add(m))]
 
-        try:
-            response = await self._direct_chat_client.chat.completions.create(
-                model=self.text_model_name,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": audio_prompt},
+            async with httpx.AsyncClient(timeout=25.0) as client:
+                for model in unique_models:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={gemini_key}"
+                    payload = {
+                        "contents": [
                             {
-                                "type": "image_url",
-                                "image_url": {"url": audio_data_url},
-                            },
+                                "role": "user",
+                                "parts": [
+                                    {
+                                        "inline_data": {
+                                            "mime_type": clean_mime,
+                                            "data": base64_audio,
+                                        }
+                                    },
+                                    {
+                                        "text": audio_prompt,
+                                    },
+                                ],
+                            }
                         ],
+                        "generationConfig": {
+                            "temperature": 0.0,
+                            "maxOutputTokens": 1024,
+                        },
                     }
-                ],
-                temperature=0.0,
-                max_tokens=1024,
-            )
-            raw_text = response.choices[0].message.content or ""
-            cleaned = re.sub(r"<thought>.*?</thought>", "", raw_text, flags=re.DOTALL)
-            if "</thought>" in cleaned:
-                cleaned = cleaned.split("</thought>")[-1]
-            cleaned = re.sub(r"<think>.*?</think>", "", cleaned, flags=re.DOTALL)
-            if "</think>" in cleaned:
-                cleaned = cleaned.split("</think>")[-1]
-            return cleaned.strip()
-        except Exception as e:
-            logger.error("Audio transcription failed: %s", str(e))
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Audio transcription failed: {str(e)}",
-            )
+                    try:
+                        res = await client.post(url, json=payload)
+                        if res.status_code == 200:
+                            data = res.json()
+                            candidates = data.get("candidates", [])
+                            if candidates:
+                                parts = candidates[0].get("content", {}).get("parts", [])
+                                raw_text = "".join(p.get("text", "") for p in parts).strip()
+                                cleaned = re.sub(r"<thought>.*?</thought>", "", raw_text, flags=re.DOTALL)
+                                if "</thought>" in cleaned:
+                                    cleaned = cleaned.split("</thought>")[-1]
+                                cleaned = re.sub(r"<think>.*?</think>", "", cleaned, flags=re.DOTALL)
+                                if "</think>" in cleaned:
+                                    cleaned = cleaned.split("</think>")[-1]
+                                cleaned = cleaned.strip()
+                                if "NO_SPEECH_DETECTED" in cleaned:
+                                    logger.info("Gemini audio transcription detected no speech/silence.")
+                                    return ""
+                                logger.info("Gemini audio transcription succeeded with model '%s' (%d chars).", model, len(cleaned))
+                                return cleaned
+                        else:
+                            logger.warning("Gemini audio transcription returned HTTP %d for model '%s': %s", res.status_code, model, res.text[:200])
+                    except Exception as e:
+                        logger.warning("Gemini audio transcription attempt failed for model '%s': %s", model, str(e))
+
+        # 3. Try OpenAI Whisper if OpenAI key is available
+        if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.startswith("sk-"):
+            try:
+                import io
+                audio_file = io.BytesIO(audio_bytes)
+                audio_file.name = f"recording.{clean_mime.split('/')[-1]}"
+                openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+                transcription = await openai_client.audio.transcriptions.create(
+                    file=audio_file,
+                    model="whisper-1",
+                    language=language if language != "en" else None,
+                )
+                if transcription and transcription.text:
+                    logger.info("OpenAI Whisper transcription succeeded (%d chars).", len(transcription.text))
+                    return transcription.text.strip()
+            except Exception as e:
+                logger.warning("OpenAI Whisper transcription attempt failed: %s", str(e))
+
+        logger.warning("All audio transcription providers failed or were unavailable.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Audio transcription failed: No available speech recognition provider could process the audio.",
+        )
 
     async def parse_ocr_text(self, raw_text: str) -> OCRStructuredResult:
         """
@@ -1666,17 +2071,20 @@ class ClinicalLLMService:
 
     async def generate_clinical_summary(self, request: SummarizeRequest) -> SummarizeResponse:
         """
-        Generate a structured clinical summary.
+        Generate a structured clinical summary strictly in the patient's chosen language.
 
         Strategy:
         - Structured fields (patient info, symptoms, HPI, medications, labs) are assembled
-          DETERMINISTICALLY in Python — zero hallucination risk.
+          DETERMINISTICALLY in Python using localized templates — zero hallucination risk and
+          zero leakage of English headers into non-English summaries.
         - Only the conversational narrative section (what the patient said in chat) is sent
-          to the LLM for natural-language synthesis, with a very tight instruction to NOT add
-          anything that isn't in the transcript.
-        - All sections are merged at the end into a SummarizeResponse.
+          to the LLM for natural-language synthesis, with a very tight instruction to write
+          ENTIRELY in the chosen language.
+        - All sections are merged at the end into a SummarizeResponse with localized headers.
         """
-        lang = request.language or "en"
+        raw_lang = request.language or "en"
+        lang_code = raw_lang.lower().split("-")[0].strip()
+        i18n = CLINICAL_SUMMARY_I18N.get(lang_code, CLINICAL_SUMMARY_I18N["en"])
 
         # ══════════════════════════════════════════════════════════════════════
         # 1. DETERMINISTIC SECTIONS (never touch the LLM)
@@ -1695,14 +2103,16 @@ class ClinicalLLMService:
             demo = _get(request.clinical_record, "patient_demographics")
             if demo:
                 age = _get(demo, "age_years")
-                gender = _get(demo, "gender")
+                gender_raw = _get(demo, "gender")
                 lang_pref = _get(demo, "language_preference")
                 if age:
-                    patient_info_parts.append(f"Age {age} years")
-                if gender:
-                    patient_info_parts.append(f"Gender: {gender}")
+                    patient_info_parts.append(i18n["age_label"].format(age=age))
+                if gender_raw:
+                    gender_str = str(gender_raw).strip()
+                    mapped_gender = i18n["gender_map"].get(gender_str.lower(), gender_str)
+                    patient_info_parts.append(i18n["gender_label"].format(gender=mapped_gender))
                 if lang_pref:
-                    patient_info_parts.append(f"Language: {str(lang_pref).upper()}")
+                    patient_info_parts.append(i18n["language_label"].format(lang=str(lang_pref).upper()))
         patient_info = ", ".join(patient_info_parts) if patient_info_parts else None
 
         # ── Chief complaint ───────────────────────────────────────────────────
@@ -1723,6 +2133,7 @@ class ClinicalLLMService:
         # ── History of presenting illness ─────────────────────────────────────
         hpi_parts: list[str] = []
         if request.clinical_record:
+            hlabels = i18n["hpi_labels"]
             hpi = _get(request.clinical_record, "hpi_socrates")
             if hpi:
                 site = _get(hpi, "site")
@@ -1735,21 +2146,21 @@ class ClinicalLLMService:
                 exacerbating_relieving = _get(hpi, "exacerbating_relieving")
 
                 if site:
-                    hpi_parts.append(f"Location: {site}")
+                    hpi_parts.append(f"{hlabels['site']}: {site}")
                 if onset:
-                    hpi_parts.append(f"Pattern: {onset}")
+                    hpi_parts.append(f"{hlabels['onset']}: {onset}")
                 if character:
-                    hpi_parts.append(f"Character: {character}")
+                    hpi_parts.append(f"{hlabels['character']}: {character}")
                 if radiation:
-                    hpi_parts.append(f"Radiation: {radiation}")
+                    hpi_parts.append(f"{hlabels['radiation']}: {radiation}")
                 if severity:
-                    hpi_parts.append(f"Severity: {severity}/10")
+                    hpi_parts.append(f"{hlabels['severity']}: {severity}/10")
                 if associations:
-                    hpi_parts.append(f"Associated symptoms: {associations}")
+                    hpi_parts.append(f"{hlabels['associations']}: {associations}")
                 if time_course and (not onset or str(time_course).strip().lower() != str(onset).strip().lower()):
-                    hpi_parts.append(f"Timing: {time_course}")
+                    hpi_parts.append(f"{hlabels['time_course']}: {time_course}")
                 if exacerbating_relieving:
-                    hpi_parts.append(f"Aggravating/relieving: {exacerbating_relieving}")
+                    hpi_parts.append(f"{hlabels['exacerbating_relieving']}: {exacerbating_relieving}")
 
             lifestyle = _get(request.clinical_record, "ahara_vihara_lifestyle")
             if lifestyle:
@@ -1759,13 +2170,13 @@ class ClinicalLLMService:
                 agni = _get(lifestyle, "agni_digestion")
 
                 if sleep:
-                    hpi_parts.append(f"Sleep: {sleep}")
+                    hpi_parts.append(f"{hlabels['sleep']}: {sleep}")
                 if diet:
-                    hpi_parts.append(f"Diet: {diet}")
+                    hpi_parts.append(f"{hlabels['diet']}: {diet}")
                 if bowel:
-                    hpi_parts.append(f"Bowel habit: {bowel}")
+                    hpi_parts.append(f"{hlabels['bowel']}: {bowel}")
                 if agni:
-                    hpi_parts.append(f"Digestion: {agni}")
+                    hpi_parts.append(f"{hlabels['digestion']}: {agni}")
 
         hpi_text = " | ".join(hpi_parts) if hpi_parts else None
 
@@ -1774,35 +2185,36 @@ class ClinicalLLMService:
         if request.clinical_record:
             ayush = _get(request.clinical_record, "ayush_dashavidha_pariksha")
             if ayush:
+                alabels = i18n["ayush_labels"]
                 prakriti = _get(ayush, "prakriti")
                 vikriti = _get(ayush, "vikriti")
                 agni = _get(ayush, "agni")
                 koshtha = _get(ayush, "koshtha")
 
                 if prakriti:
-                    ayush_parts.append(f"Prakriti: {prakriti}")
+                    ayush_parts.append(f"{alabels['prakriti']}: {prakriti}")
                 if vikriti:
-                    ayush_parts.append(f"Vikriti: {vikriti}")
+                    ayush_parts.append(f"{alabels['vikriti']}: {vikriti}")
                 if agni:
-                    ayush_parts.append(f"Agni: {agni}")
+                    ayush_parts.append(f"{alabels['agni']}: {agni}")
                 if koshtha:
-                    ayush_parts.append(f"Koshtha: {koshtha}")
+                    ayush_parts.append(f"{alabels['koshtha']}: {koshtha}")
         ayush_text = " | ".join(ayush_parts) if ayush_parts else None
 
         # ── Red flags ─────────────────────────────────────────────────────────
         red_flags: Optional[str] = None
         if request.clinical_record and _get(request.clinical_record, "red_flag_alert"):
-            red_flags = "⚠️ EMERGENCY: Patient has reported acute life-threatening symptoms. Immediate hospital referral required."
+            red_flags = i18n["emergency_alert"]
 
         # ── Documents & Investigations ────────────────────────────────────────
         doc_lines: list[str] = []
         for i, doc in enumerate(request.scan_results, 1):
-            label = _get(doc, "document_label") or f"Document {i}"
+            label = _get(doc, "document_label") or f"{i18n['document_prefix']} {i}"
             doc_lines.append(f"📄 {label}")
 
             meds = _get(doc, "medications") or []
             if meds:
-                doc_lines.append("  Medications:")
+                doc_lines.append(f"  {i18n['medications_label']}")
                 for m in meds:
                     drug_name = _get(m, "drug_name")
                     if not drug_name:
@@ -1817,14 +2229,14 @@ class ClinicalLLMService:
                     if freq:
                         details.append(str(freq))
                     if duration:
-                        details.append(f"for {duration}")
+                        details.append(i18n["for_duration"].format(duration=duration))
                     if details:
                         med_line += " — " + ", ".join(details)
                     doc_lines.append(med_line)
 
             labs = _get(doc, "lab_investigations") or []
             if labs:
-                doc_lines.append("  Lab Investigations:")
+                doc_lines.append(f"  {i18n['lab_investigations_label']}")
                 for lab in labs:
                     param_name = _get(lab, "parameter_name")
                     if not param_name:
@@ -1832,7 +2244,7 @@ class ClinicalLLMService:
                     is_abn = _get(lab, "is_abnormal")
                     obs_val = _get(lab, "observed_value")
                     unit = _get(lab, "unit")
-                    status_flag = " [ABNORMAL]" if is_abn else ""
+                    status_flag = i18n["abnormal_badge"] if is_abn else ""
                     value_str = str(obs_val) if obs_val is not None else "?"
                     unit_str = f" {unit}" if unit else ""
                     doc_lines.append(f"    • {param_name}: {value_str}{unit_str}{status_flag}")
@@ -1840,13 +2252,12 @@ class ClinicalLLMService:
             raw_txt = _get(doc, "raw_text")
             if not meds and not labs:
                 if raw_txt:
-                    doc_lines.append("  Raw OCR Text:")
+                    doc_lines.append(f"  {i18n['raw_ocr_label']}")
                     doc_lines.append(f"    {str(raw_txt)[:300]}...")
 
             doc_lines.append("")  # Blank line between documents
 
         documents_text = "\n".join(doc_lines).strip() if doc_lines else None
-
 
         # ══════════════════════════════════════════════════════════════════════
         # 2. LLM SECTION: Narrative from patient chat only
@@ -1860,13 +2271,20 @@ class ClinicalLLMService:
             if entry.get("role") == "user" and entry.get("content")
         ]
 
+        rec_header = i18n["recommendations_header"]
+        lang_name = i18n["lang_name"]
+        script_name = i18n["script"]
+
         if patient_utterances:
             chat_block = "\n".join(f"- {u}" for u in patient_utterances)
 
-            lang_instruction = (
-                "Respond in Hindi (Devanagari script)." if lang.startswith("hi")
-                else "Respond in English."
-            )
+            if lang_code == "en":
+                lang_instruction = "Respond entirely in English."
+            else:
+                lang_instruction = (
+                    f"CRITICAL: You MUST write the ENTIRE response in {lang_name} ({script_name}). "
+                    f"Do NOT write in English. Every sentence of the narrative and every recommendation must be strictly in {lang_name}."
+                )
 
             system_prompt = (
                 "You are a clinical scribe writing a brief intake note for a physician. "
@@ -1876,13 +2294,13 @@ class ClinicalLLMService:
                 "2. If a patient's statement is a short phrase (e.g. 'Gas', 'Upper abdomen'), accurately state that the patient reported these symptoms.\n"
                 "3. Write a concise clinical paragraph (2-4 sentences).\n"
                 "4. Do NOT repeat document or lab data.\n"
-                "5. End with 'RECOMMENDATIONS:' followed by 2-3 logical clinical next steps."
+                f"5. End with '{rec_header}:' (or 'RECOMMENDATIONS:') followed by 2-3 logical clinical next steps in {lang_name}."
             )
 
             user_prompt = (
                 "Patient statements during intake:\n"
                 f"{chat_block}\n\n"
-                "Write the clinical narrative and RECOMMENDATIONS."
+                f"Write the clinical narrative and recommendations strictly in {lang_name} ({script_name})."
             )
 
             try:
@@ -1901,8 +2319,12 @@ class ClinicalLLMService:
                     clean_llm = parts[-1].strip()
                 clean_llm = re.sub(r"<thought>.*?</thought>", "", clean_llm, flags=re.DOTALL).strip()
 
-                # Split out RECOMMENDATIONS line safely
-                rec_match = re.search(r"(?:^|\n)\s*RECOMMENDATIONS\s*:\s*", clean_llm, flags=re.IGNORECASE)
+                # Split out RECOMMENDATIONS line safely (matches target language header and English fallback)
+                rec_pattern = re.compile(
+                    rf"(?:^|\n)\s*(?:RECOMMENDATIONS|{re.escape(rec_header)})\s*:\s*",
+                    flags=re.IGNORECASE,
+                )
+                rec_match = rec_pattern.search(clean_llm)
                 if rec_match:
                     llm_narrative = clean_llm[:rec_match.start()].strip()
                     llm_recommendations = clean_llm[rec_match.end():].strip()
@@ -1914,7 +2336,7 @@ class ClinicalLLMService:
                 llm_narrative = None
 
         # ══════════════════════════════════════════════════════════════════════
-        # 3. ASSEMBLE FINAL RESPONSE
+        # 3. ASSEMBLE FINAL RESPONSE WITH LOCALIZED HEADERS
         # ══════════════════════════════════════════════════════════════════════
         sections = SummarySections(
             patient_info=patient_info,
@@ -1927,26 +2349,26 @@ class ClinicalLLMService:
             recommendations=llm_recommendations,
         )
 
-        # Build full narrative text for display
+        # Build full narrative text for display in the target language
         narrative_parts: list[str] = []
         if patient_info:
-            narrative_parts.append(f"PATIENT INFO: {patient_info}")
+            narrative_parts.append(f"{i18n['patient_info_header']}: {patient_info}")
         if chief_complaint:
-            narrative_parts.append(f"CHIEF COMPLAINT: {chief_complaint}")
+            narrative_parts.append(f"{i18n['chief_complaint_header']}: {chief_complaint}")
         if hpi_text:
-            narrative_parts.append(f"HISTORY OF PRESENTING ILLNESS: {hpi_text}")
+            narrative_parts.append(f"{i18n['history_header']}: {hpi_text}")
         if llm_narrative:
-            narrative_parts.append(f"CLINICAL NARRATIVE:\n{llm_narrative}")
+            narrative_parts.append(f"{i18n['clinical_narrative_header']}:\n{llm_narrative}")
         if documents_text:
-            narrative_parts.append(f"DOCUMENTS & INVESTIGATIONS:\n{documents_text}")
+            narrative_parts.append(f"{i18n['documents_header']}:\n{documents_text}")
         if ayush_text:
-            narrative_parts.append(f"AYUSH ASSESSMENT: {ayush_text}")
+            narrative_parts.append(f"{i18n['ayush_header']}: {ayush_text}")
         if red_flags:
-            narrative_parts.append(f"RED FLAGS: {red_flags}")
+            narrative_parts.append(f"{i18n['red_flags_header']}: {red_flags}")
         if llm_recommendations:
-            narrative_parts.append(f"RECOMMENDATIONS:\n{llm_recommendations}")
+            narrative_parts.append(f"{i18n['recommendations_header']}:\n{llm_recommendations}")
 
-        narrative = "\n\n".join(narrative_parts) if narrative_parts else "No clinical data collected yet. Start a conversation or scan a document."
+        narrative = "\n\n".join(narrative_parts) if narrative_parts else i18n["empty_data_fallback"]
 
         return SummarizeResponse(
             status="success",

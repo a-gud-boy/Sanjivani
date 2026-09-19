@@ -3,8 +3,8 @@ import {
   X, Pill, FlaskConical, MessageSquare, Printer, User,
   AlertTriangle, Sparkles, FileText, ChevronDown, Check,
 } from 'lucide-react'
-import type { ChatMessage, ClinicalHistoryRecord, ScannedDocument, SummarySections } from '../../types'
-
+import type { ChatMessage, ClinicalHistoryRecord, ScannedDocument, SummarySections, LanguageCode } from '../../types'
+import { useTranslation } from '../../i18n/translations'
 import BrandLogo from '../BrandLogo'
 
 interface SummaryModalProps {
@@ -17,6 +17,7 @@ interface SummaryModalProps {
   aiSummarySections: SummarySections | null
   summaryLoading: boolean
   onGenerateSummary: () => void
+  language?: LanguageCode
 }
 
 type TabId = 'ai' | 'details'
@@ -47,7 +48,15 @@ function SummaryLine({ label, value }: { label: string; value?: string | null })
   )
 }
 
-function DocSection({ doc, defaultExpanded = false }: { doc: ScannedDocument; defaultExpanded?: boolean }) {
+function DocSection({
+  doc,
+  defaultExpanded = false,
+  t,
+}: {
+  doc: ScannedDocument
+  defaultExpanded?: boolean
+  t: ReturnType<typeof useTranslation>['summary']
+}) {
   const [expanded, setExpanded] = useState(defaultExpanded)
   const hasMeds = doc.result.medications.length > 0
   const hasLabs = doc.result.lab_investigations.length > 0
@@ -63,7 +72,7 @@ function DocSection({ doc, defaultExpanded = false }: { doc: ScannedDocument; de
           <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{doc.filename}</span>
           {(hasMeds || hasLabs) && (
             <span className="text-xs text-slate-400 dark:text-slate-500">
-              · {hasMeds ? `${doc.result.medications.length} meds` : ''}{hasMeds && hasLabs ? ', ' : ''}{hasLabs ? `${doc.result.lab_investigations.length} labs` : ''}
+              · {hasMeds ? `${doc.result.medications.length} ${t.medications.toLowerCase()}` : ''}{hasMeds && hasLabs ? ', ' : ''}{hasLabs ? `${doc.result.lab_investigations.length} ${t.labResults.toLowerCase()}` : ''}
             </span>
           )}
         </div>
@@ -86,7 +95,7 @@ function DocSection({ doc, defaultExpanded = false }: { doc: ScannedDocument; de
           {hasMeds && (
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
-                <Pill className="w-3 h-3 text-brand-cyan flex-shrink-0" aria-hidden="true" /> Medications
+                <Pill className="w-3 h-3 text-brand-cyan flex-shrink-0" aria-hidden="true" /> {t.medications}
               </p>
               <div className="flex flex-col gap-2">
                 {doc.result.medications.map((med, i) => (
@@ -94,7 +103,7 @@ function DocSection({ doc, defaultExpanded = false }: { doc: ScannedDocument; de
                     <p className="col-span-2 font-semibold text-slate-800 text-sm">{med.drug_name}</p>
                     {med.dosage && <p className="text-xs text-slate-500">Dosage: <span className="text-slate-700 font-medium">{med.dosage}</span></p>}
                     {med.frequency && <p className="text-xs text-slate-500">Freq: <span className="text-slate-700 font-medium">{med.frequency}</span></p>}
-                    {med.duration && <p className="text-xs text-slate-500 col-span-2">Duration: <span className="text-slate-700 font-medium">{med.duration}</span></p>}
+                    {med.duration && <p className="text-xs text-slate-500 col-span-2">{t.duration}: <span className="text-slate-700 font-medium">{med.duration}</span></p>}
                   </div>
                 ))}
               </div>
@@ -105,16 +114,16 @@ function DocSection({ doc, defaultExpanded = false }: { doc: ScannedDocument; de
           {hasLabs && (
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
-                <FlaskConical className="w-3 h-3 text-brand-cyan flex-shrink-0" aria-hidden="true" /> Lab Results
+                <FlaskConical className="w-3 h-3 text-brand-cyan flex-shrink-0" aria-hidden="true" /> {t.labResults}
               </p>
               <div className="overflow-x-auto rounded-xl border border-surface-border">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-surface-muted border-b border-surface-border">
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500">Parameter</th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-slate-500">Value</th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-slate-500">Unit</th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-slate-500">Status</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-slate-500">{t.parameter}</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-slate-500">{t.value}</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-slate-500">{t.unit}</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-slate-500">{t.status}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-border">
@@ -127,10 +136,10 @@ function DocSection({ doc, defaultExpanded = false }: { doc: ScannedDocument; de
                         <td className="px-3 py-2 text-right text-slate-400 text-xs">{lab.unit ?? '—'}</td>
                         <td className="px-3 py-2 text-right">
                           {lab.is_abnormal === true && (
-                            <span className="text-xs font-semibold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">Abnormal</span>
+                            <span className="text-xs font-semibold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">{t.abnormal}</span>
                           )}
                           {lab.is_abnormal === false && (
-                            <span className="text-xs font-semibold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full">Normal</span>
+                            <span className="text-xs font-semibold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full">{t.normal}</span>
                           )}
                           {lab.is_abnormal === null && (
                             <span className="text-xs text-slate-400">—</span>
@@ -145,7 +154,7 @@ function DocSection({ doc, defaultExpanded = false }: { doc: ScannedDocument; de
           )}
 
           {!hasMeds && !hasLabs && (
-            <p className="text-xs text-slate-400 italic">No structured entities extracted from this document.</p>
+            <p className="text-xs text-slate-400 italic">{t.noEntities}</p>
           )}
         </div>
       )}
@@ -163,8 +172,10 @@ export default function SummaryModal({
   aiSummarySections,
   summaryLoading,
   onGenerateSummary,
+  language = 'en',
 }: SummaryModalProps) {
   const [activeTab, setActiveTab] = useState<TabId>('ai')
+  const { summary: t } = useTranslation(language)
 
   // Close on Escape
   useEffect(() => {
@@ -206,7 +217,7 @@ export default function SummaryModal({
         onClick={onClose}
         role="button"
         tabIndex={0}
-        aria-label="Close summary"
+        aria-label={t.close}
         onKeyDown={handleBackdropKeyDown}
       />
 
@@ -221,24 +232,24 @@ export default function SummaryModal({
             <BrandLogo size="md" />
             <div>
               <h2 id="summary-title" className="font-bold text-slate-900 dark:text-white text-base leading-tight">
-                Clinical Session Summary
+                {t.title}
               </h2>
-              <p className="text-xs text-slate-400 dark:text-slate-500 leading-tight">Ready for physician review</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 leading-tight">{t.subtitle}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => window.print()}
               className="btn-ghost text-xs px-3 min-h-[36px] gap-1.5 hidden sm:inline-flex items-center justify-center"
-              aria-label="Print clinical summary"
+              aria-label={t.print}
             >
               <Printer className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-              Print
+              {t.print}
             </button>
             <button
               onClick={onClose}
               className="w-9 h-9 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 flex items-center justify-center transition-colors flex-shrink-0"
-              aria-label="Close summary"
+              aria-label={t.close}
             >
               <X className="w-5 h-5 text-slate-500 dark:text-slate-400 flex-shrink-0" aria-hidden="true" />
             </button>
@@ -248,8 +259,8 @@ export default function SummaryModal({
         {/* ── Tabs ── */}
         <div className="flex border-b border-surface-border dark:border-slate-800 bg-white dark:bg-slate-900 px-5 gap-4 transition-colors">
           {([
-            { id: 'ai' as TabId, label: 'AI Summary', icon: Sparkles },
-            { id: 'details' as TabId, label: 'Details', icon: FileText },
+            { id: 'ai' as TabId, label: t.aiTab, icon: Sparkles },
+            { id: 'details' as TabId, label: t.detailsTab, icon: FileText },
           ]).map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -279,10 +290,9 @@ export default function SummaryModal({
                     <Sparkles className="w-7 h-7 text-brand-cyan flex-shrink-0" aria-hidden="true" />
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-800 dark:text-white text-base">Generate AI Summary</p>
+                    <p className="font-semibold text-slate-800 dark:text-white text-base">{t.generatePromptTitle}</p>
                     <p className="text-sm text-slate-400 dark:text-slate-500 max-w-xs mt-1">
-                      Sanjivani AI will synthesize your chat history and all uploaded documents into a
-                      structured clinical summary for the physician.
+                      {t.generatePromptDesc}
                     </p>
                   </div>
                   <button
@@ -290,7 +300,7 @@ export default function SummaryModal({
                     className="btn-primary gap-2 min-h-[48px] px-6 rounded-xl inline-flex items-center justify-center"
                   >
                     <Sparkles className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                    Generate Summary
+                    {t.generateButton}
                   </button>
                 </div>
               )}
@@ -304,9 +314,9 @@ export default function SummaryModal({
                     <Sparkles className="absolute inset-0 m-auto w-5 h-5 text-brand-cyan flex-shrink-0" aria-hidden="true" />
                   </div>
                   <p className="text-slate-600 dark:text-slate-300 font-semibold text-sm">
-                    Sanjivani AI is synthesizing your clinical summary…
+                    {t.loadingTitle}
                   </p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500">Reviewing chat &amp; scanned documents</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500">{t.loadingDesc}</p>
                 </div>
               )}
 
@@ -323,19 +333,19 @@ export default function SummaryModal({
                     aiSummarySections.red_flags ||
                     aiSummarySections.recommendations) ? (
                     <div className="card p-4 divide-y divide-surface-border dark:divide-slate-800">
-                      <SummaryLine label="Patient Info" value={aiSummarySections.patient_info} />
-                      <SummaryLine label="Chief Complaint" value={aiSummarySections.chief_complaint} />
-                      <SummaryLine label="History of Presenting Illness" value={aiSummarySections.history} />
-                      <SummaryLine label="Clinical Narrative" value={aiSummarySections.clinical_narrative} />
-                      <SummaryLine label="Documents & Investigations" value={aiSummarySections.documents} />
-                      <SummaryLine label="Ayush Assessment" value={aiSummarySections.ayush_assessment} />
-                      <SummaryLine label="Red Flags" value={aiSummarySections.red_flags} />
-                      <SummaryLine label="Recommendations" value={aiSummarySections.recommendations} />
+                      <SummaryLine label={t.patientInfo} value={aiSummarySections.patient_info} />
+                      <SummaryLine label={t.chiefComplaint} value={aiSummarySections.chief_complaint} />
+                      <SummaryLine label={t.history} value={aiSummarySections.history} />
+                      <SummaryLine label={t.clinicalNarrative} value={aiSummarySections.clinical_narrative} />
+                      <SummaryLine label={t.documents} value={aiSummarySections.documents} />
+                      <SummaryLine label={t.ayushAssessment} value={aiSummarySections.ayush_assessment} />
+                      <SummaryLine label={t.redFlags} value={aiSummarySections.red_flags} />
+                      <SummaryLine label={t.recommendations} value={aiSummarySections.recommendations} />
                     </div>
                   ) : (
                     <div className="card p-4">
                       <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-line font-sans">
-                        {aiSummaryText || 'No clinical data collected yet. Start a consultation or upload documents.'}
+                        {aiSummaryText || t.noData}
                       </p>
                     </div>
                   )}
@@ -343,14 +353,14 @@ export default function SummaryModal({
                   {/* Action Bar */}
                   <div className="flex items-center justify-between pt-1">
                     <span className="text-xs text-slate-400 dark:text-slate-500">
-                      Summary generated for doctor review
+                      {t.doctorReviewNote}
                     </span>
                     <button
                       onClick={onGenerateSummary}
                       className="btn-ghost text-xs gap-1.5 min-h-[36px] px-3 border border-surface-border dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 inline-flex items-center justify-center"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-brand-cyan flex-shrink-0" aria-hidden="true" />
-                      Regenerate
+                      {t.regenerate}
                     </button>
                   </div>
                 </div>
@@ -363,12 +373,12 @@ export default function SummaryModal({
             <>
               {/* Patient Demographics */}
               {clinicalRecord?.patient_demographics && (
-                <Section title="Patient Information" icon={User}>
+                <Section title={t.patientInformation} icon={User}>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {[
-                      { label: 'Age', value: clinicalRecord.patient_demographics.age_years },
-                      { label: 'Gender', value: clinicalRecord.patient_demographics.gender },
-                      { label: 'Language', value: clinicalRecord.patient_demographics.language_preference?.toUpperCase() },
+                      { label: t.age, value: clinicalRecord.patient_demographics.age_years ? `${clinicalRecord.patient_demographics.age_years} ${t.years}` : undefined },
+                      { label: t.gender, value: clinicalRecord.patient_demographics.gender },
+                      { label: t.language, value: clinicalRecord.patient_demographics.language_preference?.toUpperCase() },
                     ].filter((r) => r.value).map(({ label, value }) => (
                       <div key={label} className="bg-surface-muted dark:bg-slate-800 rounded-xl p-3">
                         <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">{label}</p>
@@ -381,14 +391,14 @@ export default function SummaryModal({
 
               {/* Chief Complaint */}
               {hasClinicalData && (
-                <Section title="Chief Complaint" icon={AlertTriangle}>
+                <Section title={t.chiefComplaint} icon={AlertTriangle}>
                   <div className="card p-4">
                     <p className="font-semibold text-slate-800 dark:text-white text-sm">
                       {clinicalRecord!.chief_complaint?.symptom}
                     </p>
                     {clinicalRecord!.chief_complaint?.duration && (
                       <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                        Duration: {clinicalRecord!.chief_complaint.duration}
+                        {t.duration}: {clinicalRecord!.chief_complaint.duration}
                       </p>
                     )}
                   </div>
@@ -397,10 +407,10 @@ export default function SummaryModal({
 
               {/* Uploaded Documents */}
               {hasDocuments && (
-                <Section title={`Uploaded Documents (${documents.length})`} icon={FileText}>
+                <Section title={`${t.uploadedDocuments} (${documents.length})`} icon={FileText}>
                   <div className="flex flex-col gap-2">
                     {documents.map((doc, i) => (
-                      <DocSection key={doc.id} doc={doc} defaultExpanded={i === 0 && documents.length === 1} />
+                      <DocSection key={doc.id} doc={doc} defaultExpanded={i === 0 && documents.length === 1} t={t} />
                     ))}
                   </div>
                 </Section>
@@ -408,7 +418,7 @@ export default function SummaryModal({
 
               {/* Conversation Log */}
               {hasConversation && (
-                <Section title={`Conversation Log (${messages.filter(m => m.role === 'user').length} patient turns)`} icon={MessageSquare}>
+                <Section title={`${t.conversationLog} (${messages.filter(m => m.role === 'user').length} ${t.patientTurns})`} icon={MessageSquare}>
                   <div className="flex flex-col gap-2 max-h-60 overflow-y-auto scrollbar-thin
                                   bg-surface-muted dark:bg-slate-800 rounded-xl p-3 border border-surface-border dark:border-slate-700">
                     {messages.map((msg) => (
@@ -428,8 +438,8 @@ export default function SummaryModal({
               {!hasClinicalData && !hasDocuments && !hasConversation && (
                 <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
                   <MessageSquare className="w-10 h-10 text-slate-200 dark:text-slate-700 flex-shrink-0" aria-hidden="true" />
-                  <p className="text-slate-400 dark:text-slate-500 text-sm">No session data collected yet.</p>
-                  <p className="text-xs text-slate-300 dark:text-slate-600">Start chatting or scan a document to see details here.</p>
+                  <p className="text-slate-400 dark:text-slate-500 text-sm">{t.noSessionData}</p>
+                  <p className="text-xs text-slate-300 dark:text-slate-600">{t.noSessionDataDesc}</p>
                 </div>
               )}
             </>
@@ -439,14 +449,14 @@ export default function SummaryModal({
         {/* ── Footer ── */}
         <div className="px-5 py-4 border-t border-surface-border dark:border-slate-800 bg-surface-muted dark:bg-slate-850 flex items-center justify-between">
           <p className="text-[11px] text-slate-400 dark:text-slate-500">
-            Generated by Sanjivani AI — Ministry of Ayush · SIH 2026
+            {t.footerBrand}
           </p>
           <button
             onClick={onClose}
             className="btn-primary text-xs min-h-[40px] px-5 inline-flex items-center justify-center gap-2"
           >
             <Check className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            Done
+            {t.done}
           </button>
         </div>
       </div>

@@ -22,6 +22,14 @@ SEC_TEST_PATIENT_ABHA = "14-9999-8888-7777"
 SEC_TEST_DOCTOR_HP_ID = "HP-SEC-01010"
 
 
+@pytest.fixture(autouse=True, scope="module")
+def cleanup_sec01_test_entities():
+    """Ensure SecTest entities are completely purged after running."""
+    yield
+    from tests.conftest import purge_test_entities
+    purge_test_entities()
+
+
 def _ensure_sec_patient():
     client.post(
         "/api/v1/auth/register",

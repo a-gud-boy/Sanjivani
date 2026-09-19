@@ -91,6 +91,10 @@ class Settings(BaseSettings):
         default="https://generativelanguage.googleapis.com/v1beta/openai/",
         description="Official OpenAI-compatible Base URL for Google Gemini API."
     )
+    GEMINI_AUDIO_MODEL_NAME: str = Field(
+        default="gemini-3.6-flash",
+        description="Default Google Gemini model name for audio speech transcription."
+    )
 
     # --- 1. Text / Conversational Chat Intake Configuration ---
     TEXT_LLM_API_KEY: Optional[str] = Field(

@@ -54,6 +54,38 @@ const getStoredLanguage = (): LanguageCode => {
   return 'en'
 }
 
+// ── Client-side Fallback Greetings for Instant Response on Network/LLM Latency ──
+const CLIENT_FALLBACK_GREETINGS: Record<LanguageCode, { greeting: string; chips: string[] }> = {
+  en: {
+    greeting: 'I am Sanjivani AI. Tell me what symptoms or health problems you are experiencing.',
+    chips: ['Headache / Body Ache', 'Fever, Cold or Cough', 'Stomach or Digestion issue', 'General Health Checkup'],
+  },
+  hi: {
+    greeting: 'मैं संजीवनी एआई हूँ। कृपया बताएं कि आज आपको क्या स्वास्थ्य समस्या या लक्षण हैं।',
+    chips: ['सिरदर्द / बदन दर्द', 'बुखार, सर्दी या खांसी', 'पेट या पाचन की समस्या', 'सामान्य स्वास्थ्य जांच'],
+  },
+  ta: {
+    greeting: 'வணக்கம்! நான் சஞ்சீவனி, உங்கள் மருத்துவ உதவி AI. இன்று உங்களுக்கு என்ன உடல்நல பிரச்சனை அல்லது அறிகுறிகள் உள்ளன?',
+    chips: ['தலைவலி / உடல் வலி', 'காய்ச்சல் / சளி / இருமல்', 'வயிற்று வலி / செரிமான பிரச்சனை', 'பொதுவான உடல் பரிசோதனை'],
+  },
+  te: {
+    greeting: 'నమస్కారం! నేను సంజీవని, మీ క్లినికల్ ఇన్‌టేక్ అసిస్టెంట్‌ని. ఈ రోజు మీకు ఏ విధమైన అనారోగ్య సమస్య లేదా లక్షణాలు ఉన్నాయి?',
+    chips: ['తలనొప్పి / ఒంటి నొప్పులు', 'జ్వరం / జలుबु / దగ్గు', 'కడుపు నొప్పి / జీర్ణ సమస్య', 'సాధారణ ఆరోగ్య పరీక్ష'],
+  },
+  bn: {
+    greeting: 'আমি সঞ্জীবনী এআই। বলুন আজ আপনার কী কী শারীরিক সমস্যা বা উপসর্গ দেখা দিচ্ছে।',
+    chips: ['মাথাব্যথা / শরীরে ব্যথা', 'জ্বর, সর্দি বা কাশি', 'পেট বা হজমের সমস্যা', 'সাধারণ স্বাস্থ্য পরীক্ষা'],
+  },
+  mr: {
+    greeting: 'मी संजीवनी एआय आहे. कृपया सांगा आज आपल्याला कोणता त्रास किंवा लक्षणे जाणवत आहेत.',
+    chips: ['डोकेदुखी / अंगदुखी', 'ताप, सर्दी किंवा खोकला', 'पोटाची किंवा पचनाची समस्या', 'नियमित आरोग्य तपासणी'],
+  },
+  gu: {
+    greeting: 'હું સંજીવની એઆઈ છું. કૃપા કરીને જણાવો કે આજે તમને શું સ્વાસ્થ્ય સમસ્યા અથવા લક્ષણો છે.',
+    chips: ['માથાનો દુખાવો / શરીરનો દુખાવો', 'તાવ, શરદી અથવા ઉધરસ', 'પેટ અથવા પાચનની તકલીફ', 'સામાન્ય આરોગ્ય તપાસ'],
+  },
+}
+
 // ── Initial state ────────────────────────────────────────────────────────────
 const INITIAL_STATE: IntakeState = {
   language: getStoredLanguage(),
@@ -69,6 +101,7 @@ const INITIAL_STATE: IntakeState = {
   aiSummaryText: null,
   aiSummarySections: null,
   summaryLoading: false,
+  summaryLanguage: null,
 }
 // ── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
@@ -76,8 +109,15 @@ export default function App() {
   // ── Authentication & View Management ───────────────────────────────────────
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
+      const token = localStorage.getItem('sanjivani_auth_token')
       const saved = localStorage.getItem('sanjivani_auth_user')
-      return saved ? JSON.parse(saved) : null
+      if (token && saved) {
+        return JSON.parse(saved)
+      }
+      if (saved && !token) {
+        localStorage.removeItem('sanjivani_auth_user')
+      }
+      return null
     } catch {
       return null
     }
@@ -85,8 +125,9 @@ export default function App() {
 
   const [currentView, setCurrentView] = useState<AppView>(() => {
     try {
+      const token = localStorage.getItem('sanjivani_auth_token')
       const saved = localStorage.getItem('sanjivani_auth_user')
-      if (saved) {
+      if (token && saved) {
         const u: User = JSON.parse(saved)
         return u.user_type === 'doctor' ? 'doctor_portal' : 'patient_dashboard'
       }
@@ -109,18 +150,56 @@ export default function App() {
   const [scanLoading, setScanLoading] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
 
+  // ── Logout Handler ─────────────────────────────────────────────────────────
+  const handleLogout = useCallback(() => {
+    lastFetchedLangRef.current = null
+    try {
+      localStorage.removeItem('sanjivani_auth_user')
+      localStorage.removeItem('sanjivani_auth_token')
+    } catch (err) {
+      console.warn('Unable to remove stored auth user or token:', err)
+    }
+    setCurrentUser(null)
+    setDashboardData(null)
+    setCurrentView('login')
+    setState((s) => ({
+      ...INITIAL_STATE,
+      language: s.language,
+    }))
+  }, [])
+
+  // ── Global Auth Expiry Listener (triggers on HTTP 401) ──────────────────────
+  useEffect(() => {
+    const onAuthExpired = () => {
+      handleLogout()
+    }
+    window.addEventListener('sanjivani:auth-expired', onAuthExpired)
+    return () => {
+      window.removeEventListener('sanjivani:auth-expired', onAuthExpired)
+    }
+  }, [handleLogout])
+
   // ── Load Dashboard Data ────────────────────────────────────────────────────
   const loadDashboard = useCallback(async (patientId: string) => {
+    const token = localStorage.getItem('sanjivani_auth_token')
+    if (!token) {
+      handleLogout()
+      return
+    }
     setDashboardLoading(true)
     try {
       const data = await getPatientDashboard(patientId)
       setDashboardData(data)
-    } catch (err) {
+    } catch (err: unknown) {
       console.warn('Failed to load patient dashboard:', err)
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (status === 401 || status === 403) {
+        handleLogout()
+      }
     } finally {
       setDashboardLoading(false)
     }
-  }, [])
+  }, [handleLogout])
 
   useEffect(() => {
     if (currentUser?.user_type === 'patient') {
@@ -133,7 +212,7 @@ export default function App() {
     }
   }, [currentUser, loadDashboard])
 
-  // ── Login / Logout Handlers ────────────────────────────────────────────────
+  // ── Login Success Handler ──────────────────────────────────────────────────
   const handleLoginSuccess = (user: User) => {
     try {
       localStorage.setItem('sanjivani_auth_user', JSON.stringify(user))
@@ -152,23 +231,6 @@ export default function App() {
         abhaId: user.abha_id,
       }))
     }
-  }
-
-  const handleLogout = () => {
-    lastFetchedLangRef.current = null
-    try {
-      localStorage.removeItem('sanjivani_auth_user')
-      localStorage.removeItem('sanjivani_auth_token')
-    } catch (err) {
-      console.warn('Unable to remove stored auth user or token:', err)
-    }
-    setCurrentUser(null)
-    setDashboardData(null)
-    setCurrentView('login')
-    setState((s) => ({
-      ...INITIAL_STATE,
-      language: s.language,
-    }))
   }
 
   const handleStartIntake = () => {
@@ -232,12 +294,19 @@ export default function App() {
         })
         .catch((err) => {
           if (!isSubscribed) return
-          console.error('Initial greeting fetch failed:', err)
-          lastFetchedLangRef.current = null
-          setChatError(extractErrorMessage(err))
+          console.warn('Initial greeting fetch failed or timed out, applying client fallback greeting:', err)
+          lastFetchedLangRef.current = state.language
+          const fallback = CLIENT_FALLBACK_GREETINGS[state.language] || CLIENT_FALLBACK_GREETINGS.en
+          const assistantMsg: ChatMessage = {
+            id: newId(),
+            role: 'assistant',
+            content: fallback.greeting,
+            timestamp: new Date(),
+            quickReplies: fallback.chips,
+          }
           setState((s) => ({
             ...s,
-            messages: [],
+            messages: [assistantMsg],
           }))
         })
         .finally(() => {
@@ -257,7 +326,20 @@ export default function App() {
     } catch (err) {
       console.warn('Unable to persist language preference:', err)
     }
-    setState((s) => ({ ...s, language: code }))
+    setState((s) => {
+      const languageChanged = s.language !== code
+      return {
+        ...s,
+        language: code,
+        ...(languageChanged
+          ? {
+              aiSummaryText: null,
+              aiSummarySections: null,
+              summaryLanguage: null,
+            }
+          : {}),
+      }
+    })
   }, [])
 
   // ── Chat ────────────────────────────────────────────────────────────────────
@@ -456,6 +538,7 @@ export default function App() {
 
   // ── Summary Modal ──────────────────────────────────────────────────────────
   const handleGenerateSummary = useCallback(async () => {
+    const currentLang = state.language
     setState((s) => ({ ...s, summaryLoading: true, aiSummaryText: null, aiSummarySections: null }))
     try {
       const history: ChatHistoryEntry[] = state.messages.map((m) => ({
@@ -464,7 +547,7 @@ export default function App() {
       }))
 
       const res = await generateSummary(
-        state.language,
+        currentLang,
         history,
         state.clinicalRecord,
         state.scannedDocuments,
@@ -474,6 +557,7 @@ export default function App() {
         ...s,
         aiSummaryText: res.summary_text,
         aiSummarySections: res.summary_sections,
+        summaryLanguage: currentLang,
         summaryLoading: false,
       }))
     } catch (err) {
@@ -484,10 +568,17 @@ export default function App() {
 
   const handleSummaryOpen = useCallback(() => {
     setState((s) => ({ ...s, summaryOpen: true }))
-    if (!state.aiSummaryText && !state.summaryLoading) {
+    if ((!state.aiSummaryText || state.summaryLanguage !== state.language) && !state.summaryLoading) {
       handleGenerateSummary()
     }
-  }, [state.aiSummaryText, state.summaryLoading, handleGenerateSummary])
+  }, [state.aiSummaryText, state.summaryLanguage, state.language, state.summaryLoading, handleGenerateSummary])
+
+  // Automatically regenerate summary if open when language changes
+  useEffect(() => {
+    if (state.summaryOpen && (!state.aiSummaryText || state.summaryLanguage !== state.language) && !state.summaryLoading) {
+      handleGenerateSummary()
+    }
+  }, [state.summaryOpen, state.aiSummaryText, state.summaryLanguage, state.language, state.summaryLoading, handleGenerateSummary])
 
   const handleSummaryClose = useCallback(() => {
     setState((s) => ({ ...s, summaryOpen: false }))
@@ -706,6 +797,7 @@ export default function App() {
         aiSummarySections={state.aiSummarySections}
         summaryLoading={state.summaryLoading}
         onGenerateSummary={handleGenerateSummary}
+        language={state.language}
       />
     </div>
   )

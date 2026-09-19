@@ -171,6 +171,22 @@ class AharaViharaLifestyle(BaseModel):
     )
 
 
+class FamilyHistoryEntry(BaseModel):
+    """A single family member's known medical condition relevant to hereditary risk assessment."""
+    relative: str = Field(
+        ...,
+        description="Relationship to the patient (e.g., 'Father', 'Mother', 'Sibling', 'Maternal Grandfather')."
+    )
+    condition: str = Field(
+        ...,
+        description="The known medical condition or diagnosis (e.g., 'Type 2 Diabetes', 'Hypertension', 'Coronary Artery Disease', 'Breast Cancer')."
+    )
+    notes: Optional[str] = Field(
+        default=None,
+        description="Additional clinical context or remarks about this family member's condition (e.g., 'Diagnosed at age 55', 'Underwent bypass surgery')."
+    )
+
+
 class ClinicalHistoryRecord(BaseModel):
     patient_demographics: Optional[PatientDemographics] = Field(
         default=None,
@@ -191,6 +207,10 @@ class ClinicalHistoryRecord(BaseModel):
     ahara_vihara_lifestyle: Optional[AharaViharaLifestyle] = Field(
         default=None,
         description="Ayurvedic dietary, digestive fire (Agni), bowel (Koshtha), and lifestyle parameters."
+    )
+    family_history: Optional[List[FamilyHistoryEntry]] = Field(
+        default=None,
+        description="Family medical history: known conditions in first-degree and second-degree relatives relevant to hereditary disease risk (e.g., diabetes, hypertension, heart disease, cancer)."
     )
     red_flag_alert: bool = Field(
         default=False,

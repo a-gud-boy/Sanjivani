@@ -192,11 +192,89 @@ export interface IntakeState {
   aiSummarySections: SummarySections | null
   /** Whether the summary is being generated */
   summaryLoading: boolean
+  /** Language used when current AI summary was generated */
+  summaryLanguage?: LanguageCode | null
 }
 
 // ---- User & Auth ------------------------------------------------
 
 export type UserType = 'patient' | 'doctor'
+
+export interface FamilyHistoryEntry {
+  relative: string
+  condition: string
+  notes?: string
+}
+
+/**
+ * UI-layer allergy entry. Stored to DB as plain string[] — this type is
+ * used only inside the profile form for the structured dropdown + text input.
+ * `category` is either a preset allergy label or the sentinel `"__other__"`.
+ * `customValue` is used when category === "__other__".
+ */
+export interface AllergyEntry {
+  /** Preset category label OR "__other__" for freeform text */
+  category: string
+  /** Free-text value when category is "__other__" */
+  customValue?: string
+}
+
+/** Ordered list of common allergy categories shown in the dropdown */
+export const ALLERGY_CATEGORIES = [
+  // Drug allergies
+  'Penicillin / Amoxicillin',
+  'Sulfonamides (Sulfa drugs)',
+  'NSAIDs (Aspirin / Ibuprofen)',
+  'Cephalosporins',
+  'Quinolones (Ciprofloxacin)',
+  'Tetracyclines',
+  'Metronidazole',
+  'Codeine / Opioids',
+  // Food allergies
+  'Peanuts',
+  'Tree Nuts (Cashew, Almond, Walnut)',
+  'Milk / Dairy (Lactose)',
+  'Eggs',
+  'Wheat / Gluten',
+  'Soy',
+  'Fish / Shellfish',
+  'Sesame',
+  // Environmental / respiratory
+  'Pollen (Seasonal Hay Fever)',
+  'Dust Mites',
+  'Animal Dander (Cat / Dog)',
+  'Mould / Fungal Spores',
+  'Latex',
+  'Insect Stings (Bee / Wasp)',
+  'Nickel (Contact Dermatitis)',
+  // Dye / chemical
+  'Iodine / Contrast Dye',
+  'Anaesthesia (Local / General)',
+  // Sentinel
+  'Others (specify)',
+] as const
+
+/** Ordered list of common chronic medical conditions shown in the dropdown */
+export const COMMON_CHRONIC_CONDITIONS = [
+  'Type 2 Diabetes Mellitus',
+  'Type 1 Diabetes Mellitus',
+  'Hypertension (High Blood Pressure)',
+  'Bronchial Asthma',
+  'Chronic Obstructive Pulmonary Disease (COPD)',
+  'Hypothyroidism / Thyroid Disorder',
+  'Coronary Artery Disease / Heart Disease',
+  'Chronic Kidney Disease (CKD)',
+  'Osteoarthritis / Rheumatoid Arthritis',
+  'Dyslipidemia (High Cholesterol)',
+  'Gastroesophageal Reflux Disease (GERD / Acidity)',
+  'Migraine / Chronic Headache',
+  'Epilepsy / Seizure Disorder',
+  'Chronic Liver Disease / Fatty Liver',
+  'Allergic Rhinitis / Chronic Sinusitis',
+  'Psoriasis / Eczema',
+  'Depression / Anxiety Disorder',
+  'Others (specify)',
+] as const
 
 export interface PatientDetails {
   blood_group?: string
@@ -216,6 +294,7 @@ export interface PatientDetails {
     relation?: string
     phone?: string
   }
+  family_history?: FamilyHistoryEntry[]
   address?: string
   [key: string]: unknown
 }

@@ -14,8 +14,13 @@ import {
   ShieldCheck,
   Users,
   Loader2,
+  Dna,
+  PlusCircle,
+  Trash2,
+  X,
 } from 'lucide-react'
-import type { User } from '../../types'
+import type { User, FamilyHistoryEntry, AllergyEntry } from '../../types'
+import { ALLERGY_CATEGORIES, COMMON_CHRONIC_CONDITIONS } from '../../types'
 import { updatePatientProfile, extractErrorMessage } from '../../services/api'
 import BrandLogo from '../BrandLogo'
 import ThemeToggle from '../ThemeToggle'
@@ -59,19 +64,113 @@ export default function PatientProfile({
   const [emergencyRelation, setEmergencyRelation] = useState(emergency.relation || '')
   const [emergencyPhone, setEmergencyPhone] = useState(emergency.phone || '')
 
-  // Allergies & Chronic (comma separated)
-  const initialAllergies = Array.isArray(details.allergies) ? details.allergies.join(', ') : ''
-  const initialChronic = Array.isArray(details.chronic_conditions)
-    ? details.chronic_conditions.join(', ')
-    : ''
+  // Allergies state (structured list of strings)
+  const initialAllergies: string[] = Array.isArray(details.allergies)
+    ? (details.allergies as string[]).map((s) => s.trim()).filter(Boolean)
+    : []
+  const [allergiesList, setAllergiesList] = useState<string[]>(initialAllergies)
+  const [selectedAllergyCategory, setSelectedAllergyCategory] = useState<string>('')
+  const [customAllergyText, setCustomAllergyText] = useState<string>('')
 
-  const [allergiesText, setAllergiesText] = useState(initialAllergies)
-  const [chronicText, setChronicText] = useState(initialChronic)
+  // Chronic conditions state (structured list of strings)
+  const initialChronic: string[] = Array.isArray(details.chronic_conditions)
+    ? (details.chronic_conditions as string[]).map((s) => s.trim()).filter(Boolean)
+    : []
+  const [chronicList, setChronicList] = useState<string[]>(initialChronic)
+  const [selectedChronicCategory, setSelectedChronicCategory] = useState<string>('')
+  const [customChronicText, setCustomChronicText] = useState<string>('')
+
+  // Family History (dynamic list)
+  const initialFamilyHistory: FamilyHistoryEntry[] = Array.isArray(details.family_history)
+    ? (details.family_history as FamilyHistoryEntry[]).filter(
+        (e) => e && typeof e.relative === 'string' && typeof e.condition === 'string'
+      )
+    : []
+  const [familyHistory, setFamilyHistory] = useState<FamilyHistoryEntry[]>(initialFamilyHistory)
 
   // Status
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  // ── Allergies Helpers ───────────────────────────────────────────────────────
+  const handleAddAllergy = () => {
+    let toAdd = ''
+    if (selectedAllergyCategory === 'Others (specify)' || selectedAllergyCategory === '__other__') {
+      toAdd = customAllergyText.trim()
+    } else if (selectedAllergyCategory) {
+      toAdd = selectedAllergyCategory.trim()
+    }
+
+    if (!toAdd) return
+
+    const items = toAdd.split(',').map((s) => s.trim()).filter(Boolean)
+    setAllergiesList((prev) => {
+      const next = [...prev]
+      for (const item of items) {
+        if (!next.some((existing) => existing.toLowerCase() === item.toLowerCase())) {
+          next.push(item)
+        }
+      }
+      return next
+    })
+
+    setSelectedAllergyCategory('')
+    setCustomAllergyText('')
+  }
+
+  const handleRemoveAllergy = (index: number) => {
+    setAllergiesList((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  // ── Chronic Conditions Helpers ──────────────────────────────────────────────
+  const handleAddChronic = () => {
+    let toAdd = ''
+    if (selectedChronicCategory === 'Others (specify)' || selectedChronicCategory === '__other__') {
+      toAdd = customChronicText.trim()
+    } else if (selectedChronicCategory) {
+      toAdd = selectedChronicCategory.trim()
+    }
+
+    if (!toAdd) return
+
+    const items = toAdd.split(',').map((s) => s.trim()).filter(Boolean)
+    setChronicList((prev) => {
+      const next = [...prev]
+      for (const item of items) {
+        if (!next.some((existing) => existing.toLowerCase() === item.toLowerCase())) {
+          next.push(item)
+        }
+      }
+      return next
+    })
+
+    setSelectedChronicCategory('')
+    setCustomChronicText('')
+  }
+
+  const handleRemoveChronic = (index: number) => {
+    setChronicList((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  // ── Family History Helpers ──────────────────────────────────────────────────
+  const addFamilyHistoryEntry = () => {
+    setFamilyHistory((prev) => [...prev, { relative: '', condition: '', notes: '' }])
+  }
+
+  const updateFamilyHistoryEntry = (
+    index: number,
+    field: keyof FamilyHistoryEntry,
+    value: string
+  ) => {
+    setFamilyHistory((prev) =>
+      prev.map((entry, i) => (i === index ? { ...entry, [field]: value } : entry))
+    )
+  }
+
+  const removeFamilyHistoryEntry = (index: number) => {
+    setFamilyHistory((prev) => prev.filter((_, i) => i !== index))
+  }
 
   // ── Handle Save ────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,15 +180,14 @@ export default function PatientProfile({
     setSaveSuccess(false)
 
     try {
-      const parsedAllergies = allergiesText
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-
-      const parsedChronic = chronicText
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
+      // Filter out incomplete family history entries (must have both relative and condition)
+      const validFamilyHistory = familyHistory.filter(
+        (e) => e.relative.trim() && e.condition.trim()
+      ).map((e) => ({
+        relative: e.relative.trim(),
+        condition: e.condition.trim(),
+        notes: e.notes?.trim() || undefined,
+      }))
 
       const updatedDetailsPayload = {
         ...details,
@@ -102,8 +200,9 @@ export default function PatientProfile({
         marital_status: maritalStatus,
         blood_group: bloodGroup,
         ayush_prakriti: prakriti,
-        allergies: parsedAllergies,
-        chronic_conditions: parsedChronic,
+        allergies: allergiesList,
+        chronic_conditions: chronicList,
+        family_history: validFamilyHistory,
         emergency_contact: {
           name: emergencyName,
           relation: emergencyRelation,
@@ -516,32 +615,330 @@ export default function PatientProfile({
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Known Drug &amp; Environmental Allergies (comma-separated)
+              {/* Allergies */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Droplet className="w-3.5 h-3.5 text-rose-500" />
+                    <span>Known Drug &amp; Environmental Allergies</span>
+                  </span>
+                  <span className="text-[11px] font-normal text-slate-400 dark:text-slate-500">
+                    {allergiesList.length} recorded
+                  </span>
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Sulfa drugs, Pollen / Dust"
-                  value={allergiesText}
-                  onChange={(e) => setAllergiesText(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
-                />
+
+                {/* Badges of current allergies */}
+                <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-surface-border dark:border-slate-700/60 items-center">
+                  {allergiesList.length === 0 ? (
+                    <span className="text-xs text-slate-400 dark:text-slate-500 italic py-0.5">
+                      No known allergies recorded. Select or type below to add.
+                    </span>
+                  ) : (
+                    allergiesList.map((allergy, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80 shadow-xs"
+                      >
+                        <span>{allergy}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAllergy(idx)}
+                          className="hover:bg-rose-200/60 dark:hover:bg-rose-900/60 text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-200 rounded p-0.5 transition-colors"
+                          title={`Remove ${allergy}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))
+                  )}
+                </div>
+
+                {/* Add Allergy Controls */}
+                <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                  <select
+                    value={selectedAllergyCategory}
+                    onChange={(e) => setSelectedAllergyCategory(e.target.value)}
+                    className="flex-1 px-3 py-2 text-xs rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  >
+                    <option value="">Select common allergy...</option>
+                    <optgroup label="Drug Allergies">
+                      <option value="Penicillin / Amoxicillin">Penicillin / Amoxicillin</option>
+                      <option value="Sulfonamides (Sulfa drugs)">Sulfonamides (Sulfa drugs)</option>
+                      <option value="NSAIDs (Aspirin / Ibuprofen)">NSAIDs (Aspirin / Ibuprofen)</option>
+                      <option value="Cephalosporins">Cephalosporins</option>
+                      <option value="Quinolones (Ciprofloxacin)">Quinolones (Ciprofloxacin)</option>
+                      <option value="Tetracyclines">Tetracyclines</option>
+                      <option value="Metronidazole">Metronidazole</option>
+                      <option value="Codeine / Opioids">Codeine / Opioids</option>
+                    </optgroup>
+                    <optgroup label="Food Allergies">
+                      <option value="Peanuts">Peanuts</option>
+                      <option value="Tree Nuts (Cashew, Almond, Walnut)">Tree Nuts (Cashew, Almond, Walnut)</option>
+                      <option value="Milk / Dairy (Lactose)">Milk / Dairy (Lactose)</option>
+                      <option value="Eggs">Eggs</option>
+                      <option value="Wheat / Gluten">Wheat / Gluten</option>
+                      <option value="Soy">Soy</option>
+                      <option value="Fish / Shellfish">Fish / Shellfish</option>
+                      <option value="Sesame">Sesame</option>
+                    </optgroup>
+                    <optgroup label="Environmental / Inhalant">
+                      <option value="Pollen (Seasonal Hay Fever)">Pollen (Seasonal Hay Fever)</option>
+                      <option value="Dust Mites">Dust Mites</option>
+                      <option value="Animal Dander (Cat / Dog)">Animal Dander (Cat / Dog)</option>
+                      <option value="Mould / Fungal Spores">Mould / Fungal Spores</option>
+                      <option value="Latex">Latex</option>
+                      <option value="Insect Stings (Bee / Wasp)">Insect Stings (Bee / Wasp)</option>
+                      <option value="Nickel (Contact Dermatitis)">Nickel (Contact Dermatitis)</option>
+                    </optgroup>
+                    <optgroup label="Chemical &amp; Other">
+                      <option value="Iodine / Contrast Dye">Iodine / Contrast Dye</option>
+                      <option value="Anaesthesia (Local / General)">Anaesthesia (Local / General)</option>
+                    </optgroup>
+                    <option value="Others (specify)">Others (specify)...</option>
+                  </select>
+
+                  {/* Others textbox */}
+                  {(selectedAllergyCategory === 'Others (specify)' || selectedAllergyCategory === '__other__') && (
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Specify allergy name..."
+                      value={customAllergyText}
+                      onChange={(e) => setCustomAllergyText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleAddAllergy()
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 text-xs rounded-xl border border-rose-300 dark:border-rose-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-400/30"
+                    />
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleAddAllergy}
+                    disabled={
+                      !selectedAllergyCategory ||
+                      ((selectedAllergyCategory === 'Others (specify)' || selectedAllergyCategory === '__other__') && !customAllergyText.trim())
+                    }
+                    className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>Add</span>
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Known Chronic Medical Conditions (comma-separated)
+              {/* Chronic Medical Conditions */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <HeartPulse className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Known Chronic Medical Conditions</span>
+                  </span>
+                  <span className="text-[11px] font-normal text-slate-400 dark:text-slate-500">
+                    {chronicList.length} recorded
+                  </span>
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Type 2 Diabetes Mellitus, Hypertension"
-                  value={chronicText}
-                  onChange={(e) => setChronicText(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
-                />
+
+                {/* Badges of current chronic conditions */}
+                <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-surface-border dark:border-slate-700/60 items-center">
+                  {chronicList.length === 0 ? (
+                    <span className="text-xs text-slate-400 dark:text-slate-500 italic py-0.5">
+                      No chronic conditions recorded. Select or type below to add.
+                    </span>
+                  ) : (
+                    chronicList.map((condition, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80 shadow-xs"
+                      >
+                        <span>{condition}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveChronic(idx)}
+                          className="hover:bg-amber-200/60 dark:hover:bg-amber-900/60 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200 rounded p-0.5 transition-colors"
+                          title={`Remove ${condition}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))
+                  )}
+                </div>
+
+                {/* Add Condition Controls */}
+                <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                  <select
+                    value={selectedChronicCategory}
+                    onChange={(e) => setSelectedChronicCategory(e.target.value)}
+                    className="flex-1 px-3 py-2 text-xs rounded-xl border border-surface-border dark:border-slate-700 bg-surface-muted dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-cyan/20"
+                  >
+                    <option value="">Select common chronic condition...</option>
+                    <option value="Type 2 Diabetes Mellitus">Type 2 Diabetes Mellitus</option>
+                    <option value="Type 1 Diabetes Mellitus">Type 1 Diabetes Mellitus</option>
+                    <option value="Hypertension (High Blood Pressure)">Hypertension (High Blood Pressure)</option>
+                    <option value="Bronchial Asthma">Bronchial Asthma</option>
+                    <option value="Chronic Obstructive Pulmonary Disease (COPD)">Chronic Obstructive Pulmonary Disease (COPD)</option>
+                    <option value="Hypothyroidism / Thyroid Disorder">Hypothyroidism / Thyroid Disorder</option>
+                    <option value="Coronary Artery Disease / Heart Disease">Coronary Artery Disease / Heart Disease</option>
+                    <option value="Chronic Kidney Disease (CKD)">Chronic Kidney Disease (CKD)</option>
+                    <option value="Osteoarthritis / Rheumatoid Arthritis">Osteoarthritis / Rheumatoid Arthritis</option>
+                    <option value="Dyslipidemia (High Cholesterol)">Dyslipidemia (High Cholesterol)</option>
+                    <option value="Gastroesophageal Reflux Disease (GERD / Acidity)">Gastroesophageal Reflux Disease (GERD / Acidity)</option>
+                    <option value="Migraine / Chronic Headache">Migraine / Chronic Headache</option>
+                    <option value="Epilepsy / Seizure Disorder">Epilepsy / Seizure Disorder</option>
+                    <option value="Chronic Liver Disease / Fatty Liver">Chronic Liver Disease / Fatty Liver</option>
+                    <option value="Allergic Rhinitis / Chronic Sinusitis">Allergic Rhinitis / Chronic Sinusitis</option>
+                    <option value="Psoriasis / Eczema">Psoriasis / Eczema</option>
+                    <option value="Depression / Anxiety Disorder">Depression / Anxiety Disorder</option>
+                    <option value="Others (specify)">Others (specify)...</option>
+                  </select>
+
+                  {/* Others textbox */}
+                  {(selectedChronicCategory === 'Others (specify)' || selectedChronicCategory === '__other__') && (
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Specify condition name..."
+                      value={customChronicText}
+                      onChange={(e) => setCustomChronicText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleAddChronic()
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 text-xs rounded-xl border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                    />
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleAddChronic}
+                    disabled={
+                      !selectedChronicCategory ||
+                      ((selectedChronicCategory === 'Others (specify)' || selectedChronicCategory === '__other__') && !customChronicText.trim())
+                    }
+                    className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>Add</span>
+                  </button>
+                </div>
               </div>
             </div>
+          </div>
+
+          {/* Section 5: Family Medical History */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-surface-border dark:border-slate-800 shadow-card p-6 space-y-4 transition-colors">
+            <div className="flex items-center justify-between pb-2 border-b border-surface-border dark:border-slate-800">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Dna className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                <span>5. Family Medical History</span>
+              </h3>
+              <button
+                type="button"
+                onClick={addFamilyHistoryEntry}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 rounded-xl hover:bg-violet-100 dark:hover:bg-violet-950/60 transition-colors"
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                Add Family Member
+              </button>
+            </div>
+
+            {familyHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 gap-2 text-slate-400 dark:text-slate-600">
+                <Dna className="w-8 h-8 opacity-40" />
+                <p className="text-xs font-medium">No family history recorded yet.</p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-600">
+                  Add hereditary conditions known in your family (e.g. diabetes, hypertension, heart disease).
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {familyHistory.map((entry, index) => (
+                  <div
+                    key={index}
+                    className="grid grid-cols-1 sm:grid-cols-[180px_1fr_1fr_auto] gap-3 p-3 rounded-2xl bg-violet-50/60 dark:bg-violet-950/20 border border-violet-100 dark:border-violet-900/40"
+                  >
+                    {/* Relative */}
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">
+                        Relative
+                      </label>
+                      <select
+                        value={entry.relative}
+                        onChange={(e) => updateFamilyHistoryEntry(index, 'relative', e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs rounded-xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-300/40"
+                      >
+                        <option value="">Select relative</option>
+                        <option value="Father">Father</option>
+                        <option value="Mother">Mother</option>
+                        <option value="Brother">Brother</option>
+                        <option value="Sister">Sister</option>
+                        <option value="Paternal Grandfather">Paternal Grandfather</option>
+                        <option value="Paternal Grandmother">Paternal Grandmother</option>
+                        <option value="Maternal Grandfather">Maternal Grandfather</option>
+                        <option value="Maternal Grandmother">Maternal Grandmother</option>
+                        <option value="Uncle">Uncle</option>
+                        <option value="Aunt">Aunt</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    {/* Condition */}
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">
+                        Condition / Diagnosis
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Type 2 Diabetes, Hypertension"
+                        value={entry.condition}
+                        onChange={(e) => updateFamilyHistoryEntry(index, 'condition', e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs rounded-xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300/40"
+                      />
+                    </div>
+
+                    {/* Notes */}
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">
+                        Notes (optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Diagnosed at age 50"
+                        value={entry.notes || ''}
+                        onChange={(e) => updateFamilyHistoryEntry(index, 'notes', e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs rounded-xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300/40"
+                      />
+                    </div>
+
+                    {/* Remove button */}
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        onClick={() => removeFamilyHistoryEntry(index)}
+                        title="Remove entry"
+                        className="p-2 rounded-xl text-rose-500 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-transparent hover:border-rose-200 dark:hover:border-rose-800 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 flex items-start gap-1 pt-1">
+              <span>ℹ️</span>
+              <span>
+                Recording family medical history helps the AI identify hereditary risk factors during your consultation.
+                Only include conditions explicitly known through family diagnosis.
+              </span>
+            </p>
           </div>
 
           {/* Bottom Actions */}
