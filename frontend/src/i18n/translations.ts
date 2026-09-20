@@ -153,6 +153,15 @@ export interface TranslationDictionary {
     tabMedications: string
     tabBaseline: string
     closeDossier: string
+    patientLanguage: string
+    translateTo: string
+    translating: string
+    showOriginal: string
+    showTranslated: string
+    translatedBadge: string
+    differentLanguageNotice: string
+    translationUnavailable: string
+    selectLanguage: string
   }
   summary: {
     title: string
@@ -328,6 +337,15 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       tabMedications: 'Medications',
       tabBaseline: 'AYUSH & Baseline',
       closeDossier: 'Close Dossier',
+      patientLanguage: 'Patient Language',
+      translateTo: 'Translate to',
+      translating: 'Translating...',
+      showOriginal: 'Original',
+      showTranslated: 'Translated',
+      translatedBadge: 'AI Clinical Translation',
+      differentLanguageNotice: 'This consultation was conducted in a different language.',
+      translationUnavailable: 'Translation unavailable',
+      selectLanguage: 'Select Language',
     },
     summary: {
       title: 'Clinical Session Summary',
@@ -502,6 +520,15 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       tabMedications: 'सक्रिय दवाएं',
       tabBaseline: 'आयुष एवं मेडिकल बेसलाइन',
       closeDossier: 'डोज़ियर बंद करें',
+      patientLanguage: 'रोगी की भाषा',
+      translateTo: 'अनुवाद करें',
+      translating: 'अनुवाद हो रहा है...',
+      showOriginal: 'मूल विवरण',
+      showTranslated: 'अनुवादित',
+      translatedBadge: 'AI नैदानिक अनुवाद',
+      differentLanguageNotice: 'यह परामर्श एक अलग भाषा में दर्ज किया गया था।',
+      translationUnavailable: 'अनुवाद अनुपलब्ध',
+      selectLanguage: 'भाषा चुनें',
     },
     summary: {
       title: 'चिकित्सीय सत्र सारांश',
@@ -676,6 +703,15 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       tabMedications: 'ওষুধ',
       tabBaseline: 'আয়ুষ ও বেসলাইন',
       closeDossier: 'ডোসিয়ার বন্ধ করুন',
+      patientLanguage: 'রোগীর ভাষা',
+      translateTo: 'অনুবাদ করুন',
+      translating: 'অনুবাদ হচ্ছে...',
+      showOriginal: 'মূল রূপ',
+      showTranslated: 'অনূদিত',
+      translatedBadge: 'AI ক্লিনিকাল অনুবাদ',
+      differentLanguageNotice: 'এই পরামর্শটি অন্য ভাষায় নথিভুক্ত করা হয়েছিল।',
+      translationUnavailable: 'অনুবাদ অনুপলব্ধ',
+      selectLanguage: 'ভাষা নির্বাচন করুন',
     },
     summary: {
       title: 'ক্লিনিকাল সেশনের সারাংশ',
@@ -850,6 +886,15 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       tabMedications: 'மருந்துகள்',
       tabBaseline: 'ஆயுஷ் & அடிப்படை',
       closeDossier: 'மூடுக',
+      patientLanguage: 'நோயாளி மொழி',
+      translateTo: 'மொழிபெயர்',
+      translating: 'மொழிபெயர்க்கப்படுகிறது...',
+      showOriginal: 'அசல்',
+      showTranslated: 'மொழிபெயர்க்கப்பட்டது',
+      translatedBadge: 'AI மருத்துவ மொழிபெயர்ப்பு',
+      differentLanguageNotice: 'இந்த ஆலோசனை வேறு மொழியில் பதிவு செய்யப்பட்டது.',
+      translationUnavailable: 'மொழிபெயர்ப்பு கிடைக்கவில்லை',
+      selectLanguage: 'மொழியைத் தேர்ந்தெடுக்கவும்',
     },
     summary: {
       title: 'மருத்துவ அமர்வு சுருக்கம்',
@@ -1024,6 +1069,15 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       tabMedications: 'మందులు',
       tabBaseline: 'ఆయుష్ & బేస్‌లైన్',
       closeDossier: 'డోసియర్ మూసివేయి',
+      patientLanguage: 'రోగి భాష',
+      translateTo: 'అనువదించు',
+      translating: 'అనువదిస్తోంది...',
+      showOriginal: 'అసలు',
+      showTranslated: 'అనువాదం',
+      translatedBadge: 'AI క్లినికల్ అనువాదం',
+      differentLanguageNotice: 'ఈ సంప్రదింపు వేరే భాషలో నమోదు చేయబడింది.',
+      translationUnavailable: 'అనువాదం అందుబాటులో లేదు',
+      selectLanguage: 'భాషను ఎంచుకోండి',
     },
     summary: {
       title: 'క్లినికల్ సెషన్ సారాంశం',
@@ -1198,6 +1252,15 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       tabMedications: 'औषधे',
       tabBaseline: 'आयुष आणि बेसलाइन',
       closeDossier: 'डोसियर बंद करा',
+      patientLanguage: 'रुग्णाची भाषा',
+      translateTo: 'भाषांतर करा',
+      translating: 'भाषांतर होत आहे...',
+      showOriginal: 'मूळ मजकूर',
+      showTranslated: 'भाषांतरित',
+      translatedBadge: 'AI क्लिनिकल भाषांतर',
+      differentLanguageNotice: 'हा सल्ला दुसऱ्या भाषेत नोंदवला गेला होता.',
+      translationUnavailable: 'भाषांतर उपलब्ध नाही',
+      selectLanguage: 'भाषा निवडा',
     },
     summary: {
       title: 'वैद्यकीय सत्र सारांश',
@@ -1372,6 +1435,15 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
       tabMedications: 'દવાઓ',
       tabBaseline: 'આયુષ અને બેઝલાઇન',
       closeDossier: 'ડોઝિયર બંધ કરો',
+      patientLanguage: 'દર્દીની ભાષા',
+      translateTo: 'અનુવાદ કરો',
+      translating: 'અનુવાદ થઈ રહ્યો છે...',
+      showOriginal: 'મૂળ લખાણ',
+      showTranslated: 'અનુવાદિત',
+      translatedBadge: 'AI ક્લિનિકલ અનુવાદ',
+      differentLanguageNotice: 'આ પરામર્શ અન્ય ભાષામાં નોંધાયેલ છે.',
+      translationUnavailable: 'અનુવાદ ઉપલબ્ધ નથી',
+      selectLanguage: 'ભાષા પસંદ કરો',
     },
     summary: {
       title: 'તબીબી સત્ર સારાંશ',

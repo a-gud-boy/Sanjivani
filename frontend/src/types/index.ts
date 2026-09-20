@@ -418,6 +418,7 @@ export interface DoctorPatientSummary {
     id: string
     session_date: string
     status: string
+    language?: string
     chief_complaint?: {
       symptom?: string | null
       duration?: string | null
@@ -443,4 +444,45 @@ export interface DoctorPatientsResponse {
   total_patients: number
   stats: DoctorPortalStats
   patients: DoctorPatientSummary[]
+}
+
+// ---- Doctor Clinical Translation Types ---------------------------
+
+export interface TranslateSessionRequest {
+  session_id?: string
+  target_language: LanguageCode | string
+  source_language?: string
+  chief_complaint?: string
+  ai_summary_text?: string
+  chat_history?: Array<{
+    role: string
+    content: string
+  }>
+}
+
+export interface TranslateSessionResponse {
+  status: string
+  session_id?: string
+  target_language: string
+  source_language?: string
+  translated_chief_complaint?: string | null
+  translated_ai_summary_text?: string | null
+  translated_chat_history: Array<{
+    role: string
+    content: string
+  }>
+}
+
+export interface TranslateTextRequest {
+  text?: string
+  texts?: string[]
+  target_language: string
+  source_language?: string
+}
+
+export interface TranslateTextResponse {
+  status: string
+  target_language: string
+  translated_text?: string | null
+  translated_texts?: string[] | null
 }

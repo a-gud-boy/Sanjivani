@@ -543,6 +543,26 @@ export async function getDoctorPatientDossier(
   return data
 }
 
+export async function translateDoctorSession(
+  payload: import('../types').TranslateSessionRequest,
+): Promise<import('../types').TranslateSessionResponse> {
+  const { data } = await apiClient.post<import('../types').TranslateSessionResponse>(
+    '/doctor/translate-session',
+    payload,
+  )
+  return data
+}
+
+export async function translateDoctorText(
+  payload: import('../types').TranslateTextRequest,
+): Promise<import('../types').TranslateTextResponse> {
+  const { data } = await apiClient.post<import('../types').TranslateTextResponse>(
+    '/doctor/translate',
+    payload,
+  )
+  return data
+}
+
 /**
  * Silently pre-warms the backend on initial application load to wake up
  * Render free-tier containers in the background without UI interruption.

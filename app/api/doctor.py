@@ -18,6 +18,7 @@ from app.api.patient import (
 )
 from app.db.database import get_db
 from app.db.models import Doctor, IntakeSession, Patient, PatientDocument
+from app.services.llm_service import ClinicalLLMService, get_llm_service
 
 logger = logging.getLogger("sanjivani.api.doctor")
 router = APIRouter(prefix="/doctor", tags=["Doctor Clinical Oversight Portal"])
@@ -30,9 +31,43 @@ class LatestSessionSummary(BaseModel):
     id: str
     session_date: datetime
     status: str
+    language: str = "en"
     chief_complaint: Optional[Dict[str, Any]] = None
     ai_summary_text: Optional[str] = None
     red_flag_active: bool
+
+
+class DoctorTranslateSessionRequest(BaseModel):
+    session_id: Optional[str] = None
+    target_language: str = "en"
+    source_language: Optional[str] = None
+    chief_complaint: Optional[str] = None
+    ai_summary_text: Optional[str] = None
+    chat_history: Optional[List[Dict[str, Any]]] = None
+
+
+class DoctorTranslateSessionResponse(BaseModel):
+    status: str
+    session_id: Optional[str] = None
+    target_language: str
+    source_language: Optional[str] = None
+    translated_chief_complaint: Optional[str] = None
+    translated_ai_summary_text: Optional[str] = None
+    translated_chat_history: List[Dict[str, Any]] = []
+
+
+class DoctorTranslateTextRequest(BaseModel):
+    text: Optional[str] = None
+    texts: Optional[List[str]] = None
+    target_language: str = "en"
+    source_language: Optional[str] = None
+
+
+class DoctorTranslateTextResponse(BaseModel):
+    status: str
+    target_language: str
+    translated_text: Optional[str] = None
+    translated_texts: Optional[List[str]] = None
 
 
 class DoctorPatientSummary(BaseModel):
@@ -131,6 +166,7 @@ async def list_all_patients(
                 id=latest_s.id,
                 session_date=latest_s.session_date,
                 status=latest_s.status,
+                language=latest_s.language or "en",
                 chief_complaint=latest_s.chief_complaint,
                 ai_summary_text=latest_s.ai_summary_text,
                 red_flag_active=latest_s.red_flag_active,
@@ -252,3 +288,93 @@ async def get_patient_dossier(
         active_medications=active_meds,
         past_medications=past_meds,
     )
+
+
+@router.post("/translate-session", response_model=DoctorTranslateSessionResponse)
+async def translate_patient_session(
+    request: DoctorTranslateSessionRequest,
+    current_doctor: Doctor = Depends(require_doctor_user),
+    db: AsyncSession = Depends(get_db),
+    llm_service: ClinicalLLMService = Depends(get_llm_service),
+) -> DoctorTranslateSessionResponse:
+    """
+    Translates an intake session's chief complaint, clinical summary, and chat history
+    to the doctor's language.
+    If session_id is provided and payload fields are missing, fetches them from the database.
+    """
+    chief_complaint = request.chief_complaint
+    ai_summary_text = request.ai_summary_text
+    chat_history = request.chat_history
+    source_language = request.source_language
+
+    # Fetch from DB if session_id is provided and fields are not passed
+    if request.session_id and (not chief_complaint or not ai_summary_text or not chat_history):
+        stmt = select(IntakeSession).where(IntakeSession.id == request.session_id)
+        result = await db.execute(stmt)
+        session_obj = result.scalar_one_or_none()
+        if session_obj:
+            if not source_language:
+                source_language = session_obj.language
+            if not chief_complaint and session_obj.chief_complaint:
+                chief_complaint = session_obj.chief_complaint.get("symptom")
+            if not ai_summary_text:
+                ai_summary_text = session_obj.ai_summary_text
+            if not chat_history:
+                chat_history = session_obj.chat_history or []
+
+    # Call translation
+    res = await llm_service.translate_clinical_session(
+        chief_complaint=chief_complaint,
+        ai_summary_text=ai_summary_text,
+        chat_history=chat_history,
+        target_language=request.target_language,
+        source_language=source_language,
+    )
+
+    return DoctorTranslateSessionResponse(
+        status="success",
+        session_id=request.session_id,
+        target_language=request.target_language,
+        source_language=source_language,
+        translated_chief_complaint=res.get("chief_complaint"),
+        translated_ai_summary_text=res.get("ai_summary_text"),
+        translated_chat_history=res.get("chat_history") or [],
+    )
+
+
+@router.post("/translate", response_model=DoctorTranslateTextResponse)
+async def translate_doctor_text(
+    request: DoctorTranslateTextRequest,
+    current_doctor: Doctor = Depends(require_doctor_user),
+    llm_service: ClinicalLLMService = Depends(get_llm_service),
+) -> DoctorTranslateTextResponse:
+    """
+    Translate arbitrary clinical text or list of texts to target language.
+    """
+    translated_text = None
+    translated_texts = None
+
+    if request.text:
+        translated_text = await llm_service.translate_text(
+            text=request.text,
+            target_language=request.target_language,
+            source_language=request.source_language,
+        )
+
+    if request.texts:
+        translated_texts = []
+        for t in request.texts:
+            tr = await llm_service.translate_text(
+                text=t,
+                target_language=request.target_language,
+                source_language=request.source_language,
+            )
+            translated_texts.append(tr)
+
+    return DoctorTranslateTextResponse(
+        status="success",
+        target_language=request.target_language,
+        translated_text=translated_text,
+        translated_texts=translated_texts,
+    )
+

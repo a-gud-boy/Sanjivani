@@ -2453,6 +2453,152 @@ class ClinicalLLMService:
             summary_sections=sections,
         )
 
+    async def translate_text(
+        self,
+        text: str,
+        target_language: str,
+        source_language: Optional[str] = None,
+    ) -> str:
+        """
+        Translate arbitrary clinical text to target_language.
+        Preserves medical terminology and falls back gracefully if offline.
+        """
+        if not text or not text.strip():
+            return text
+
+        if source_language and source_language.lower() == target_language.lower():
+            return text
+
+        lang_map = {
+            "en": "English",
+            "hi": "Hindi (हिन्दी)",
+            "bn": "Bengali (বাংলা)",
+            "ta": "Tamil (தமிழ்)",
+            "te": "Telugu (తెలుగు)",
+            "mr": "Marathi (मराठी)",
+            "gu": "Gujarati (ગુજરાતી)",
+        }
+        target_name = lang_map.get(target_language.lower(), target_language)
+
+        try:
+            resp = await self._direct_chat_client.chat.completions.create(
+                model=self.text_model_name,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            f"You are an expert medical translator for the Sanjivani Clinical Intake System.\n"
+                            f"Translate the following medical text into {target_name}.\n"
+                            f"Maintain strict clinical accuracy, preserving medical drug names, dosages, and diagnostic terms.\n"
+                            f"Output ONLY the translated text without commentary or markdown quotes."
+                        ),
+                    },
+                    {"role": "user", "content": text},
+                ],
+                temperature=0.2,
+            )
+            choice = resp.choices[0].message.content
+            return (choice or text).strip()
+        except Exception as e:
+            logger.warning("Clinical text translation failed, falling back to original: %s", str(e))
+            return text
+
+    async def translate_clinical_session(
+        self,
+        chief_complaint: Optional[str] = None,
+        ai_summary_text: Optional[str] = None,
+        chat_history: Optional[List[Dict[str, Any]]] = None,
+        target_language: str = "en",
+        source_language: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Translates chief complaint, AI summary narrative, and turn-by-turn chat history
+        to target_language in a single unified LLM prompt to ensure terminology consistency
+        and reduce latency.
+        """
+        lang_map = {
+            "en": "English",
+            "hi": "Hindi (हिन्दी)",
+            "bn": "Bengali (বাংলা)",
+            "ta": "Tamil (தமிழ்)",
+            "te": "Telugu (తెలుగు)",
+            "mr": "Marathi (मराठी)",
+            "gu": "Gujarati (ગુજરાતી)",
+        }
+        target_name = lang_map.get(target_language.lower(), target_language)
+        source_name = lang_map.get(source_language.lower(), source_language) if source_language else "the patient's language"
+
+        cleaned_chat = []
+        for m in (chat_history or []):
+            if isinstance(m, dict):
+                cleaned_chat.append({
+                    "role": m.get("role", "user"),
+                    "content": str(m.get("content", "")),
+                })
+
+        # Early return if target is already the source language
+        if source_language and source_language.lower() == target_language.lower():
+            return {
+                "chief_complaint": chief_complaint,
+                "ai_summary_text": ai_summary_text,
+                "chat_history": cleaned_chat,
+            }
+
+        # Build payload for translation
+        input_payload = {
+            "source_language": source_name,
+            "target_language": target_name,
+            "chief_complaint": chief_complaint,
+            "ai_summary_text": ai_summary_text,
+            "chat_history": cleaned_chat,
+        }
+
+        system_prompt = (
+            f"You are an expert multilingual clinical translator for the Ministry of Ayush's Sanjivani Clinical Intake System.\n"
+            f"Your task is to accurately translate clinical intake documentation into {target_name}.\n"
+            f"CLINICAL RULES:\n"
+            f"1. ACCURACY: Accurately translate symptoms, durations, patient complaints, clinical narrative summaries, and dialogue turns.\n"
+            f"2. MEDICAL ENTITIES: Preserve standard drug names, dosages (e.g. 500mg, TDS), diagnostic test parameters, and Ayush Prakriti classifications accurately.\n"
+            f"3. DIALOGUE ROLES: Preserve the conversation structure and perspective between 'user' (patient) and 'assistant' (Sanjivani Kiosk AI).\n"
+            f"4. OUTPUT FORMAT: Output ONLY a valid single JSON object matching this blueprint:\n"
+            f'{{\n'
+            f'  "chief_complaint": "translated chief complaint string or null",\n'
+            f'  "ai_summary_text": "translated summary narrative string or null",\n'
+            f'  "chat_history": [\n'
+            f'    {{"role": "user", "content": "translated user utterance"}},\n'
+            f'    {{"role": "assistant", "content": "translated assistant utterance"}}\n'
+            f'  ]\n'
+            f'}}\n'
+        )
+
+        try:
+            resp = await self._direct_chat_client.chat.completions.create(
+                model=self.text_model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": json.dumps(input_payload, ensure_ascii=False)},
+                ],
+                temperature=0.2,
+            )
+            raw_content = resp.choices[0].message.content or ""
+            # Strip potential code blocks
+            clean_json = re.sub(r"^```(?:json)?\s*", "", raw_content.strip(), flags=re.MULTILINE)
+            clean_json = re.sub(r"\s*```$", "", clean_json.strip(), flags=re.MULTILINE)
+
+            parsed = json.loads(clean_json)
+            return {
+                "chief_complaint": parsed.get("chief_complaint", chief_complaint),
+                "ai_summary_text": parsed.get("ai_summary_text", ai_summary_text),
+                "chat_history": parsed.get("chat_history", cleaned_chat),
+            }
+        except Exception as err:
+            logger.warning("Clinical session translation via LLM failed, using fallback: %s", str(err))
+            return {
+                "chief_complaint": chief_complaint,
+                "ai_summary_text": ai_summary_text,
+                "chat_history": cleaned_chat,
+            }
+
 
 
 # Global singleton instance

@@ -130,3 +130,73 @@ def test_doctor_get_nonexistent_patient_404():
     resp = client.get("/api/v1/doctor/patient/nonexistent-patient-999", headers=headers)
     assert resp.status_code == 404
 
+
+def test_doctor_translate_session_unauthenticated_401():
+    resp = client.post("/api/v1/doctor/translate-session", json={"target_language": "en"})
+    assert resp.status_code == 401
+
+
+def test_doctor_translate_session_with_mock():
+    from unittest.mock import AsyncMock, patch
+    from app.services.llm_service import ClinicalLLMService
+
+    token = _get_or_create_test_doctor()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    mock_result = {
+        "chief_complaint": "Severe headache and high fever",
+        "ai_summary_text": "Patient has 3-day history of fever and cephalalgia.",
+        "chat_history": [
+            {"role": "user", "content": "I have a high fever"},
+            {"role": "assistant", "content": "How long have you had this fever?"},
+        ],
+    }
+
+    with patch.object(ClinicalLLMService, "translate_clinical_session", new_callable=AsyncMock) as mock_tr:
+        mock_tr.return_value = mock_result
+
+        payload = {
+            "target_language": "en",
+            "source_language": "hi",
+            "chief_complaint": "तेज सिरदर्द और बुखार",
+            "ai_summary_text": "मरीज को 3 दिनों से सिरदर्द और बुखार है।",
+            "chat_history": [
+                {"role": "user", "content": "मुझे तेज बुखार है"},
+                {"role": "assistant", "content": "यह बुखार कितने दिनों से है?"},
+            ],
+        }
+
+        resp = client.post("/api/v1/doctor/translate-session", json=payload, headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["target_language"] == "en"
+        assert data["translated_chief_complaint"] == "Severe headache and high fever"
+        assert data["translated_ai_summary_text"] == "Patient has 3-day history of fever and cephalalgia."
+        assert len(data["translated_chat_history"]) == 2
+        assert data["translated_chat_history"][0]["content"] == "I have a high fever"
+
+
+def test_doctor_translate_text_with_mock():
+    from unittest.mock import AsyncMock, patch
+    from app.services.llm_service import ClinicalLLMService
+
+    token = _get_or_create_test_doctor()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    with patch.object(ClinicalLLMService, "translate_text", new_callable=AsyncMock) as mock_tr:
+        mock_tr.return_value = "Headache and fever"
+
+        payload = {
+            "text": "सिरदर्द और बुखार",
+            "target_language": "en",
+            "source_language": "hi",
+        }
+
+        resp = client.post("/api/v1/doctor/translate", json=payload, headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["translated_text"] == "Headache and fever"
+
+
