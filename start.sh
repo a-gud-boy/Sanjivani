@@ -3,7 +3,7 @@
 # ==============================================================================
 # Sanjivani - Unified Dev Server Startup Script
 # Starts:
-#   1. vLLM Local Model Server (Optional: google/medgemma-1.5-4b-it on :8001)
+#   1. vLLM Local Model Server (Optional: Local VLM on :8001)
 #   2. Relational Database Schema Synchronization
 #   3. FastAPI Clinical Backend (Port :8000)
 #   4. React Vite Frontend with ABHA/HP ID Auth & Patient Dashboard (Port :5173)
@@ -108,7 +108,7 @@ if [ -f "$ROOT_DIR/.env" ]; then
     fi
 fi
 
-VLLM_MODEL="${VLLM_MODEL:-google/medgemma-1.5-4b-it}"
+VLLM_MODEL="${VLLM_MODEL:-gemini-3.1-flash-lite}"
 VLLM_PORT="${VLLM_PORT:-8001}"
 VLLM_GPU_UTIL="${VLLM_GPU_UTIL:-0.85}"
 VLLM_MAX_LEN="${VLLM_MAX_LEN:-4096}"
@@ -117,7 +117,7 @@ DATABASE_URL="${DATABASE_URL:-sqlite+aiosqlite:///./sanjivani.db}"
 
 # Automatically skip local vLLM if Google Gemini is configured
 if [ -f "$ROOT_DIR/.env" ]; then
-    if grep -sqE "^(GEMINI_API_KEY|GOOGLE_API_KEY)=" "$ROOT_DIR/.env" || [[ "$VLLM_MODEL" =~ (gemini|gemma) ]]; then
+    if grep -sqE "^(GEMINI_API_KEY|GOOGLE_API_KEY)=" "$ROOT_DIR/.env" || [[ "$VLLM_MODEL" =~ gemini ]]; then
         START_VLLM=false
         echo -e "${GREEN}✓ Google Cloud AI configured (${VLLM_MODEL}). Skipping local vLLM server.${NC}"
     fi

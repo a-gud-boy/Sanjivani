@@ -2,7 +2,7 @@
 """
 Sanjivani Dev Runner
 Unified cross-platform launcher for:
-  1. Local vLLM Model Server (Optional: google/medgemma-1.5-4b-it on :8001)
+  1. Local vLLM Model Server (Optional: Local VLM on :8001)
   2. Database Schema Synchronization
   3. FastAPI Clinical Backend (:8000)
   4. React Vite Frontend (:5173)
@@ -130,9 +130,9 @@ def main():
     if os.getenv("START_VLLM", "").lower() == "false":
         start_vllm = False
 
-    vllm_model = os.getenv("VLLM_MODEL") or os.getenv("TEXT_LLM_MODEL_NAME") or "google/medgemma-1.5-4b-it"
+    vllm_model = os.getenv("VLLM_MODEL") or os.getenv("TEXT_LLM_MODEL_NAME") or "gemini-3.1-flash-lite"
     has_cloud_ai = bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
-    if has_cloud_ai or any(k in vllm_model.lower() for k in ["gemini", "gemma-2"]):
+    if has_cloud_ai or "gemini" in vllm_model.lower():
         # If cloud AI is configured, skip local GPU server by default unless forced
         if not args.no_vllm and os.getenv("FORCE_VLLM", "").lower() != "true":
             start_vllm = False

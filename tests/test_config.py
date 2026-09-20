@@ -67,8 +67,8 @@ def test_config_loads_gemini_key(monkeypatch):
     assert s.has_gemini is True
     assert s.effective_text_api_key == "AIzaSyFakeKeyForTesting12345"
     assert s.effective_vision_api_key == "AIzaSyFakeKeyForTesting12345"
-    assert s.effective_text_model_name == "gemma-4-26b-a4b-it"
-    assert s.effective_vision_model_name == "gemma-4-26b-a4b-it"
+    assert s.effective_text_model_name == "gemini-3.1-flash-lite"
+    assert s.effective_vision_model_name == "gemini-3.1-flash-lite"
     assert "googleapis.com" in s.effective_text_base_url
     assert "googleapis.com" in s.effective_vision_base_url
 

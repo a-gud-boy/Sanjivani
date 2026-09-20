@@ -84,8 +84,8 @@ class Settings(BaseSettings):
         description="Alias for Google Gemini API key."
     )
     GEMINI_MODEL_NAME: str = Field(
-        default="gemma-4-26b-a4b-it",
-        description="Default Google Gemini / Gemma model name."
+        default="gemini-3.1-flash-lite",
+        description="Default Google Gemini model name."
     )
     GEMINI_BASE_URL: str = Field(
         default="https://generativelanguage.googleapis.com/v1beta/openai/",
@@ -130,7 +130,7 @@ class Settings(BaseSettings):
         description="Fallback API key if TEXT_LLM_API_KEY or VISION_LLM_API_KEY is not set."
     )
     OPENAI_MODEL_NAME: Optional[str] = Field(
-        default="google/medgemma-1.5-4b-it",
+        default="gemini-3.1-flash-lite",
         description="Legacy fallback model name."
     )
     OPENAI_BASE_URL: Optional[str] = Field(
@@ -174,7 +174,7 @@ class Settings(BaseSettings):
         return bool(
             self.GEMINI_API_KEY
             or self.GOOGLE_API_KEY
-            or (self.TEXT_LLM_MODEL_NAME and any(k in self.TEXT_LLM_MODEL_NAME.lower() for k in ("gemini", "gemma")))
+            or (self.TEXT_LLM_MODEL_NAME and "gemini" in self.TEXT_LLM_MODEL_NAME.lower())
         )
 
     @property
@@ -186,7 +186,7 @@ class Settings(BaseSettings):
         if self.effective_gemini_key and (
             not self.TEXT_LLM_API_KEY
             or self.TEXT_LLM_API_KEY == "EMPTY"
-            or any(k in (self.TEXT_LLM_MODEL_NAME or "").lower() for k in ("gemini", "gemma"))
+            or "gemini" in (self.TEXT_LLM_MODEL_NAME or "").lower()
         ):
             return self.effective_gemini_key
         if self.TEXT_LLM_API_KEY and self.TEXT_LLM_API_KEY != "EMPTY":
@@ -201,13 +201,13 @@ class Settings(BaseSettings):
             return self.TEXT_LLM_MODEL_NAME
         if self.effective_gemini_key:
             return self.GEMINI_MODEL_NAME
-        return self.OPENAI_MODEL_NAME or "gemma-4-26b-a4b-it"
+        return self.OPENAI_MODEL_NAME or "gemini-3.1-flash-lite"
 
     @property
     def effective_text_base_url(self) -> Optional[str]:
         if (
             self.effective_gemini_key
-            or (self.effective_text_model_name and any(k in self.effective_text_model_name.lower() for k in ("gemini", "gemma")))
+            or (self.effective_text_model_name and "gemini" in self.effective_text_model_name.lower())
         ):
             if not self.TEXT_LLM_BASE_URL or "localhost" in self.TEXT_LLM_BASE_URL or "127.0.0.1" in self.TEXT_LLM_BASE_URL:
                 return self.GEMINI_BASE_URL
@@ -221,7 +221,7 @@ class Settings(BaseSettings):
         if self.effective_gemini_key and (
             not self.VISION_LLM_API_KEY
             or self.VISION_LLM_API_KEY == "EMPTY"
-            or any(k in (self.VISION_LLM_MODEL_NAME or "").lower() for k in ("gemini", "gemma"))
+            or "gemini" in (self.VISION_LLM_MODEL_NAME or "").lower()
         ):
             return self.effective_gemini_key
         if self.VISION_LLM_API_KEY and self.VISION_LLM_API_KEY != "EMPTY":
@@ -244,14 +244,14 @@ class Settings(BaseSettings):
             self.OPENAI_VISION_MODEL_NAME
             or self.TEXT_LLM_MODEL_NAME
             or self.OPENAI_MODEL_NAME
-            or "gemma-4-26b-a4b-it"
+            or "gemini-3.1-flash-lite"
         )
 
     @property
     def effective_vision_base_url(self) -> Optional[str]:
         if (
             self.effective_gemini_key
-            or (self.effective_vision_model_name and any(k in self.effective_vision_model_name.lower() for k in ("gemini", "gemma")))
+            or (self.effective_vision_model_name and "gemini" in self.effective_vision_model_name.lower())
         ):
             if not self.VISION_LLM_BASE_URL or "localhost" in self.VISION_LLM_BASE_URL or "127.0.0.1" in self.VISION_LLM_BASE_URL:
                 return self.GEMINI_BASE_URL

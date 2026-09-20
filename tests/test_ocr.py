@@ -120,7 +120,7 @@ def test_scan_document_endpoint_success():
 
 @pytest.mark.asyncio
 async def test_two_stage_pipeline_execution():
-    """Verify that parse_document_image invokes transcribe_image and then parse_ocr_text."""
+    """Verify that parse_document_image invokes transcribe_image and then parse_ocr_text on fallback."""
     service = ClinicalLLMService()
     
     mock_raw_transcription = "Rx Amoxicillin 500mg TDS x 7 days"
@@ -137,7 +137,8 @@ async def test_two_stage_pipeline_execution():
         raw_text=mock_raw_transcription,
     )
 
-    with patch.object(service, "transcribe_image", new_callable=AsyncMock) as mock_transcribe, \
+    with patch.object(service._direct_vision_client.chat.completions, "create", side_effect=Exception("Direct VLM unavailable")), \
+         patch.object(service, "transcribe_image", new_callable=AsyncMock) as mock_transcribe, \
          patch.object(service, "parse_ocr_text", new_callable=AsyncMock) as mock_parse:
         
         mock_transcribe.return_value = mock_raw_transcription

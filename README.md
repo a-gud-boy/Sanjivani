@@ -42,7 +42,7 @@ It bridges modern allopathic clinical reasoning with traditional Indian healthca
 - **Doctor Clinical Portal**: Comprehensive clinical review interface allowing healthcare practitioners to search patients, inspect AI intake summaries, and review digitized lab/prescription records.
 
 ### 4. Direct VLM Prescription & Report Digitization
-- **Vision-Language Model (VLM)**: Direct multimodal parsing using models such as Google Gemini Flash, `google/medgemma-1.5-4b-it`, or `qwen/qwen3.6-27b`.
+- **Vision-Language Model (VLM)**: Direct multimodal parsing using Google Gemini 3.1 Flash-Lite VLM or `qwen/qwen3.6-27b`.
 - **Cursive Handwriting Deciphering**: Accurately transcribes doctor handwriting, extracting medication names, dosage formulations (*Churna*, *Vati*, *Kashayam*, *Capsule*, *Syrup*), frequencies (`OD`, `BD`, `TDS`, `QID`, `HS`, `SOS`, `AC`, `PC`), and durations.
 - **Lab Investigation Extraction**: Extracts quantitative biomarkers (`HbA1c`, `FBS`, `Serum Creatinine`, `Hemoglobin`, etc.) with reference ranges and abnormal flags.
 - **Prescription Date & Lifecycle Tracking**: Automatically identifies prescription dates and computes medication duration to distinguish active vs. past medications.
@@ -58,65 +58,93 @@ It bridges modern allopathic clinical reasoning with traditional Indian healthca
 
 ### 7. AI Pre-Consultation Summary
 - Generates a structured narrative clinical summary synthesized from the multi-turn intake chat and all uploaded diagnostic documents.
-- Formats chief complaints, HPI, AYUSH assessment, lab abnormalities, and recommended next steps for immediate physician review.
+- Incorporates active and past medications with start/end duration computations, laboratory test abnormalities, Ayush Prakriti profile, and vital red-flag warnings.
+- Instant 1-click browser printing and PDF export formatted to clinical letterhead standards.
 
 ### 8. Dynamic Model Switching & Flexible Provider Support
-- Dynamically inspect and switch active models at runtime (e.g. Google Gemini 2.5 Flash, Gemini Pro, Gemma 4, or local vLLM instances) directly from the UI or via API without restarting the backend.
+- Dynamically inspect and switch active models at runtime (e.g. Google Gemini 3.1 Flash-Lite, Gemini 2.5 Pro, or local vLLM instances) directly from the UI or via API without restarting the backend.
 - Supports separated endpoints and keys for Conversational Text LLM and Vision VLM (e.g., Groq, Ollama, OpenAI-compatible servers).
 
 ---
 
-## 🚀 Quick Start Guide
+## 🏗️ Architecture & Technology Stack
+
+```
+                                  SANJIVANI PLATFORM
+                                 ====================
+
+  [ PATIENT / DOCTOR CLIENTS ]                  [ BACKEND MICROSERVICE ]
+  ┌──────────────────────────┐                  ┌──────────────────────────────┐
+  │  React 18 + Vite (SPA)   │  REST (HTTPS)    │  FastAPI (Async Python 3.12) │
+  │  Tailwind CSS            │ ───────────────> │  Pydantic v2 Validation      │
+  │  Lucide Icons            │                  │  SQLAlchemy 2.0 Async ORM    │
+  │  Multilingual I18n Engine│                  │  ABDM / ABHA Identity Engine │
+  └──────────────────────────┘                  └──────────────┬───────────────┘
+               │                                               │
+               │ Direct Document Scan / Spoken Audio           │ Inference
+               └───────────────────────────────────────────────┼───────────────┐
+                                                               │               │
+                                                               ▼               ▼
+                                                     [ GOOGLE GEMINI ]   [ DATABASE ]
+                                                     - Multimodal VLM    - SQLite
+                                                     - Audio ASR         - PostgreSQL
+                                                     - Clinical Intake
+```
+
+---
+
+## 🚀 Quickstart & Local Setup
 
 ### Prerequisites
-- **Python 3.12+** (configured in virtual environment `sihvenv312` or `.venv`)
-- **Node.js 18+ & npm**
-- *(Optional)* CUDA-compatible GPU if hosting local models via vLLM
+- **Python**: `3.12+`
+- **Node.js**: `18+` & `npm`
+
+### Installation & Launch
+
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/a-gud-boy/Sanjivani.git
+   cd Sanjivani
+   ```
+
+2. **Configure Environment**:
+   ```bash
+   cp .env.example .env
+   ```
+   Add your Google Gemini API key to `.env`:
+   ```ini
+   GEMINI_API_KEY=AIzaSyYourGeminiApiKeyHere
+   GEMINI_MODEL_NAME=gemini-3.1-flash-lite
+   ```
+
+3. **Unified Single-Command Dev Runner**:
+   ```bash
+   # On Linux / macOS / WSL 2:
+   chmod +x start.sh
+   ./start.sh --no-vllm
+
+   # On Windows (PowerShell / CMD):
+   python run.py --no-vllm
+   ```
+
+   The script automatically:
+   - Sets up / activates the virtual environment.
+   - Installs any missing Python dependencies.
+   - Installs frontend `node_modules` and builds Tailwind CSS.
+   - Initializes and migrates database tables.
+   - Launches the FastAPI backend on `http://localhost:8000`.
+   - Launches the Vite React frontend on `http://localhost:5173`.
 
 ---
 
-> 🪟 **Running on Windows?** Check the dedicated [Windows Setup Guide (README_WINDOWS.md)](./README_WINDOWS.md) for step-by-step PowerShell, WSL 2, and troubleshooting instructions.
-
----
-
-### Option A: Using the Bash Launcher (Linux / macOS / WSL 2)
-```bash
-# Default: Starts database migration, backend (:8000), frontend (:5173), and Cloudflare tunnel
-./start.sh
-
-# Start without local vLLM (uses cloud AI / Google Gemini)
-./start.sh --no-vllm
-
-# Start in local-only mode without public Cloudflare tunnel
-./start.sh --no-vllm --no-tunnel
-
-# Reset database schema
-./start.sh --reset-db
-```
-
-### Option B: Using the Cross-Platform Python Runner (Windows / Linux / macOS)
-```bash
-# Run backend & frontend with cloud AI (Google Gemini)
-python run.py --no-vllm
-
-# Reset the local SQLite database schema
-python run.py --reset-db
-
-# Run with local vLLM server enabled (requires CUDA GPU)
-python run.py
-```
-
----
-
-## 🌐 Service URLs & Ports
+## 🌐 Endpoints & Ports
 
 | Service | Address | Description |
 | :--- | :--- | :--- |
-| **Frontend UI (Kiosk & Web)** | [http://localhost:5173](http://localhost:5173) | React 18 + Vite responsive kiosk interface |
-| **Backend API** | [http://localhost:8000](http://localhost:8000) | FastAPI asynchronous application |
-| **Interactive Swagger Docs** | [http://localhost:8000/docs](http://localhost:8000/docs) | OpenAPI interactive documentation |
-| **ReDoc Documentation** | [http://localhost:8000/redoc](http://localhost:8000/redoc) | Alternative OpenAPI documentation |
-| **vLLM Inference Server** *(Optional)* | [http://localhost:8001/v1](http://localhost:8001/v1) | Local OpenAI-compatible LLM/VLM endpoint |
+| **Frontend UI (Kiosk)** | `http://localhost:5173` | Patient self-intake, scanner, and doctor portal |
+| **FastAPI Backend API** | `http://localhost:8000` | REST API for auth, intake chat, OCR, and summaries |
+| **Swagger Interactive Docs** | `http://localhost:8000/docs` | OpenAPI documentation & interactive test sandbox |
+| **ReDoc Documentation** | `http://localhost:8000/redoc` | Clean technical API reference |
 | **Public Kiosk Tunnel** *(Optional)* | *Auto-generated URL* | Cloudflare Quick Tunnel for remote/mobile testing |
 
 ---
@@ -134,7 +162,7 @@ Sanjivani runs completely free using Google Gemini's generous free tier (no cred
    Open or create your `.env` file in the project root:
    ```ini
    GEMINI_API_KEY=AIzaSyYourCopiedKeyHere
-   GEMINI_MODEL_NAME=gemini-2.5-flash
+   GEMINI_MODEL_NAME=gemini-3.1-flash-lite
    ```
 7. **Launch Sanjivani**:
    ```bash
@@ -158,16 +186,16 @@ DEBUG=False
 
 # --- 1. Google Gemini Configuration (Zero GPU Cloud Mode) ---
 GEMINI_API_KEY=AIzaSy...
-GEMINI_MODEL_NAME=gemini-2.5-flash
+GEMINI_MODEL_NAME=gemini-3.1-flash-lite
 
 # --- 2. Conversational Text LLM (Optional custom endpoint / Groq / vLLM) ---
 TEXT_LLM_API_KEY=EMPTY
-TEXT_LLM_MODEL_NAME=gemini-2.5-flash
+TEXT_LLM_MODEL_NAME=gemini-3.1-flash-lite
 TEXT_LLM_BASE_URL=
 
 # --- 3. Multimodal Vision VLM (Optional custom endpoint / vLLM) ---
 VISION_LLM_API_KEY=EMPTY
-VISION_LLM_MODEL_NAME=google/medgemma-1.5-4b-it
+VISION_LLM_MODEL_NAME=gemini-3.1-flash-lite
 VISION_LLM_BASE_URL=http://localhost:8001/v1
 
 # --- 4. Relational Database ---

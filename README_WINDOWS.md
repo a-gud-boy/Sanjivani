@@ -9,7 +9,7 @@ This guide provides step-by-step instructions for running **Sanjivani (संज
 | Method | Best For | Local GPU / vLLM Support | Setup Effort |
 | :--- | :--- | :--- | :--- |
 | **[Method 1: Native Windows (PowerShell)](#method-1-native-windows-powershell--cmd)** | Quickest setup, using Cloud AI (Gemini / OpenAI) or built-in fallback | ❌ No (vLLM is Linux-only) | 🟢 5 Minutes |
-| **[Method 2: WSL 2 (Ubuntu on Windows)](#method-2-wsl-2-recommended-for-local-vllm--gpu)** | **Recommended for local GPU**, running local MedGemma via vLLM with NVIDIA CUDA | ✅ Yes (Full CUDA acceleration) | 🟡 10 Minutes |
+| **[Method 2: WSL 2 (Ubuntu on Windows)](#method-2-wsl-2-recommended-for-local-vllm--gpu)** | **Recommended for local GPU**, running local VLM via vLLM with NVIDIA CUDA | ✅ Yes (Full CUDA acceleration) | 🟡 10 Minutes |
 | **[Method 3: VS Code Dev Container](#method-3-docker--vs-code-dev-container)** | Zero-install isolated Docker environment | 🟡 Yes (with nvidia-container-toolkit) | 🟡 10 Minutes |
 
 ---
@@ -59,14 +59,13 @@ python -m venv .venv
 
 ---
 
-### Step 4: Install Python & Node.js Dependencies
+### Step 4: Install Dependencies
 
 ```powershell
-# Upgrade pip and install backend packages
-pip install --upgrade pip
+# Install backend requirements
 pip install -r requirements.txt
 
-# Install frontend dependencies
+# Install frontend requirements
 cd frontend
 npm install
 cd ..
@@ -74,29 +73,19 @@ cd ..
 
 ---
 
-### Step 5: Configure Environment Variables & Free Gemini API Key
+### Step 5: Configure Environment Variables
 
-1. If `.env` does not already exist, copy the template:
-   ```powershell
-   Copy-Item .env.example .env
-   ```
+```powershell
+# Copy example environment configuration
+Copy-Item .env.example .env
+```
 
-2. **Get a Free Google Gemini API Key** (Takes ~1 minute, no credit card needed):
-   - Visit [Google AI Studio](https://aistudio.google.com/app/apikey).
-   - Sign in with your Google / Gmail account.
-   - Click **"Create API key"** -> **"Create API key in new project"**.
-   - Copy the generated key (starts with `AIzaSy...`).
+Open `.env` in Notepad or VS Code and add your **Google Gemini API Key**:
 
-3. Open `.env` in Notepad or VS Code:
-   ```powershell
-   notepad .env
-   ```
-   Paste your key on the `GEMINI_API_KEY` line:
-   ```ini
-   GEMINI_API_KEY=AIzaSyYourCopiedKeyHere
-   GEMINI_MODEL_NAME=gemini-2.5-flash
-   ```
-   Save and close Notepad.
+```ini
+GEMINI_API_KEY=AIzaSyYourGeminiApiKeyHere
+GEMINI_MODEL_NAME=gemini-3.1-flash-lite
+```
 
 ---
 
@@ -114,13 +103,13 @@ python run.py --no-vllm
 > 1. SQLite database sync & schema initialization
 > 2. FastAPI backend on `http://localhost:8000`
 > 3. React Vite frontend on `http://localhost:5173`
-> 4. Cloud AI (Gemini Flash) or the resilient clinical reasoning engine
+> 4. Cloud AI (Gemini 3.1 Flash-Lite) or the resilient clinical reasoning engine
 
 ---
 
 ## Method 2: WSL 2 (Recommended for Local vLLM & GPU)
 
-If you have an **NVIDIA GPU** and want to run the local `google/medgemma-1.5-4b-it` model on port `8001`, **WSL 2 (Windows Subsystem for Linux)** gives you native Linux performance on Windows.
+If you have an **NVIDIA GPU** and want to run a local VLM model on port `8001`, **WSL 2 (Windows Subsystem for Linux)** gives you native Linux performance on Windows.
 
 ### Step 1: Install WSL 2
 

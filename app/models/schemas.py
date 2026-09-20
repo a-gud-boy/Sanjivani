@@ -350,7 +350,7 @@ class ScanDocumentResponse(BaseModel):
 # ---- Model Management Schemas -----------------------------------------------
 
 class DownloadedModelInfo(BaseModel):
-    id: str = Field(..., description="Unique model identifier or repo ID (e.g. google/medgemma-1.5-4b-it).")
+    id: str = Field(..., description="Unique model identifier or repo ID (e.g. gemini-3.1-flash-lite).")
     name: str = Field(..., description="Human-readable model name.")
     size_on_disk: Optional[str] = Field(default=None, description="Size of the model on disk (e.g. 8.6 GB).")
     source: str = Field(default="huggingface_cache", description="Source of the model (huggingface_cache, vllm_server, custom).")

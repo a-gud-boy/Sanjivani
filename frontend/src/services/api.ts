@@ -162,7 +162,7 @@ export async function scanDocument(
   form.append('file', file instanceof File ? file : new File([file], filename, { type: file.type || 'image/png' }))
 
   const { data } = await apiClient.post<ScanApiResponse>('/scan-document', form, {
-    timeout: 90_000, // Vision model can be slower
+    timeout: 120_000, // Generous timeout for document OCR across cold starts or slow networks
     headers: {
       'Content-Type': 'multipart/form-data',
     },

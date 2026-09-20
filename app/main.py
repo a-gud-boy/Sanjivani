@@ -327,7 +327,7 @@ async def scan_document_endpoint(
     summary="Generate AI narrative clinical summary from chat + all scanned documents",
     description=(
         "Accepts the full chat history, accumulated clinical record, and all scanned document payloads. "
-        "Calls MedGemma to produce a structured pre-consultation summary suitable for physician review."
+        "Calls Gemini to produce a structured pre-consultation summary suitable for physician review."
     ),
 )
 async def summarize_endpoint(

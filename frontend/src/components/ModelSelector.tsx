@@ -76,7 +76,7 @@ export default function ModelSelector() {
   const activeModelObj = models.find((m) => m.id === activeTextModel || m.is_active)
   const activeDisplayName = activeModelObj
     ? activeModelObj.name.split('(')[0].trim()
-    : (activeTextModel ? activeTextModel.replace('google/', '').replace('-it', '') : 'Gemini 2.5 Flash')
+    : (activeTextModel ? activeTextModel.replace('google/', '').replace('-it', '') : 'Gemini 3.1 Flash-Lite')
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -89,7 +89,7 @@ export default function ModelSelector() {
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label="Change AI model"
-        title={`Active model: ${activeTextModel || 'Gemini 2.5 Flash'}`}
+        title={`Active model: ${activeTextModel || 'Gemini 3.1 Flash-Lite'}`}
       >
         <div className="w-5 h-5 rounded-lg bg-brand-cyan/10 flex items-center justify-center text-brand-cyan flex-shrink-0">
           <Cpu className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />

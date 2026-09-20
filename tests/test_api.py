@@ -189,15 +189,15 @@ def test_list_models_endpoint():
 def test_select_model_endpoint():
     """Verify that POST /api/v1/models/select switches active model in memory."""
     payload = {
-        "model_name": "google/medgemma-1.5-4b-it",
+        "model_name": "gemini-3.1-flash-lite",
         "target": "both",
     }
     response = client.post("/api/v1/models/select", json=payload)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "success"
-    assert data["active_text_model"] == "google/medgemma-1.5-4b-it"
-    assert data["active_vision_model"] == "google/medgemma-1.5-4b-it"
+    assert data["active_text_model"] == "gemini-3.1-flash-lite"
+    assert data["active_vision_model"] == "gemini-3.1-flash-lite"
 
 
 def test_chat_init_endpoint():
