@@ -33,6 +33,7 @@ class Settings(BaseSettings):
             "https://sanjivani-health.pages.dev",
             "https://a-gud-boy.github.io",
             "https://sanjivani-9ne0.onrender.com",
+            "https://sanjivani-api.onrender.com",
         ],
         description="Explicit list of allowed CORS origins for API requests."
     )

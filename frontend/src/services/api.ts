@@ -15,7 +15,18 @@ import type {
 // Axios client
 // ----------------------------------------------------------------
 
-const apiEnvBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) || '').trim()
+let apiEnvBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) || '').trim()
+
+// Auto-correct any references to "sanjivani-api.onrender.com" to the live Render deployment
+if (apiEnvBase.includes('sanjivani-api.onrender.com')) {
+  apiEnvBase = apiEnvBase.replace('sanjivani-api.onrender.com', 'sanjivani-9ne0.onrender.com')
+}
+
+// In production hosted environments (e.g. GitHub Pages or custom domains), fallback to live backend
+if (!apiEnvBase && typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+  apiEnvBase = 'https://sanjivani-9ne0.onrender.com'
+}
+
 const baseURL = apiEnvBase
   ? (apiEnvBase.endsWith('/api/v1') ? apiEnvBase : `${apiEnvBase.replace(/\/+$/, '')}/api/v1`)
   : '/api/v1'

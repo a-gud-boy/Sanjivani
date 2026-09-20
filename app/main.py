@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import logging
+import re
 from typing import AsyncGenerator
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
@@ -82,12 +83,48 @@ app.include_router(patient.router, prefix=settings.API_V1_PREFIX)
 app.include_router(doctor.router, prefix=settings.API_V1_PREFIX)
 
 
+def _get_cors_headers_for_request(request: Request) -> dict:
+    """Helper to ensure CORS headers are present even on unhandled 500 or error responses."""
+    origin = request.headers.get("origin")
+    if not origin:
+        return {}
+    if "*" in settings.ALLOWED_CORS_ORIGINS:
+        return {"Access-Control-Allow-Origin": "*"}
+    if origin in settings.ALLOWED_CORS_ORIGINS:
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true" if settings.CORS_ALLOW_CREDENTIALS else "false",
+            "Vary": "Origin",
+        }
+    if settings.CORS_ORIGIN_REGEX and re.match(settings.CORS_ORIGIN_REGEX, origin):
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true" if settings.CORS_ALLOW_CREDENTIALS else "false",
+            "Vary": "Origin",
+        }
+    return {}
+
+
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    headers = _get_cors_headers_for_request(request)
+    if exc.headers:
+        headers.update(exc.headers)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=headers,
+    )
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error("Unhandled exception at %s: %s", request.url.path, exc, exc_info=True)
+    headers = _get_cors_headers_for_request(request)
     return JSONResponse(
         status_code=500,
         content={"status": "error", "detail": f"Internal server error: {str(exc)}"},
+        headers=headers,
     )
 
 

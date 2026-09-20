@@ -529,162 +529,184 @@ async def _process_patient_register(db: AsyncSession, payload: PatientRegisterRe
     clean_abha = payload.abha_id.strip()
     clean_name = payload.name.strip()
 
-    existing_stmt = select(Patient).where(Patient.abha_id == clean_abha)
-    existing_res = await db.execute(existing_stmt)
-    if existing_res.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"An account with ABHA ID '{clean_abha}' already exists. Please sign in.",
+    try:
+        existing_stmt = select(Patient).where(Patient.abha_id == clean_abha)
+        existing_res = await db.execute(existing_stmt)
+        if existing_res.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"An account with ABHA ID '{clean_abha}' already exists. Please sign in.",
+            )
+
+        calc_dob = payload.dob
+        if not calc_dob and payload.age_years:
+            calc_dob = f"{datetime.now(timezone.utc).year - payload.age_years}-01-01"
+
+        patient_details = {
+            "blood_group": payload.blood_group or None,
+            "dob": calc_dob or None,
+            "emergency_contact": {
+                "name": payload.emergency_contact_name or None,
+                "phone": payload.emergency_contact_phone or payload.phone or None,
+                "relation": payload.emergency_contact_relation or None,
+            } if (payload.emergency_contact_name or payload.emergency_contact_phone or payload.emergency_contact_relation) else None,
+            "address_line": payload.address_line or None,
+            "city": payload.city or None,
+            "state": payload.state or None,
+            "pincode": payload.pincode or None,
+            "occupation": None,
+            "marital_status": None,
+            "preferred_language": "English / Hindi",
+            "allergies": [],
+            "chronic_conditions": [],
+            "ayush_prakriti": None,
+        }
+
+        user_id = f"patient-{str(uuid.uuid4())[:8]}"
+        suffix = clean_abha.replace("-", "").replace("/", "")[-6:]
+        new_patient = Patient(
+            id=user_id,
+            abha_id=clean_abha,
+            name=clean_name,
+            gender=payload.gender or None,
+            age_years=payload.age_years or None,
+            phone=payload.phone or None,
+            email=payload.email or f"{suffix}@abha.gov.in",
+            patient_details=patient_details,
         )
 
-    calc_dob = payload.dob
-    if not calc_dob and payload.age_years:
-        calc_dob = f"{datetime.now(timezone.utc).year - payload.age_years}-01-01"
+        db.add(new_patient)
+        await db.commit()
+        await db.refresh(new_patient)
 
-    patient_details = {
-        "blood_group": payload.blood_group or None,
-        "dob": calc_dob or None,
-        "emergency_contact": {
-            "name": payload.emergency_contact_name or None,
-            "phone": payload.emergency_contact_phone or payload.phone or None,
-            "relation": payload.emergency_contact_relation or None,
-        } if (payload.emergency_contact_name or payload.emergency_contact_phone or payload.emergency_contact_relation) else None,
-        "address_line": payload.address_line or None,
-        "city": payload.city or None,
-        "state": payload.state or None,
-        "pincode": payload.pincode or None,
-        "occupation": None,
-        "marital_status": None,
-        "preferred_language": "English / Hindi",
-        "allergies": [],
-        "chronic_conditions": [],
-        "ayush_prakriti": None,
-    }
+        session_token = create_access_token({
+            "sub": new_patient.id,
+            "role": "patient",
+            "abha_id": new_patient.abha_id,
+            "name": new_patient.name,
+        })
+        profile = PatientProfileResponse(
+            id=new_patient.id,
+            abha_id=new_patient.abha_id,
+            user_type="patient",
+            name=new_patient.name,
+            gender=new_patient.gender,
+            age_years=new_patient.age_years,
+            phone=new_patient.phone,
+            email=new_patient.email,
+            patient_details=new_patient.patient_details,
+        )
 
-    user_id = f"patient-{str(uuid.uuid4())[:8]}"
-    suffix = clean_abha.replace("-", "").replace("/", "")[-6:]
-    new_patient = Patient(
-        id=user_id,
-        abha_id=clean_abha,
-        name=clean_name,
-        gender=payload.gender or None,
-        age_years=payload.age_years or None,
-        phone=payload.phone or None,
-        email=payload.email or f"{suffix}@abha.gov.in",
-        patient_details=patient_details,
-    )
+        logger.info("Successfully registered new Patient: %s (ABHA: %s)", clean_name, clean_abha)
 
-    db.add(new_patient)
-    await db.commit()
-    await db.refresh(new_patient)
-
-    session_token = create_access_token({
-        "sub": new_patient.id,
-        "role": "patient",
-        "abha_id": new_patient.abha_id,
-        "name": new_patient.name,
-    })
-    profile = PatientProfileResponse(
-        id=new_patient.id,
-        abha_id=new_patient.abha_id,
-        user_type="patient",
-        name=new_patient.name,
-        gender=new_patient.gender,
-        age_years=new_patient.age_years,
-        phone=new_patient.phone,
-        email=new_patient.email,
-        patient_details=new_patient.patient_details,
-    )
-
-    logger.info("Successfully registered new Patient: %s (ABHA: %s)", clean_name, clean_abha)
-
-    return PatientRegisterResponse(
-        status="success",
-        message=f"ABHA profile for {new_patient.name} successfully registered in National Health Database.",
-        user_type="patient",
-        abha_id=new_patient.abha_id,
-        token=session_token,
-        user=profile,
-    )
+        return PatientRegisterResponse(
+            status="success",
+            message=f"ABHA profile for {new_patient.name} successfully registered in National Health Database.",
+            user_type="patient",
+            abha_id=new_patient.abha_id,
+            token=session_token,
+            user=profile,
+        )
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as err:
+        await db.rollback()
+        logger.error("Failed to register patient profile '%s': %s", clean_abha, err, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to register patient profile: {str(err)}",
+        )
 
 
 async def _process_doctor_register(db: AsyncSession, payload: DoctorRegisterRequest) -> DoctorRegisterResponse:
     clean_hp = payload.hp_id.strip()
     clean_name = payload.name.strip()
 
-    existing_stmt = select(Doctor).where(Doctor.hp_id == clean_hp)
-    existing_res = await db.execute(existing_stmt)
-    if existing_res.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"An account with HP ID '{clean_hp}' already exists. Please sign in.",
+    try:
+        existing_stmt = select(Doctor).where(Doctor.hp_id == clean_hp)
+        existing_res = await db.execute(existing_stmt)
+        if existing_res.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"An account with HP ID '{clean_hp}' already exists. Please sign in.",
+            )
+
+        clean_license = payload.license_no or f"HP-REG-{clean_hp.replace('-', '').replace('/', '')[-6:].upper()}"
+        doctor_details = {
+            "duty_status": "On Duty",
+            "opd_hours": "09:00 AM - 04:00 PM",
+        }
+
+        user_id = f"doctor-{str(uuid.uuid4())[:8]}"
+        suffix = clean_hp.replace("-", "").replace("/", "")[-6:]
+        new_doctor = Doctor(
+            id=user_id,
+            hp_id=clean_hp,
+            name=clean_name,
+            gender=payload.gender or None,
+            age_years=payload.age_years or None,
+            phone=payload.phone or None,
+            email=payload.email or f"{suffix}@hp.gov.in",
+            specialization=payload.specialization or "Ayurvedic Medicine & Clinical Intake",
+            license_no=clean_license,
+            hospital=payload.hospital or None,
+            department=payload.department or None,
+            qualifications=payload.qualifications or None,
+            duty_status="On Duty",
+            opd_hours="09:00 AM - 04:00 PM",
+            doctor_details=doctor_details,
         )
 
-    clean_license = payload.license_no or f"HP-REG-{clean_hp.replace('-', '').replace('/', '')[-6:].upper()}"
-    doctor_details = {
-        "duty_status": "On Duty",
-        "opd_hours": "09:00 AM - 04:00 PM",
-    }
+        db.add(new_doctor)
+        await db.commit()
+        await db.refresh(new_doctor)
 
-    user_id = f"doctor-{str(uuid.uuid4())[:8]}"
-    suffix = clean_hp.replace("-", "").replace("/", "")[-6:]
-    new_doctor = Doctor(
-        id=user_id,
-        hp_id=clean_hp,
-        name=clean_name,
-        gender=payload.gender or None,
-        age_years=payload.age_years or None,
-        phone=payload.phone or None,
-        email=payload.email or f"{suffix}@hp.gov.in",
-        specialization=payload.specialization or "Ayurvedic Medicine & Clinical Intake",
-        license_no=clean_license,
-        hospital=payload.hospital or None,
-        department=payload.department or None,
-        qualifications=payload.qualifications or None,
-        duty_status="On Duty",
-        opd_hours="09:00 AM - 04:00 PM",
-        doctor_details=doctor_details,
-    )
+        session_token = create_access_token({
+            "sub": new_doctor.id,
+            "role": "doctor",
+            "hp_id": new_doctor.hp_id,
+            "name": new_doctor.name,
+        })
+        profile = DoctorProfileResponse(
+            id=new_doctor.id,
+            hp_id=new_doctor.hp_id,
+            user_type="doctor",
+            name=new_doctor.name,
+            gender=new_doctor.gender,
+            age_years=new_doctor.age_years,
+            phone=new_doctor.phone,
+            email=new_doctor.email,
+            specialization=new_doctor.specialization,
+            license_no=new_doctor.license_no,
+            hospital=new_doctor.hospital,
+            department=new_doctor.department,
+            qualifications=new_doctor.qualifications,
+            duty_status=new_doctor.duty_status,
+            opd_hours=new_doctor.opd_hours,
+            doctor_details=new_doctor.doctor_details,
+        )
 
-    db.add(new_doctor)
-    await db.commit()
-    await db.refresh(new_doctor)
+        logger.info("Successfully registered new Doctor: %s (HP ID: %s)", clean_name, clean_hp)
 
-    session_token = create_access_token({
-        "sub": new_doctor.id,
-        "role": "doctor",
-        "hp_id": new_doctor.hp_id,
-        "name": new_doctor.name,
-    })
-    profile = DoctorProfileResponse(
-        id=new_doctor.id,
-        hp_id=new_doctor.hp_id,
-        user_type="doctor",
-        name=new_doctor.name,
-        gender=new_doctor.gender,
-        age_years=new_doctor.age_years,
-        phone=new_doctor.phone,
-        email=new_doctor.email,
-        specialization=new_doctor.specialization,
-        license_no=new_doctor.license_no,
-        hospital=new_doctor.hospital,
-        department=new_doctor.department,
-        qualifications=new_doctor.qualifications,
-        duty_status=new_doctor.duty_status,
-        opd_hours=new_doctor.opd_hours,
-        doctor_details=new_doctor.doctor_details,
-    )
-
-    logger.info("Successfully registered new Doctor: %s (HP ID: %s)", clean_name, clean_hp)
-
-    return DoctorRegisterResponse(
-        status="success",
-        message=f"Healthcare Professional profile for {new_doctor.name} successfully registered in HPR Registry.",
-        user_type="doctor",
-        hp_id=new_doctor.hp_id,
-        token=session_token,
-        user=profile,
-    )
+        return DoctorRegisterResponse(
+            status="success",
+            message=f"Healthcare Professional profile for {new_doctor.name} successfully registered in HPR Registry.",
+            user_type="doctor",
+            hp_id=new_doctor.hp_id,
+            token=session_token,
+            user=profile,
+        )
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as err:
+        await db.rollback()
+        logger.error("Failed to register doctor profile '%s': %s", clean_hp, err, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to register healthcare professional profile: {str(err)}",
+        )
 
 
 # ── Dedicated Patient Routes ───────────────────────────────────────────────────
