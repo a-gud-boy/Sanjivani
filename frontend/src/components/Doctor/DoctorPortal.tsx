@@ -113,7 +113,7 @@ export default function DoctorPortal({
     if (
       existing &&
       existing.targetLanguage === targetLang &&
-      (existing.aiSummaryText || existing.chatHistory)
+      (existing.aiSummaryText || existing.chatHistory || existing.chiefComplaint)
     ) {
       setSessionTranslations((prev) => ({
         ...prev,
@@ -125,6 +125,7 @@ export default function DoctorPortal({
     setSessionTranslations((prev) => ({
       ...prev,
       [sessionId]: {
+        ...(prev[sessionId] || {}),
         targetLanguage: targetLang,
         activeView: 'translated',
         isLoading: true,
@@ -133,11 +134,16 @@ export default function DoctorPortal({
     }))
 
     try {
+      const chiefComplaintText =
+        typeof sess.chief_complaint === 'string'
+          ? sess.chief_complaint
+          : sess.chief_complaint?.symptom || undefined
+
       const res = await translateDoctorSession({
         session_id: sessionId,
         target_language: targetLang,
         source_language: sess.language,
-        chief_complaint: sess.chief_complaint?.symptom || undefined,
+        chief_complaint: chiefComplaintText,
         ai_summary_text: sess.ai_summary_text || undefined,
         chat_history: sess.chat_history?.map((m) => ({
           role: m.role,
@@ -682,7 +688,7 @@ export default function DoctorPortal({
                           const trState = sessionTranslations[sess.id]
                           const isTranslatedActive =
                             trState?.activeView === 'translated' &&
-                            (Boolean(trState.aiSummaryText) || Boolean(trState.chatHistory?.length))
+                            (Boolean(trState.aiSummaryText) || Boolean(trState.chatHistory?.length) || Boolean(trState.chiefComplaint))
                           const activeTargetLang = trState?.targetLanguage || language
                           const activeTargetLangObj =
                             LANGUAGES.find((l) => l.code === activeTargetLang) || doctorLangObj
@@ -782,7 +788,7 @@ export default function DoctorPortal({
 
                                 <div className="flex items-center gap-2 flex-wrap">
                                   {/* Segmented View Toggle: Original vs Translated */}
-                                  {(trState?.aiSummaryText || trState?.chatHistory?.length) ? (
+                                  {(trState?.aiSummaryText || trState?.chatHistory?.length || trState?.chiefComplaint) ? (
                                     <div className="inline-flex rounded-xl border border-surface-border dark:border-slate-700 p-0.5 bg-slate-100 dark:bg-slate-800 text-xs font-semibold">
                                       <button
                                         type="button"
@@ -810,10 +816,10 @@ export default function DoctorPortal({
                                   ) : null}
 
                                   {/* Trigger translation button */}
-                                  {!trState?.aiSummaryText && !trState?.chatHistory?.length ? (
+                                  {!trState?.aiSummaryText && !trState?.chatHistory?.length && !trState?.chiefComplaint ? (
                                     <button
                                       type="button"
-                                      onClick={() => handleTranslateSession(sess.id, language, sess)}
+                                      onClick={() => handleTranslateSession(sess.id, activeTargetLang as LanguageCode, sess)}
                                       disabled={trState?.isLoading}
                                       className="btn-primary text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-sm hover:shadow transition-all"
                                     >
@@ -825,7 +831,7 @@ export default function DoctorPortal({
                                       ) : (
                                         <>
                                           <Globe className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-                                          <span>{t.doctor.translateTo} {doctorLangObj.nativeLabel}</span>
+                                          <span>{t.doctor.translateTo} {activeTargetLangObj.nativeLabel}</span>
                                         </>
                                       )}
                                     </button>
